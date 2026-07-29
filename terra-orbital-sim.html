@@ -1,0 +1,1740 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>TERRA — Orbital Climate Simulator</title>
+<meta name="description" content="Photoreal WebGL Earth with a live orbital-eccentricity control and climate telemetry." />
+<style>
+/* ==========================================================================
+   TERRA — HUD styling
+   --------------------------------------------------------------------------
+   This is a deliberately single-theme (dark) interface: the scene is space,
+   so a light mode would fight the render. Data-mark colors below are a
+   validated diverging pair (cold blue <-> hot red) on this dark surface;
+   everything non-data wears an ink token, never a data color.
+   ========================================================================== */
+:root{
+  /* --- surfaces & ink --------------------------------------------------- */
+  --surface-1:      #0b1018;              /* HUD glass base (validator surface) */
+  --surface-2:      rgba(12, 18, 28, .62);
+  --hairline:       rgba(255,255,255,.10);
+  --grid:           rgba(255,255,255,.09);
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+
+  /* --- data marks: diverging pair, gray midpoint ------------------------ */
+  --cold:           #3987e5;              /* below baseline temperature */
+  --hot:            #e66767;              /* above baseline temperature */
+  --neutral:        #383835;              /* diverging midpoint          */
+
+  /* --- UI chrome (a lighter step of the same blue ramp, so it never
+         impersonates the "cold" data pole) ------------------------------- */
+  --accent:         #86b6ef;
+  --accent-dim:     rgba(134,182,239,.16);
+
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --r: 10px;
+}
+
+*{ box-sizing: border-box; }
+html,body{ height:100%; margin:0; background:#000; overflow:hidden; }
+body{
+  font-family: var(--sans);
+  color: var(--text-secondary);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+canvas{ display:block; }
+#scene{ position:fixed; inset:0; z-index:0; }
+
+/* Filmic overlays: vignette + a whisper of grain. Pure CSS, no network. */
+.vignette, .grain{ position:fixed; inset:0; pointer-events:none; }
+.vignette{
+  z-index:1;
+  background: radial-gradient(ellipse at 50% 48%, transparent 42%, rgba(0,0,0,.42) 82%, rgba(0,0,0,.72) 100%);
+}
+.grain{
+  z-index:2; opacity:.035; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+}
+
+/* ---------------------------------------------------------------- layout */
+.hud{
+  position:fixed; inset:0; z-index:3;
+  display:grid;
+  grid-template-columns: 320px 1fr 300px;
+  grid-template-rows: auto 1fr auto;
+  gap:16px; padding:16px;
+  pointer-events:none;                 /* panels re-enable it individually */
+}
+.hud > *{ pointer-events:auto; }
+
+.panel{
+  background: var(--surface-2);
+  border:1px solid var(--hairline);
+  border-radius: var(--r);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: 0 18px 50px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+/* ------------------------------------------------------------- masthead */
+.masthead{ grid-column:1; grid-row:1; padding:14px 16px; }
+.masthead h1{
+  margin:0; font-size:15px; font-weight:650; letter-spacing:.14em;
+  color:var(--text-primary); text-transform:uppercase;
+}
+.masthead .sub{ margin-top:4px; font-size:11.5px; color:var(--text-muted); letter-spacing:.02em; }
+.badge-row{ display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+.badge{
+  font:500 10px/1 var(--sans); letter-spacing:.09em; text-transform:uppercase;
+  padding:5px 7px; border-radius:5px; border:1px solid var(--hairline);
+  color:var(--text-muted); background:rgba(255,255,255,.03);
+}
+.badge.warn{ color:#fab219; border-color:rgba(250,178,25,.32); background:rgba(250,178,25,.08); }
+.badge[hidden]{ display:none; }
+
+/* ------------------------------------------------------- control column */
+.controls{ grid-column:1; grid-row:2; align-self:end; padding:16px; max-height:100%; overflow:auto; }
+.controls::-webkit-scrollbar{ width:8px; }
+.controls::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.12); border-radius:8px; }
+
+.sec-title{
+  font-size:10px; font-weight:600; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--text-muted); margin:0 0 12px;
+}
+.sec-title + .sec-title{ margin-top:0; }
+
+/* the primary control gets a headline value (smaller than the hero figure
+   in telemetry, so the two never compete) */
+.ecc-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+.ecc-label{ font-size:12.5px; color:var(--text-primary); font-weight:550; }
+.ecc-label span{ display:block; font-size:10.5px; color:var(--text-muted); font-weight:400; margin-top:2px; }
+.ecc-value{
+  font:600 28px/1 var(--mono); color:var(--text-primary);
+  font-variant-numeric: tabular-nums;   /* live value: stop digit-width jitter */
+}
+
+/* custom range input ---------------------------------------------------- */
+input[type=range]{
+  --fill: 0%;
+  -webkit-appearance:none; appearance:none;
+  width:100%; height:22px; margin:10px 0 0; background:transparent; cursor:grab;
+}
+input[type=range]:active{ cursor:grabbing; }
+input[type=range]::-webkit-slider-runnable-track{
+  height:4px; border-radius:99px;
+  background: linear-gradient(90deg, var(--accent) 0 var(--fill), rgba(255,255,255,.13) var(--fill) 100%);
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none;
+  width:14px; height:14px; margin-top:-5px; border-radius:99px;
+  background:#fff; border:2px solid #0b1018;
+  box-shadow:0 0 0 1px rgba(255,255,255,.5), 0 0 14px rgba(134,182,239,.75);
+}
+input[type=range]::-moz-range-track{ height:4px; border-radius:99px; background:rgba(255,255,255,.13); }
+input[type=range]::-moz-range-progress{ height:4px; border-radius:99px; background:var(--accent); }
+input[type=range]::-moz-range-thumb{
+  width:14px; height:14px; border-radius:99px; background:#fff; border:2px solid #0b1018;
+}
+input[type=range]:focus-visible{ outline:2px solid var(--accent); outline-offset:4px; border-radius:6px; }
+
+.scale-row{
+  display:flex; justify-content:space-between; margin-top:6px;
+  font:400 10px/1 var(--mono); color:var(--text-muted); font-variant-numeric: tabular-nums;
+}
+
+/* preset chips ---------------------------------------------------------- */
+.chips{ display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; }
+.chip{
+  font:500 10.5px/1 var(--sans); letter-spacing:.04em;
+  padding:6px 9px; border-radius:99px; cursor:pointer;
+  color:var(--text-secondary); background:rgba(255,255,255,.04);
+  border:1px solid var(--hairline); transition:.18s ease;
+}
+.chip:hover{ color:var(--text-primary); background:rgba(255,255,255,.09); border-color:rgba(255,255,255,.2); }
+.chip[aria-pressed=true]{ color:#06121f; background:var(--accent); border-color:var(--accent); font-weight:650; }
+.chip:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+.rule{ height:1px; background:var(--hairline); margin:16px -16px; }
+
+/* small labelled sliders ------------------------------------------------ */
+.mini{ margin-bottom:14px; }
+.mini-head{ display:flex; justify-content:space-between; align-items:baseline; }
+.mini-head b{ font:500 11.5px/1 var(--sans); color:var(--text-secondary); }
+.mini-head i{
+  font:400 11px/1 var(--mono); font-style:normal; color:var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.mini input[type=range]{ margin-top:6px; height:18px; }
+
+/* toggle switches ------------------------------------------------------- */
+.tog-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
+.tog{ position:relative; display:flex; align-items:center; gap:8px; cursor:pointer;
+      font:500 11px/1.2 var(--sans); color:var(--text-secondary); }
+.tog input{ position:absolute; opacity:0; width:0; height:0; }
+.tog .sw{
+  flex:0 0 26px; width:26px; height:15px; border-radius:99px; position:relative;
+  background:rgba(255,255,255,.12); border:1px solid var(--hairline); transition:.18s ease;
+}
+.tog .sw::after{
+  content:""; position:absolute; top:1.5px; left:1.5px; width:10px; height:10px; border-radius:99px;
+  background:var(--text-muted); transition:.18s ease;
+}
+.tog input:checked + .sw{ background:var(--accent-dim); border-color:rgba(134,182,239,.55); }
+.tog input:checked + .sw::after{ left:12.5px; background:var(--accent); box-shadow:0 0 8px rgba(134,182,239,.9); }
+.tog input:focus-visible + .sw{ outline:2px solid var(--accent); outline-offset:3px; }
+
+/* ------------------------------------------------------ telemetry column */
+.telemetry{ grid-column:3; grid-row:1 / span 2; padding:16px; overflow:auto; max-height:100%; }
+.telemetry::-webkit-scrollbar{ width:8px; }
+.telemetry::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.12); border-radius:8px; }
+
+/* hero figure — exactly one per view */
+.hero-label{ font-size:11px; color:var(--text-muted); letter-spacing:.04em; }
+.hero{
+  display:flex; align-items:baseline; gap:6px; margin-top:2px;
+  font:600 50px/1 var(--sans); color:var(--text-primary);
+  font-variant-numeric: tabular-nums;   /* live value: keep the layout still */
+}
+.hero .unit{ font:500 16px/1 var(--sans); color:var(--text-secondary); }
+.state-row{ display:flex; align-items:center; gap:7px; margin-top:8px; }
+.state-dot{ width:9px; height:9px; border-radius:99px; background:var(--neutral); box-shadow:0 0 10px currentColor; }
+.state-txt{ font:600 10.5px/1 var(--sans); letter-spacing:.12em; text-transform:uppercase; color:var(--text-secondary); }
+.delta{ font:400 11px/1 var(--mono); color:var(--text-muted); margin-left:auto; font-variant-numeric: tabular-nums; }
+
+/* meter: diverging track, solid fill in the active pole's color */
+.meter-wrap{ margin-top:14px; }
+.meter{
+  position:relative; height:8px; border-radius:99px; overflow:hidden;
+  background: linear-gradient(90deg, rgba(57,135,229,.20), rgba(255,255,255,.07) 50%, rgba(230,103,103,.20));
+  border:1px solid var(--hairline);
+}
+.meter .fill{ position:absolute; top:0; bottom:0; background:var(--cold); transition:background .3s ease; }
+.meter .base{ position:absolute; top:-3px; bottom:-3px; width:1px; background:rgba(255,255,255,.55); }
+.meter-scale{
+  display:flex; justify-content:space-between; margin-top:5px;
+  font:400 9.5px/1 var(--mono); color:var(--text-muted); font-variant-numeric: tabular-nums;
+}
+
+/* sparkline */
+.spark-head{ display:flex; justify-content:space-between; align-items:baseline; margin:18px 0 6px; }
+.spark-head b{ font:600 10px/1 var(--sans); letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted); }
+.spark-head i{ font:400 10px/1 var(--mono); font-style:normal; color:var(--text-muted); }
+#spark{ width:100%; height:64px; display:block; }
+.legend{ display:flex; gap:14px; margin-top:8px; flex-wrap:wrap; }
+.legend span{ display:flex; align-items:center; gap:6px; font:400 10.5px/1 var(--sans); color:var(--text-secondary); }
+.legend i{ width:8px; height:8px; border-radius:99px; display:block; }
+
+/* stat tiles */
+.tiles{ display:grid; grid-template-columns:1fr 1fr; gap:1px; margin-top:16px;
+        background:var(--hairline); border:1px solid var(--hairline); border-radius:8px; overflow:hidden; }
+.tile{ background:var(--surface-1); padding:9px 10px; }
+.tile .k{ font:400 9.5px/1.2 var(--sans); letter-spacing:.06em; text-transform:uppercase; color:var(--text-muted); }
+.tile .v{
+  font:550 15px/1.15 var(--mono); color:var(--text-primary); margin-top:4px;
+  font-variant-numeric: tabular-nums;
+}
+.tile .v small{ font:400 10px/1 var(--mono); color:var(--text-muted); }
+
+/* table view (the non-color accessibility path for the chart) */
+.data-btn{
+  margin-top:12px; width:100%; padding:7px; cursor:pointer;
+  font:500 10.5px/1 var(--sans); letter-spacing:.1em; text-transform:uppercase;
+  color:var(--text-secondary); background:rgba(255,255,255,.04);
+  border:1px solid var(--hairline); border-radius:7px; transition:.18s;
+}
+.data-btn:hover{ color:var(--text-primary); background:rgba(255,255,255,.09); }
+.data-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+table{ width:100%; border-collapse:collapse; margin-top:10px; }
+table[hidden]{ display:none; }
+caption{ text-align:left; font:400 10px/1.4 var(--sans); color:var(--text-muted); padding-bottom:6px; }
+th,td{ text-align:left; padding:4px 0; font:400 10.5px/1.3 var(--mono); font-variant-numeric:tabular-nums;
+       border-bottom:1px solid var(--hairline); }
+th{ color:var(--text-muted); font-weight:400; }
+td{ color:var(--text-primary); text-align:right; }
+td:first-child, th:first-child{ text-align:left; }
+
+/* -------------------------------------------------------- footer / views */
+/* the footer strip itself must not eat mouse drags — only its children do */
+.footer{ grid-column:1 / span 3; grid-row:3; display:flex; align-items:center; gap:12px;
+         flex-wrap:wrap; pointer-events:none; }
+.footer > *{ pointer-events:auto; }
+.viewbar{ display:flex; gap:4px; padding:4px; }
+.viewbar button{
+  font:500 10.5px/1 var(--sans); letter-spacing:.1em; text-transform:uppercase;
+  padding:8px 12px; border-radius:6px; cursor:pointer; border:0;
+  color:var(--text-secondary); background:transparent; transition:.18s;
+}
+.viewbar button:hover{ color:var(--text-primary); background:rgba(255,255,255,.07); }
+.viewbar button[aria-pressed=true]{ color:#06121f; background:var(--accent); font-weight:650; }
+.viewbar button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+.hint{ font:400 11px/1.4 var(--sans); color:var(--text-muted); }
+.hint kbd{
+  font:500 10px/1 var(--mono); padding:3px 5px; border-radius:4px; color:var(--text-secondary);
+  background:rgba(255,255,255,.06); border:1px solid var(--hairline);
+}
+.note{ margin-left:auto; max-width:430px; text-align:right; font:400 10.5px/1.5 var(--sans); color:var(--text-muted); }
+
+/* ------------------------------------------------------------- loader */
+#loader{
+  position:fixed; inset:0; z-index:10; background:#04070c;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+  transition:opacity .9s ease; text-align:center; padding:24px;
+}
+#loader.done{ opacity:0; pointer-events:none; }
+#loader h2{ margin:0; font:600 13px/1 var(--sans); letter-spacing:.34em; text-transform:uppercase; color:var(--text-primary); }
+#loader p{ margin:0; font:400 11px/1 var(--mono); color:var(--text-muted); min-height:14px; }
+.bar{ width:250px; height:2px; background:rgba(255,255,255,.12); border-radius:9px; overflow:hidden; }
+.bar i{ display:block; height:100%; width:0; background:var(--accent); box-shadow:0 0 12px var(--accent); transition:width .35s ease; }
+#fatal{ max-width:520px; font:400 12px/1.6 var(--sans); color:var(--text-secondary); }
+#fatal[hidden]{ display:none; }
+#fatal code{ font:400 11px/1.5 var(--mono); color:var(--accent); }
+
+/* ------------------------------------------------------------ responsive */
+@media (max-width:1080px){
+  .hud{ grid-template-columns:1fr; grid-template-rows:auto auto 1fr auto; gap:10px; padding:10px; }
+  .masthead{ grid-column:1; grid-row:1; }
+  .telemetry{ grid-column:1; grid-row:2; max-height:42vh; }
+  .controls{ grid-column:1; grid-row:3; align-self:end; max-height:46vh; }
+  .footer{ grid-column:1; grid-row:4; }
+  .note{ display:none; }
+  .hero{ font-size:38px; }
+}
+@media (prefers-reduced-motion:reduce){
+  *{ transition-duration:.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<div id="scene"></div>
+<div class="vignette"></div>
+<div class="grain"></div>
+
+<!-- ============================== HUD ============================== -->
+<div class="hud" aria-label="Simulator interface">
+
+  <header class="panel masthead">
+    <h1>Terra · Orbital Sim</h1>
+    <div class="sub">Eccentricity &amp; insolation — an interactive Milankovitch demo</div>
+    <div class="badge-row">
+      <span class="badge" id="badge-fps">— fps</span>
+      <span class="badge" id="badge-tex">textures ok</span>
+      <span class="badge warn" id="badge-fallback" hidden>procedural fallback</span>
+    </div>
+  </header>
+
+  <!-- ------------------------------------------------ left: controls -->
+  <section class="panel controls" aria-label="Simulation controls">
+    <h2 class="sec-title">Orbital parameters</h2>
+
+    <div class="ecc-head">
+      <label class="ecc-label" for="ecc">
+        Orbital eccentricity
+        <span>이심률 · shape of the orbit</span>
+      </label>
+      <output class="ecc-value" id="ecc-out" for="ecc">0.017</output>
+    </div>
+    <input id="ecc" type="range" min="0" max="0.65" step="0.001" value="0.017" aria-label="Orbital eccentricity" />
+    <div class="scale-row"><span>0.00 circle</span><span>0.65 ellipse</span></div>
+
+    <div class="chips" role="group" aria-label="Eccentricity presets">
+      <button class="chip" data-ecc="0.0167" aria-pressed="true">Earth 0.017</button>
+      <button class="chip" data-ecc="0.0934" aria-pressed="false">Mars 0.093</button>
+      <button class="chip" data-ecc="0.2056" aria-pressed="false">Mercury 0.206</button>
+      <button class="chip" data-ecc="0.6" aria-pressed="false">Extreme 0.60</button>
+    </div>
+
+    <div class="rule"></div>
+
+    <h2 class="sec-title">Time &amp; motion</h2>
+    <div class="mini">
+      <div class="mini-head"><b>Orbit speed</b><i id="v-speed">1.0×</i></div>
+      <input id="speed" type="range" min="0" max="4" step="0.05" value="1" aria-label="Orbit speed" />
+    </div>
+    <div class="mini">
+      <div class="mini-head"><b>Spin rate <span style="color:var(--text-muted)">(not to scale)</span></b><i id="v-spin">1.0×</i></div>
+      <input id="spin" type="range" min="0" max="4" step="0.05" value="1" aria-label="Planet spin rate" />
+    </div>
+    <div class="mini">
+      <div class="mini-head"><b>Exposure</b><i id="v-exp">1.05</i></div>
+      <input id="exposure" type="range" min="0.4" max="2" step="0.01" value="1.05" aria-label="Exposure" />
+    </div>
+
+    <div class="rule"></div>
+
+    <h2 class="sec-title">Render</h2>
+    <div class="tog-grid">
+      <label class="tog"><input type="checkbox" id="t-atmo" checked><span class="sw"></span>Atmosphere</label>
+      <label class="tog"><input type="checkbox" id="t-clouds" checked><span class="sw"></span>Clouds</label>
+      <label class="tog"><input type="checkbox" id="t-night" checked><span class="sw"></span>City lights</label>
+      <label class="tog"><input type="checkbox" id="t-bloom" checked><span class="sw"></span>Bloom</label>
+      <label class="tog"><input type="checkbox" id="t-orbit" checked><span class="sw"></span>Orbit path</label>
+      <label class="tog"><input type="checkbox" id="t-grid" checked><span class="sw"></span>Ecliptic grid</label>
+      <label class="tog"><input type="checkbox" id="t-shadow" checked><span class="sw"></span>Cloud shadows</label>
+      <label class="tog"><input type="checkbox" id="t-drift" checked><span class="sw"></span>Camera drift</label>
+    </div>
+  </section>
+
+  <!-- --------------------------------------------- right: telemetry -->
+  <section class="panel telemetry" aria-label="Climate telemetry">
+    <h2 class="sec-title">Global mean surface temperature</h2>
+
+    <div class="hero-label">Modelled, with thermal lag</div>
+    <div class="hero"><span id="temp-val">14.6</span><span class="unit">°C</span></div>
+    <div class="state-row">
+      <span class="state-dot" id="state-dot"></span>
+      <span class="state-txt" id="state-txt">Temperate</span>
+      <span class="delta" id="temp-delta">+0.0 vs baseline</span>
+    </div>
+
+    <div class="meter-wrap">
+      <div class="meter" role="img" aria-label="Temperature relative to the 14.6 °C baseline">
+        <div class="fill" id="meter-fill"></div>
+        <div class="base" id="meter-base"></div>
+      </div>
+      <div class="meter-scale"><span>−20</span><span>baseline 14.6</span><span>+45 °C</span></div>
+    </div>
+
+    <div class="spark-head">
+      <b>Last orbit</b><i>365 days →</i>
+    </div>
+    <canvas id="spark" aria-label="Temperature over the last orbit"></canvas>
+    <div class="legend">
+      <span><i style="background:var(--hot)"></i>Above baseline · perihelion</span>
+      <span><i style="background:var(--cold)"></i>Below baseline · aphelion</span>
+    </div>
+
+    <div class="tiles">
+      <div class="tile"><div class="k">Distance to sun</div><div class="v"><span id="v-dist">1.000</span> <small>AU</small></div></div>
+      <div class="tile"><div class="k">Insolation now</div><div class="v"><span id="v-sol">1361</span> <small>W/m²</small></div></div>
+      <div class="tile"><div class="k">Annual mean insol.</div><div class="v"><span id="v-solmean">1361</span> <small>W/m²</small></div></div>
+      <div class="tile"><div class="k">Perihelion → aphelion</div><div class="v"><span id="v-range">0.98–1.02</span> <small>AU</small></div></div>
+      <div class="tile"><div class="k">Day of year</div><div class="v"><span id="v-doy">1</span> <small>/ 365</small></div></div>
+      <div class="tile"><div class="k">Season (north)</div><div class="v" style="font-size:12.5px"><span id="v-season">Equinox</span></div></div>
+    </div>
+
+    <button class="data-btn" id="data-btn" aria-expanded="false" aria-controls="data-table">Show data table</button>
+    <table id="data-table" hidden>
+      <caption>Values for the current eccentricity. Insolation from the inverse-square law; temperature from a zero-dimensional energy balance with an ice–albedo feedback — illustrative, not a GCM.</caption>
+      <tbody id="data-body"></tbody>
+    </table>
+  </section>
+
+  <!-- ------------------------------------------------------- footer -->
+  <footer class="footer">
+    <div class="panel viewbar" role="group" aria-label="Camera view">
+      <button id="view-earth" aria-pressed="true">Earth</button>
+      <button id="view-system" aria-pressed="false">System</button>
+    </div>
+    <div class="hint">
+      Drag to orbit · scroll to zoom · <kbd>Space</kbd> pause · <kbd>1</kbd>/<kbd>2</kbd> view · <kbd>R</kbd> reset
+    </div>
+    <p class="note">
+      Distances and body sizes are compressed for legibility; the orbital mechanics (Kepler's 1st and 2nd
+      laws) and the 23.5° axial tilt are solved properly. Earth's real eccentricity cycles between about
+      0.005 and 0.058 over ~100,000 years.
+    </p>
+  </footer>
+</div>
+
+<!-- ============================= loader ============================= -->
+<div id="loader">
+  <h2>Terra</h2>
+  <div class="bar"><i id="bar"></i></div>
+  <p id="loader-msg">initialising renderer…</p>
+  <div id="fatal" hidden>
+    <strong>Could not load Three.js from the CDN.</strong><br />
+    This page pulls <code>three@0.169.0</code> from unpkg, so it needs a network connection on first load.
+    Re-open it online, or vendor <code>three.module.js</code> locally and point the import map at it.
+  </div>
+</div>
+
+<!-- Pin the version: the shader-chunk hook names used below (map_fragment,
+     emissivemap_fragment, opaque_fragment) are version-sensitive. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+
+<script>
+  // If the module below never boots (offline, blocked CDN), say so plainly
+  // instead of leaving the user on a dead loading screen.
+  setTimeout(() => {
+    if (!window.__TERRA_BOOTED) {
+      document.getElementById('loader-msg').textContent = 'module load failed';
+      document.getElementById('fatal').hidden = false;
+    }
+  }, 9000);
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls }    from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer }   from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }       from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass }  from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
+import { Line2 }            from 'three/addons/lines/Line2.js';
+import { LineGeometry }     from 'three/addons/lines/LineGeometry.js';
+import { LineMaterial }     from 'three/addons/lines/LineMaterial.js';
+
+window.__TERRA_BOOTED = true;
+
+/* ==========================================================================
+   0 · CONSTANTS
+   ========================================================================== */
+const R_EARTH   = 1;        // scene units — everything else is relative to this
+const A_ORBIT   = 26;       // semi-major axis, scene units == 1 AU
+const R_SUN     = 3.2;      // visually compressed (the real ratio is ~109:1)
+const TILT      = THREE.MathUtils.degToRad(23.5);
+const YEAR_SEC  = 108;      // seconds of wall clock per orbit at speed 1x
+const DAYS_YEAR = 365.25;
+
+const S0        = 1361;     // solar constant at 1 AU, W/m^2
+const SIGMA     = 5.670374419e-8;
+const GREENHOUSE= 33;       // K of warming from the real atmosphere
+const T_BASE    = 14.6;     // °C produced by this model at r = 1 AU, albedo .30
+
+const COLD = new THREE.Color('#3987e5');
+const HOT  = new THREE.Color('#e66767');
+
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* small helpers ---------------------------------------------------------- */
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+/** smoothstep that also accepts a descending edge pair (e0 > e1). */
+function smoothstep(e0, e1, x){
+  const t = clamp((x - e0) / (e1 - e0 || 1e-6), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+const fmt = (n, d = 0) => n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+/** one decimal, with a real minus sign (U+2212) rather than a hyphen */
+const degStr = v => (v < 0 ? '−' : '') + Math.abs(v).toFixed(1);
+
+/* ==========================================================================
+   1 · TEXTURES  (remote first, procedural fallback second)
+   --------------------------------------------------------------------------
+   Every map is tried against a list of URLs in order. If all of them fail we
+   synthesise an equivalent map on a <canvas> so the scene is never broken —
+   the HUD flips a "procedural fallback" badge when that happens.
+   ========================================================================== */
+// About the URLs, because it matters:
+//   The cloud.githubusercontent.com placeholders now answer HTTP 403 — GitHub
+//   retired that asset host — and they never sent an Access-Control-Allow-Origin
+//   header, which WebGL *requires* for a cross-origin texture. So they cannot
+//   work, from any origin.
+//   TB below is the original home of those exact images (turban/webgl-earth):
+//   same 4k Blue Marble / elevation / water-mask / cloud plates, served by
+//   raw.githubusercontent.com with `ACAO: *`. UG (unpkg → three-globe) is the
+//   lighter-weight second choice, and also supplies the NASA Black Marble
+//   city-lights plate, which the original set does not include.
+const TB = 'https://raw.githubusercontent.com/turban/webgl-earth/master/images/';
+const UG = 'https://unpkg.com/three-globe/example/';
+
+const MAPS = {
+  day:    { urls: [TB + '2_no_clouds_4k.jpg',   UG + 'img/earth-blue-marble.jpg'], srgb: true  },
+  bump:   { urls: [TB + 'elev_bump_4k.jpg',     UG + 'img/earth-topology.png'   ], srgb: false },
+  spec:   { urls: [TB + 'water_4k.png',         UG + 'img/earth-water.png'      ], srgb: false },
+  clouds: { urls: [TB + 'fair_clouds_4k.png',   UG + 'clouds/clouds.png'        ], srgb: true  },
+  night:  { urls: [UG + 'img/earth-night.jpg'                                   ], srgb: true  },
+  sky:    { urls: [TB + 'galaxy_starfield.png', UG + 'img/night-sky.png'        ], srgb: true  },
+};
+
+const loader = new THREE.TextureLoader();
+loader.setCrossOrigin('anonymous');
+const bar = document.getElementById('bar');
+const loaderMsg = document.getElementById('loader-msg');
+let loadedCount = 0;
+const totalMaps = Object.keys(MAPS).length;
+let usedFallback = false;
+
+function tickProgress(name){
+  loadedCount++;
+  bar.style.width = (loadedCount / totalMaps * 100) + '%';
+  loaderMsg.textContent = `loaded ${name} (${loadedCount}/${totalMaps})`;
+}
+
+/** Try each URL in turn; resolve with the first that loads, else null. */
+function loadFirst(urls){
+  return new Promise(resolve => {
+    let i = 0;
+    const attempt = () => {
+      if (i >= urls.length) return resolve(null);
+      loader.load(urls[i++], tex => resolve(tex), undefined, attempt);
+    };
+    attempt();
+  });
+}
+
+/* ---- procedural fallback ------------------------------------------------
+   A single 3-D value-noise field sampled on the sphere generates a seamless
+   land mask; the diffuse / height / water / night maps are all derived from
+   it, so the continents line up across every channel.                     */
+function hash3(x, y, z){
+  const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+function vnoise(x, y, z){
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  const xf = x - xi, yf = y - yi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+  const l = (a, b, t) => a + (b - a) * t;
+  return l(
+    l(l(hash3(xi, yi, zi),       hash3(xi + 1, yi, zi),       u),
+      l(hash3(xi, yi + 1, zi),   hash3(xi + 1, yi + 1, zi),   u), v),
+    l(l(hash3(xi, yi, zi + 1),   hash3(xi + 1, yi, zi + 1),   u),
+      l(hash3(xi, yi + 1, zi + 1), hash3(xi + 1, yi + 1, zi + 1), u), v), w);
+}
+function fbm(x, y, z, oct = 5){
+  let a = 0.5, f = 1, s = 0;
+  for (let i = 0; i < oct; i++){ s += a * vnoise(x * f, y * f, z * f); f *= 2.07; a *= 0.5; }
+  return s;
+}
+function proceduralEarthMaps(){
+  const W = 1024, H = 512;
+  const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+  const cDay = mk(), cBump = mk(), cSpec = mk(), cNight = mk(), cCloud = mk();
+  const gDay = cDay.getContext('2d'),  gB = cBump.getContext('2d'), gS = cSpec.getContext('2d'),
+        gN = cNight.getContext('2d'),  gC = cCloud.getContext('2d');
+  const iDay = gDay.createImageData(W, H), iB = gB.createImageData(W, H),
+        iS = gS.createImageData(W, H),     iN = gN.createImageData(W, H),
+        iC = gC.createImageData(W, H);
+
+  for (let y = 0; y < H; y++){
+    const lat = (0.5 - y / H) * Math.PI;              // +pi/2 .. -pi/2
+    const cl = Math.cos(lat), sl = Math.sin(lat);
+    for (let x = 0; x < W; x++){
+      const lon = (x / W) * Math.PI * 2;
+      // sample noise on the unit sphere => seamless in longitude
+      const px = cl * Math.cos(lon), py = sl, pz = cl * Math.sin(lon);
+      const h  = fbm(px * 2.4 + 11, py * 2.4 + 3, pz * 2.4 + 7);
+      const land = h > 0.52;
+      const elev = clamp((h - 0.52) / 0.34, 0, 1);
+      const ice  = smoothstep(0.74, 0.94, Math.abs(sl));
+      const i = (y * W + x) * 4;
+
+      // diffuse: ocean depth ramp, then green->tan by elevation, then ice
+      let r, g, b;
+      if (land){
+        r = 62 + elev * 96; g = 92 + elev * 62; b = 48 + elev * 40;
+      } else {
+        const d = clamp((0.52 - h) / 0.3, 0, 1);
+        r = 10 + (1 - d) * 18; g = 32 + (1 - d) * 44; b = 78 + (1 - d) * 54;
+      }
+      r = r + (232 - r) * ice; g = g + (240 - g) * ice; b = b + (248 - b) * ice;
+      iDay.data[i] = r; iDay.data[i+1] = g; iDay.data[i+2] = b; iDay.data[i+3] = 255;
+
+      // height
+      const bv = land ? 90 + elev * 165 : 40 + h * 60;
+      iB.data[i] = iB.data[i+1] = iB.data[i+2] = bv; iB.data[i+3] = 255;
+
+      // water mask: white where reflective water, black on land
+      const sv = land ? 8 : 240 * (1 - ice * 0.8);
+      iS.data[i] = iS.data[i+1] = iS.data[i+2] = sv; iS.data[i+3] = 255;
+
+      // night lights: sparse coastal-ish clusters on low-elevation land
+      let nv = 0;
+      if (land && elev < 0.45){
+        const c1 = fbm(px * 22 + 5, py * 22, pz * 22 + 2, 3);
+        if (c1 > 0.62) nv = clamp((c1 - 0.62) / 0.22, 0, 1) * 255;
+      }
+      iN.data[i] = nv; iN.data[i+1] = nv * 0.86; iN.data[i+2] = nv * 0.62; iN.data[i+3] = 255;
+
+      // clouds: banded fbm, alpha only
+      const band = 0.55 + 0.45 * Math.sin(lat * 6.0);
+      const cv = clamp((fbm(px * 3.4 + 41, py * 3.4 + 17, pz * 3.4 + 29, 5) - 0.44) / 0.3, 0, 1) * band;
+      iC.data[i] = iC.data[i+1] = iC.data[i+2] = 255;
+      iC.data[i+3] = cv * 235;
+    }
+  }
+  gDay.putImageData(iDay, 0, 0); gB.putImageData(iB, 0, 0); gS.putImageData(iS, 0, 0);
+  gN.putImageData(iN, 0, 0);     gC.putImageData(iC, 0, 0);
+  const t = c => new THREE.CanvasTexture(c);
+  return { day: t(cDay), bump: t(cBump), spec: t(cSpec), night: t(cNight), clouds: t(cCloud) };
+}
+
+/** Faint nebula haze for the sky sphere when night-sky.png is unavailable. */
+function proceduralSky(){
+  const W = 1024, H = 512;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = '#02040a'; g.fillRect(0, 0, W, H);
+  // a milky band with a little tilt, built from soft additive blobs
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 260; i++){
+    const t = i / 260;
+    const x = t * W;
+    const y = H * 0.5 + Math.sin(t * Math.PI * 2 + 0.6) * H * 0.16 + (hash3(i, 1, 2) - 0.5) * H * 0.1;
+    const rad = 40 + hash3(i, 7, 3) * 130;
+    const grd = g.createRadialGradient(x, y, 0, x, y, rad);
+    const a = 0.05 + hash3(i, 9, 4) * 0.07;
+    grd.addColorStop(0, `rgba(120,140,205,${a})`);
+    grd.addColorStop(1, 'rgba(30,20,60,0)');
+    g.fillStyle = grd; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill();
+  }
+  return new THREE.CanvasTexture(c);
+}
+
+/* kick off all loads in parallel ---------------------------------------- */
+const tex = {};
+await Promise.all(Object.entries(MAPS).map(async ([key, def]) => {
+  const t = await loadFirst(def.urls);
+  tex[key] = t;
+  tickProgress(key);
+}));
+
+// fill any gaps procedurally
+if (!tex.day || !tex.bump || !tex.spec || !tex.night || !tex.clouds){
+  loaderMsg.textContent = 'synthesising fallback maps…';
+  const p = proceduralEarthMaps();
+  for (const k of ['day','bump','spec','night','clouds']) if (!tex[k]) { tex[k] = p[k]; usedFallback = true; }
+}
+if (!tex.sky){ tex.sky = proceduralSky(); usedFallback = true; }
+
+/* ==========================================================================
+   2 · RENDERER / SCENE / CAMERA
+   ========================================================================== */
+const container = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;   // filmic highlight rolloff
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.05, 4000);
+camera.position.set(-3.1, 1.4, 3.6);
+
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+function prep(t, srgb){
+  if (!t) return t;
+  t.anisotropy = maxAniso;
+  t.wrapS = THREE.RepeatWrapping;
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  t.needsUpdate = true;
+  return t;
+}
+prep(tex.day, true); prep(tex.night, true); prep(tex.clouds, true); prep(tex.sky, true);
+prep(tex.bump, false); prep(tex.spec, false);
+
+/* ==========================================================================
+   3 · SPACE:  sky sphere + parallax starfield
+   ========================================================================== */
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(1800, 48, 32),
+  new THREE.MeshBasicMaterial({ map: tex.sky, side: THREE.BackSide, depthWrite: false, color: 0x9aa6c8 })
+);
+sky.rotation.z = 0.5;
+scene.add(sky);
+
+/** soft round sprite for point stars — square points look cheap */
+function starSprite(){
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0,   'rgba(255,255,255,1)');
+  grd.addColorStop(0.25,'rgba(255,255,255,.55)');
+  grd.addColorStop(1,   'rgba(255,255,255,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+(function buildStars(){
+  const N = 7000, pos = new Float32Array(N * 3), col = new Float32Array(N * 3), siz = new Float32Array(N);
+  const c = new THREE.Color();
+  for (let i = 0; i < N; i++){
+    // 40% of stars clustered into a galactic band, the rest uniform
+    const band = i % 5 < 2;
+    const u = Math.random() * 2 - 1;
+    const lat = band ? Math.asin(u * 0.16) : Math.asin(u);
+    const lon = Math.random() * Math.PI * 2;
+    const r = 700 + Math.random() * 700;
+    pos[i*3]   = r * Math.cos(lat) * Math.cos(lon);
+    pos[i*3+1] = r * Math.sin(lat);
+    pos[i*3+2] = r * Math.cos(lat) * Math.sin(lon);
+    // colour by rough stellar temperature
+    const t = Math.random();
+    c.setHSL(t < 0.12 ? 0.06 : t < 0.5 ? 0.11 : t < 0.85 ? 0.58 : 0.62,
+             t < 0.12 ? 0.6  : 0.35,
+             0.62 + Math.random() * 0.35);
+    col[i*3] = c.r; col[i*3+1] = c.g; col[i*3+2] = c.b;
+    // a few rare bright stars carry the composition; the rest stay faint
+    siz[i] = (band ? 1.5 : 2.1) + Math.pow(Math.random(), 6) * 10;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+  g.setAttribute('aSize',    new THREE.BufferAttribute(siz, 1));
+  const m = new THREE.PointsMaterial({
+    map: starSprite(), size: 1.0,
+    // stars are effectively at infinity: constant screen size, no attenuation
+    sizeAttenuation: false, vertexColors: true,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  // Per-star size. NOTE the attribute is `aSize`, not `size` — points_vert
+  // already declares `uniform float size`, and redeclaring the name as an
+  // attribute is a GLSL redefinition error.
+  m.onBeforeCompile = s => {
+    s.vertexShader = s.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aSize;')
+      .replace('gl_PointSize = size;', 'gl_PointSize = size * aSize;');
+  };
+  scene.add(new THREE.Points(g, m));
+})();
+
+/* ==========================================================================
+   4 · THE SUN:  light source + glowing body + flare sprites
+   ========================================================================== */
+const sunGroup = new THREE.Group();
+scene.add(sunGroup);
+
+// The requested directional light. Its position is re-aimed every frame so
+// the rays always run sun -> Earth, and its intensity follows a
+// tone-compressed inverse-square law so perihelion visibly brightens.
+const sunLight = new THREE.DirectionalLight(0xfff4e6, 3.0);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(1024, 1024);
+sunLight.shadow.camera.left = -1.6; sunLight.shadow.camera.right = 1.6;
+sunLight.shadow.camera.top  =  1.6; sunLight.shadow.camera.bottom = -1.6;
+sunLight.shadow.bias = -0.0004;
+sunLight.shadow.normalBias = 0.02;
+scene.add(sunLight, sunLight.target);
+
+// "not completely pitch black" fill, cool so it reads as skylight. Keep this
+// genuinely low: raise it and the night hemisphere washes out, taking the city
+// lights and the atmospheric limb with it.
+scene.add(new THREE.AmbientLight(0x2b3c58, 0.12));
+
+const sunMat = new THREE.ShaderMaterial({
+  uniforms: { uCore: { value: new THREE.Color(0xfff6e2) }, uEdge: { value: new THREE.Color(0xff9b2e) } },
+  vertexShader: `
+    varying vec3 vN; varying vec3 vP;
+    void main(){
+      vN = normalize( mat3( modelMatrix ) * normal );
+      vec4 wp = modelMatrix * vec4( position, 1.0 );
+      vP = wp.xyz;
+      gl_Position = projectionMatrix * viewMatrix * wp;
+    }`,
+  fragmentShader: `
+    uniform vec3 uCore; uniform vec3 uEdge;
+    varying vec3 vN; varying vec3 vP;
+    void main(){
+      vec3 V = normalize( cameraPosition - vP );
+      // limb brightening: the disc edge is hotter-looking than the centre
+      float f = pow( 1.0 - abs( dot( normalize( vN ), V ) ), 2.2 );
+      vec3 c = mix( uCore, uEdge, f );
+      // push well above 1.0 so the bloom pass has something to catch
+      gl_FragColor = vec4( c * ( 2.4 + f * 4.0 ), 1.0 );
+    }`
+});
+sunGroup.add(new THREE.Mesh(new THREE.SphereGeometry(R_SUN, 48, 32), sunMat));
+
+/** additive radial sprite used for the corona and the anamorphic streak */
+function glowSprite(inner, outer){
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+  grd.addColorStop(0, inner); grd.addColorStop(0.35, outer); grd.addColorStop(1, 'rgba(255,180,80,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 256, 256);
+  return new THREE.CanvasTexture(c);
+}
+const flareTex = glowSprite('rgba(255,244,222,.95)', 'rgba(255,152,58,.30)');
+// depthTest stays ON so the halo never paints over the Earth when the planet
+// passes in front of the sun; depthWrite stays off so the two sprites and the
+// disc composite additively.
+const corona = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: flareTex, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false
+}));
+corona.scale.setScalar(R_SUN * 4.5);
+const streak = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: flareTex, blending: THREE.AdditiveBlending, transparent: true,
+  depthWrite: false, opacity: 0.26
+}));
+streak.scale.set(R_SUN * 12, R_SUN * 1.1, 1);
+sunGroup.add(corona, streak);
+
+/* ==========================================================================
+   5 · THE EARTH
+   --------------------------------------------------------------------------
+   Node hierarchy, and why it matters:
+       earthPivot   position only  — walks the orbit, never rotates
+         tiltGroup  rotation.z = 23.5°  — FIXED in world space
+           earth    rotation.y += ...   — the daily spin
+   Because the tilt lives above the orbital motion and is never re-aimed, the
+   north pole keeps pointing at the same patch of sky all year: that alone
+   produces the seasons.
+   ========================================================================== */
+const earthPivot = new THREE.Group();
+const tiltGroup  = new THREE.Group();
+tiltGroup.rotation.z = TILT;
+earthPivot.add(tiltGroup);
+scene.add(earthPivot);
+
+const NORTH_AXIS = new THREE.Vector3(0, 1, 0).applyEuler(new THREE.Euler(0, 0, TILT)).normalize();
+
+const earthGeo = new THREE.SphereGeometry(R_EARTH, 128, 96);
+
+// Uniforms shared with the injected shader code below.
+const earthU = {
+  uSunDirW:   { value: new THREE.Vector3(1, 0, 0) },  // world-space, surface -> sun
+  uNightMap:  { value: tex.night },
+  uSpecMap:   { value: tex.spec },
+  uNightGain: { value: 3.4 },
+  uIce:       { value: 0.0 },   // 0..1 how far the caps have grown
+  uIceEdge:   { value: 0.86 },  // |sin(lat)| where ice begins
+  uWarm:      { value: 0.0 },   // 0..1 heat-stress browning of land
+  uRim:       { value: 0.34 },
+  uTermSoft:  { value: 0.18 },  // terminator wrap, in cosine units (~10°)
+  uAtmoTint:  { value: new THREE.Color(0x5b9dff) }
+};
+
+// MeshPhongMaterial gives us bump + specular + shadow receiving for free;
+// onBeforeCompile adds the three things it can't do: night-side city lights,
+// the climate tint, and a limb rim light.
+const earthMat = new THREE.MeshPhongMaterial({
+  map: tex.day,
+  bumpMap: tex.bump,
+  bumpScale: 0.035,
+  specularMap: tex.spec,
+  specular: new THREE.Color(0x2f4a6b),
+  shininess: 22
+});
+/* --------------------------------------------------------------------------
+   Terminator softening.
+   Plain Lambert (max(N·L, 0)) plus a bright sun puts the day/night boundary in
+   a knife-edge: the cosine only dims within the last ~15° before the edge, and
+   a strong light saturates everything before that. Real limb photographs show
+   a soft band, because the atmosphere scatters sunlight past the geometric
+   terminator. Wrapped diffuse — (N·L + w)/(1 + w) — reproduces that for one
+   extra add and divide.
+   The substitution has to happen on the RESOLVED chunk: onBeforeCompile runs
+   before three expands #include directives, so a plain string replace against
+   shader.fragmentShader would never find text that lives inside a chunk.
+   -------------------------------------------------------------------------- */
+const PHONG_WRAPPED = THREE.ShaderChunk.lights_phong_pars_fragment.replace(
+  'float dotNL = saturate( dot( geometryNormal, directLight.direction ) );',
+  `float rawNL = dot( geometryNormal, directLight.direction );
+   float dotNL = saturate( ( rawNL + uTermSoft ) / ( 1.0 + uTermSoft ) );`
+);
+// fail loudly rather than silently losing the effect on a future three.js
+if (PHONG_WRAPPED === THREE.ShaderChunk.lights_phong_pars_fragment){
+  console.warn('TERRA: terminator softening not applied — the three.js lighting chunk changed.');
+}
+
+earthMat.onBeforeCompile = shader => {
+  Object.assign(shader.uniforms, earthU);
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <lights_phong_pars_fragment>', PHONG_WRAPPED);
+
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>', `
+      #include <common>
+      varying vec3 vWNrm; varying vec3 vWPos; varying vec3 vOPos; varying vec2 vUvX;
+    `)
+    .replace('#include <begin_vertex>', `
+      #include <begin_vertex>
+      vWNrm = normalize( mat3( modelMatrix ) * normal );
+      vWPos = ( modelMatrix * vec4( position, 1.0 ) ).xyz;
+      vOPos = position;          // object space: y is the spin axis, so |y| == |sin(lat)|
+      vUvX  = uv;
+    `);
+
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <common>', `
+      #include <common>
+      uniform vec3  uSunDirW;
+      uniform sampler2D uNightMap;
+      uniform sampler2D uSpecMap;
+      uniform float uNightGain;
+      uniform float uIce;
+      uniform float uIceEdge;
+      uniform float uWarm;
+      uniform float uRim;
+      uniform float uTermSoft;
+      uniform vec3  uAtmoTint;
+      varying vec3 vWNrm; varying vec3 vWPos; varying vec3 vOPos; varying vec2 vUvX;
+    `)
+    /* ---- climate tint: recolour the albedo before it is lit ----------- */
+    .replace('#include <map_fragment>', `
+      #include <map_fragment>
+      float water = texture2D( uSpecMap, vUvX ).r;      // white == ocean
+      float land  = 1.0 - water;
+      float absLat = abs( normalize( vOPos ).y );        // 0 equator .. 1 pole
+
+      // cooling: ice sheets creep down from both poles
+      float ice = smoothstep( uIceEdge, uIceEdge + 0.20, absLat ) * uIce;
+      diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.88, 0.93, 0.99 ), ice * 0.9 );
+
+      // warming: land dries out toward a scorched tan, oceans stay put
+      vec3 scorched = mix( diffuseColor.rgb, vec3( 0.46, 0.31, 0.17 ), 0.6 );
+      diffuseColor.rgb = mix( diffuseColor.rgb, scorched, clamp( uWarm, 0.0, 1.0 ) * land );
+    `)
+    /* ---- city lights, only where the sun has set ---------------------- */
+    .replace('#include <emissivemap_fragment>', `
+      #include <emissivemap_fragment>
+      vec3  Nw   = normalize( vWNrm );
+      float ndl  = dot( Nw, uSunDirW );
+      // ascending edges only: smoothstep with e0 > e1 is undefined in GLSL
+      float night = 1.0 - smoothstep( -0.20, 0.06, ndl );
+      vec3  lamps = texture2D( uNightMap, vUvX ).rgb;
+      // part linear, part squared: keeps the bright metros punchy without
+      // crushing the dim ones out of existence the way a pure square does
+      totalEmissiveRadiance += lamps * ( 0.35 + 0.65 * lamps ) * uNightGain * night;
+    `)
+    /* ---- atmospheric rim on the lit limb ------------------------------ */
+    .replace('#include <opaque_fragment>', `
+      #include <opaque_fragment>
+      vec3 Vw = normalize( vWPos - cameraPosition );
+      float fres = pow( 1.0 - clamp( dot( Nw, -Vw ), 0.0, 1.0 ), 4.0 );
+      gl_FragColor.rgb += uAtmoTint * fres * max( ndl + 0.12, 0.0 ) * uRim;
+    `);
+};
+
+const earth = new THREE.Mesh(earthGeo, earthMat);
+earth.receiveShadow = true;
+tiltGroup.add(earth);
+
+/* ---- clouds ------------------------------------------------------------ */
+const cloudMat = new THREE.MeshPhongMaterial({
+  map: tex.clouds, transparent: true, opacity: 0.92,
+  depthWrite: false, specular: 0x111111, shininess: 4
+});
+const clouds = new THREE.Mesh(new THREE.SphereGeometry(R_EARTH * 1.006, 96, 64), cloudMat);
+clouds.castShadow = true;
+// The visible material keeps soft edges (no alphaTest); the shadow pass gets
+// its own depth material that DOES alpha-test, so cloud shadows are shaped
+// like clouds instead of a solid shell.
+clouds.customDepthMaterial = new THREE.MeshDepthMaterial({
+  depthPacking: THREE.RGBADepthPacking, map: tex.clouds, alphaTest: 0.35
+});
+tiltGroup.add(clouds);
+
+/* ==========================================================================
+   6 · ATMOSPHERE SHELL  (the custom scattering shader)
+   --------------------------------------------------------------------------
+   A slightly larger sphere drawn from the INSIDE (side: BackSide) with
+   additive blending. Three physical ideas, each cheap:
+     · optical depth  — a ray grazing the limb crosses far more air, so the
+                        glow must concentrate at the silhouette edge;
+     · illumination   — only air that the sun still reaches scatters, and the
+                        transition across the terminator is gradual;
+     · Rayleigh phase — forward scattering brightens the limb between you and
+                        the sun, which is what makes a backlit planet ring.
+   Blue is Rayleigh's short-wavelength bias; the warm band at the terminator
+   is what is left after the blue has scattered away.
+   ========================================================================== */
+const atmoU = {
+  uSunDir:    { value: new THREE.Vector3(1, 0, 0) },
+  uDayColor:  { value: new THREE.Color(0x3d7ffb) },
+  uTwilight:  { value: new THREE.Color(0xff7a3c) },
+  uIntensity: { value: 1.15 },
+  uPower:     { value: 4.2 },   // higher => the glow hugs the silhouette tighter
+  uNightGlow: { value: 0.02 }
+};
+const atmoMat = new THREE.ShaderMaterial({
+  uniforms: atmoU,
+  side: THREE.BackSide,
+  blending: THREE.AdditiveBlending,
+  transparent: true,
+  depthWrite: false,
+  vertexShader: `
+    varying vec3 vWPos; varying vec3 vWNrm;
+    void main(){
+      vWNrm = normalize( mat3( modelMatrix ) * normal );
+      vec4 wp = modelMatrix * vec4( position, 1.0 );
+      vWPos = wp.xyz;
+      gl_Position = projectionMatrix * viewMatrix * wp;
+    }`,
+  fragmentShader: `
+    uniform vec3  uSunDir;     // world space, unit, surface -> sun
+    uniform vec3  uDayColor;
+    uniform vec3  uTwilight;
+    uniform float uIntensity;
+    uniform float uPower;
+    uniform float uNightGlow;
+    varying vec3 vWPos; varying vec3 vWNrm;
+
+    void main(){
+      // We are looking at the shell's far wall, so flip the normal to get the
+      // outward-facing one.
+      vec3 N = -normalize( vWNrm );
+      vec3 V = normalize( cameraPosition - vWPos );
+
+      // 1 · OPTICAL DEPTH -------------------------------------------------
+      // 1 - |N·V| is 0 head-on and 1 at the limb; raising it to a power is a
+      // cheap stand-in for how much air the ray actually traverses.
+      float grazing = 1.0 - abs( dot( N, V ) );
+      float depth   = pow( clamp( grazing, 0.0, 1.0 ), uPower );
+
+      // 2 · HOW MUCH SUN REACHES THIS AIR ---------------------------------
+      // mu > 0 day, mu ~ 0 terminator, mu < 0 night. The smoothstep across
+      // zero is what keeps the day/night edge soft instead of a hard line.
+      // A narrow window: past ~7 degrees beyond the terminator there is no lit
+      // air left to scatter, so the ring must die off quickly instead of
+      // wrapping all the way around the night limb.
+      float mu     = dot( N, uSunDir );
+      float sunlit = smoothstep( -0.12, 0.28, mu );
+
+      // 3 · RAYLEIGH PHASE FUNCTION ---------------------------------------
+      // proportional to 1 + cos^2(theta): brightest when we look through the
+      // atmosphere toward the sun.
+      float cosT  = dot( -V, uSunDir );
+      float phase = 0.75 * ( 1.0 + cosT * cosT );
+
+      // 4 · COLOUR --------------------------------------------------------
+      // Grazing light has lost its blue to scattering, so tint the narrow
+      // band around the terminator warm. Both smoothsteps ascend (GLSL
+      // leaves e0 > e1 undefined), and multiplying them isolates the band.
+      float sunset = ( 1.0 - smoothstep( -0.02, 0.26, mu ) ) * smoothstep( -0.20, -0.02, mu );
+      vec3  col    = mix( uDayColor, uTwilight, sunset * 0.85 );
+
+      float glow = depth * sunlit * phase * uIntensity;
+      glow += depth * uNightGlow;      // faint airglow so the night limb lives
+      // additive blending: only rgb matters, keep alpha at 1
+      gl_FragColor = vec4( col * glow, 1.0 );
+    }`
+});
+// 2.4% of the radius ~= 150 km, about where the visible limb haze ends. The
+// shell's thickness sets the ring's on-screen width, so keep it tight: a
+// thicker shell reads as a painted outline rather than air.
+const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(R_EARTH * 1.024, 96, 64), atmoMat);
+tiltGroup.add(atmosphere);
+
+/* ==========================================================================
+   7 · ORBIT GEOMETRY
+   --------------------------------------------------------------------------
+   Kepler's 1st law: the orbit is an ellipse with the sun at ONE FOCUS — not
+   at the centre. Put the focus at the origin and the polar form is
+        r(nu) = a(1 - e^2) / (1 + e cos nu)
+   so raising e both stretches the curve and slides the sun off-centre. That
+   is exactly what the slider is showing.
+   ========================================================================== */
+const ORBIT_SAMPLES = 720;
+
+const orbitGeo = new LineGeometry();
+const orbitMat = new LineMaterial({
+  color: 0x86b6ef, linewidth: 2.0, transparent: true, opacity: 0.85,
+  depthWrite: false, blending: THREE.AdditiveBlending
+});
+const orbitHaloMat = new LineMaterial({
+  color: 0x3d7ffb, linewidth: 7.0, transparent: true, opacity: 0.14,
+  depthWrite: false, blending: THREE.AdditiveBlending
+});
+orbitMat.resolution.set(innerWidth, innerHeight);
+orbitHaloMat.resolution.set(innerWidth, innerHeight);
+
+const orbitLine = new Line2(orbitGeo, orbitMat);
+const orbitHalo = new Line2(orbitGeo, orbitHaloMat);
+// (no computeLineDistances(): these lines are solid, and calling it before
+// setPositions() has populated instanceStart throws.)
+const orbitGroup = new THREE.Group();
+orbitGroup.add(orbitHalo, orbitLine);
+scene.add(orbitGroup);
+
+/** r for a given true anomaly — the polar form of the ellipse. */
+const radiusAt = (nu, e) => A_ORBIT * (1 - e * e) / (1 + e * Math.cos(nu));
+
+/** Rewrite the orbit polyline for the current eccentricity. */
+const orbitPts = new Float32Array((ORBIT_SAMPLES + 1) * 3);
+function rebuildOrbit(e){
+  for (let i = 0; i <= ORBIT_SAMPLES; i++){
+    const nu = (i / ORBIT_SAMPLES) * Math.PI * 2;
+    const r = radiusAt(nu, e);
+    orbitPts[i*3]     = r * Math.cos(nu);
+    orbitPts[i*3 + 1] = 0;
+    orbitPts[i*3 + 2] = r * Math.sin(nu);
+  }
+  orbitGeo.setPositions(orbitPts);
+}
+
+/* perihelion (hottest) / aphelion (coldest) markers — the diverging pair */
+function markerMesh(hex){
+  const m = new THREE.Mesh(
+    new THREE.RingGeometry(0.34, 0.52, 32),
+    new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.9,
+                                  side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  m.rotation.x = -Math.PI / 2;
+  return m;
+}
+const periMark = markerMesh(HOT.getHex());
+const apoMark  = markerMesh(COLD.getHex());
+orbitGroup.add(periMark, apoMark);
+
+/* sun -> earth radius vector */
+const radiusVec = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+  new THREE.LineBasicMaterial({ color: 0x86b6ef, transparent: true, opacity: 0.22,
+                                blending: THREE.AdditiveBlending, depthWrite: false })
+);
+orbitGroup.add(radiusVec);
+
+/* ecliptic reference grid */
+const eclipticGrid = new THREE.PolarGridHelper(A_ORBIT * 1.7, 8, 6, 96, 0x3d7ffb, 0x1d2a44);
+eclipticGrid.material.transparent = true;
+eclipticGrid.material.opacity = 0.10;
+eclipticGrid.material.depthWrite = false;
+scene.add(eclipticGrid);
+
+/* --------------------------------------------------------------------------
+   The orbit diagram is meaningful from far away and distracting up close (a
+   line that crosses in front of the planet reads as a laser, not a path), so
+   its whole set of materials fades down in the Earth view. The Render toggles
+   stay the master switch.
+   -------------------------------------------------------------------------- */
+const decor = [
+  { m: orbitMat,               base: 0.85 },
+  { m: orbitHaloMat,           base: 0.14 },
+  { m: periMark.material,      base: 0.90 },
+  { m: apoMark.material,       base: 0.90 },
+  { m: radiusVec.material,     base: 0.22 },
+  { m: eclipticGrid.material,  base: 0.10 }
+];
+let decorMix = 1;
+
+/* ==========================================================================
+   8 · KEPLER SOLVER
+   --------------------------------------------------------------------------
+   Kepler's 2nd law (equal areas in equal times) means the planet is fast at
+   perihelion and slow at aphelion. The clean way to get that is to advance
+   the MEAN anomaly M at a constant rate — the orbital period depends only on
+   a, so the year stays the same length however extreme e becomes — then
+   solve Kepler's equation
+        M = E - e sin E
+   for the eccentric anomaly E with Newton-Raphson, and convert to the true
+   anomaly. Five iterations is plenty below e = 0.9.
+   ========================================================================== */
+function solveKepler(M, e){
+  M = Math.atan2(Math.sin(M), Math.cos(M));                  // wrap to [-pi, pi]
+  let E = M + e * Math.sin(M) * (1 + e * Math.cos(M));       // decent first guess
+  for (let i = 0; i < 5; i++){
+    const f  = E - e * Math.sin(E) - M;
+    const fp = 1 - e * Math.cos(E);
+    E -= f / fp;
+  }
+  const cosE = Math.cos(E), sinE = Math.sin(E);
+  return {
+    r:  A_ORBIT * (1 - e * cosE),
+    nu: Math.atan2(Math.sqrt(1 - e * e) * sinE, cosE - e)
+  };
+}
+
+/* ==========================================================================
+   9 · CLIMATE MODEL  (zero-dimensional energy balance)
+   --------------------------------------------------------------------------
+   S      = S0 (a/r)^2                     inverse-square law
+   albedo = 0.30 + ice feedback            brighter planet when it freezes
+   T_eff  = ( S(1-A) / 4sigma )^(1/4)      Stefan-Boltzmann equilibrium
+   T_surf = T_eff + 33 K                   lumped greenhouse effect
+   The displayed value then relaxes toward T_surf with a time constant, which
+   is what oceans and ice do to a real forcing signal. Illustrative — this is
+   a teaching toy, not a GCM.
+   ========================================================================== */
+function surfaceTemp(r, albedo){
+  const S = S0 * (A_ORBIT / r) ** 2;
+  const Teff = (S * (1 - albedo) / (4 * SIGMA)) ** 0.25;
+  return { S, T: Teff + GREENHOUSE - 273.15 };
+}
+
+/* ==========================================================================
+   10 · POST-PROCESSING
+   ========================================================================== */
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.62, 0.55, 0.28);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+/* ==========================================================================
+   11 · CAMERA CONTROLS + VIEW MODES
+   ========================================================================== */
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.rotateSpeed = 0.55;
+controls.zoomSpeed = 0.8;
+controls.panSpeed = 0.5;
+controls.minDistance = 1.35;
+controls.maxDistance = 220;
+controls.autoRotate = !reduceMotion;
+controls.autoRotateSpeed = 0.14;
+
+let viewMode = 'earth';
+let transition = null;                     // {t, dur, fromPos, toPos, fromTgt, toTgt}
+const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+/** How far back the system view has to sit for the whole ellipse to fit. The
+ *  far apse is at a(1+e), so the framing distance has to grow with e. */
+const SYSTEM_DIR = new THREE.Vector3(0.24, 1.02, 0.72).normalize();
+// the side panels eat roughly a third of the width, so frame a little wider
+// than the ellipse strictly needs
+const fitDistance = e => A_ORBIT * (1 + e) * 1.5 + 10;
+
+/** Desired camera pose for a view mode, given the Earth's current position. */
+function poseFor(mode, earthPos){
+  if (mode === 'system'){
+    return { pos: SYSTEM_DIR.clone().multiplyScalar(fitDistance(eNow)), tgt: new THREE.Vector3(0, 0, 0) };
+  }
+  // Earth view: off to one side and slightly above, a touch behind the
+  // terminator, so the crescent and the city lights are both in frame.
+  const toSun = earthPos.clone().negate().normalize();
+  const up = new THREE.Vector3(0, 1, 0);
+  const side = new THREE.Vector3().crossVectors(toSun, up).normalize();
+  const pos = earthPos.clone()
+    .add(side.multiplyScalar(2.9))
+    .add(up.clone().multiplyScalar(1.15))
+    .add(toSun.clone().multiplyScalar(-1.7));
+  return { pos, tgt: earthPos.clone() };
+}
+
+function setView(mode, animate = true){
+  viewMode = mode;
+  document.getElementById('view-earth').setAttribute('aria-pressed', String(mode === 'earth'));
+  document.getElementById('view-system').setAttribute('aria-pressed', String(mode === 'system'));
+  const p = poseFor(mode, earthPivot.position);
+  if (!animate || reduceMotion){
+    camera.position.copy(p.pos); controls.target.copy(p.tgt); controls.update();
+    return;
+  }
+  transition = {
+    t: 0, dur: 1.5,
+    fromPos: camera.position.clone(), toPos: p.pos,
+    fromTgt: controls.target.clone(), toTgt: p.tgt
+  };
+  controls.enabled = false;
+}
+
+/* ==========================================================================
+   12 · HUD WIRING
+   ========================================================================== */
+const el = id => document.getElementById(id);
+const ui = {
+  ecc: el('ecc'), eccOut: el('ecc-out'),
+  speed: el('speed'), spin: el('spin'), exposure: el('exposure'),
+  vSpeed: el('v-speed'), vSpin: el('v-spin'), vExp: el('v-exp'),
+  temp: el('temp-val'), delta: el('temp-delta'), stateTxt: el('state-txt'), stateDot: el('state-dot'),
+  fill: el('meter-fill'), base: el('meter-base'),
+  dist: el('v-dist'), sol: el('v-sol'), solMean: el('v-solmean'),
+  range: el('v-range'), doy: el('v-doy'), season: el('v-season'),
+  fps: el('badge-fps'), tex: el('badge-tex'), fallback: el('badge-fallback'),
+  spark: el('spark'), dataBtn: el('data-btn'), dataTable: el('data-table'), dataBody: el('data-body')
+};
+
+if (usedFallback){ ui.fallback.hidden = false; ui.tex.textContent = 'textures partial'; }
+
+/** paint the filled portion of any range input's track */
+function paintRange(input){
+  const pct = (input.value - input.min) / (input.max - input.min) * 100;
+  input.style.setProperty('--fill', pct + '%');
+}
+[ui.ecc, ui.speed, ui.spin, ui.exposure].forEach(r => { paintRange(r); r.addEventListener('input', () => paintRange(r)); });
+
+/* --- the headline control ---------------------------------------------- */
+let eTarget = parseFloat(ui.ecc.value);   // where the slider is
+let eNow    = eTarget;                    // eased value the scene actually uses
+
+ui.ecc.addEventListener('input', () => {
+  eTarget = parseFloat(ui.ecc.value);
+  ui.eccOut.textContent = eTarget.toFixed(3);
+  syncChips();
+});
+function setEcc(v){
+  eTarget = v;
+  ui.ecc.value = String(v);
+  ui.eccOut.textContent = v.toFixed(3);
+  paintRange(ui.ecc);
+  syncChips();
+}
+const chips = [...document.querySelectorAll('.chip')];
+function syncChips(){
+  chips.forEach(c => c.setAttribute('aria-pressed',
+    String(Math.abs(parseFloat(c.dataset.ecc) - eTarget) < 0.0006)));
+}
+chips.forEach(c => c.addEventListener('click', () => setEcc(parseFloat(c.dataset.ecc))));
+
+/* --- motion / exposure -------------------------------------------------- */
+let speedMul = 1, spinMul = 1, paused = false;
+ui.speed.addEventListener('input', () => { speedMul = +ui.speed.value; ui.vSpeed.textContent = speedMul.toFixed(1) + '×'; });
+ui.spin.addEventListener('input',  () => { spinMul  = +ui.spin.value;  ui.vSpin.textContent  = spinMul.toFixed(1) + '×'; });
+ui.exposure.addEventListener('input', () => {
+  renderer.toneMappingExposure = +ui.exposure.value;
+  ui.vExp.textContent = (+ui.exposure.value).toFixed(2);
+});
+
+/* --- render toggles ----------------------------------------------------- */
+const bind = (id, fn) => { const c = el(id); c.addEventListener('change', () => fn(c.checked)); fn(c.checked); };
+bind('t-atmo',   v => atmosphere.visible = v);
+bind('t-clouds', v => clouds.visible = v);
+bind('t-night',  v => earthU.uNightGain.value = v ? 2.6 : 0);
+bind('t-bloom',  v => bloom.enabled = v);
+bind('t-orbit',  v => { orbitGroup.visible = v; });
+bind('t-grid',   v => eclipticGrid.visible = v);
+bind('t-shadow', v => { renderer.shadowMap.enabled = v; earthMat.needsUpdate = true; cloudMat.needsUpdate = true; });
+bind('t-drift',  v => controls.autoRotate = v && !reduceMotion);
+
+/* --- views + keyboard --------------------------------------------------- */
+el('view-earth').addEventListener('click', () => setView('earth'));
+el('view-system').addEventListener('click', () => setView('system'));
+addEventListener('keydown', e => {
+  // don't hijack Space when a control has focus — that is how buttons and
+  // checkboxes are activated from the keyboard
+  const onControl = e.target instanceof HTMLElement && e.target.matches('input, button');
+  if (e.code === 'Space'){ if (onControl) return; e.preventDefault(); paused = !paused; }
+  else if (e.key === '1') setView('earth');
+  else if (e.key === '2') setView('system');
+  else if (e.key.toLowerCase() === 'r') setEcc(0.0167);
+});
+
+/* --- table view (the colour-free path to the same numbers) ------------- */
+ui.dataBtn.addEventListener('click', () => {
+  const open = ui.dataTable.hidden;
+  ui.dataTable.hidden = !open;
+  ui.dataBtn.setAttribute('aria-expanded', String(open));
+  ui.dataBtn.textContent = open ? 'Hide data table' : 'Show data table';
+});
+
+/* ==========================================================================
+   13 · SPARKLINE
+   --------------------------------------------------------------------------
+   One series, so no legend box is needed for the line itself; polarity lives
+   in the area fill (red above the baseline, blue below, neutral at the
+   crossing) and the two orbit markers get the legend underneath. Only three
+   labels are drawn — current, min, max — because a value on every sample is
+   unreadable.
+   ========================================================================== */
+// The window is one ORBIT wide, not one wall-clock interval: samples are taken
+// every 1/HISTORY of a revolution, so the x-axis really does read "365 days"
+// at any orbit speed.
+const HISTORY = 180;
+const M_PER_SAMPLE = (Math.PI * 2) / HISTORY;
+const hist = [];                       // {t: 0..1 phase, v: °C}
+let lastOrbitStats = null;
+let lastSampleM = 0;
+
+const sparkCtx = ui.spark.getContext('2d');
+function sizeSpark(){
+  const dpr = Math.min(devicePixelRatio, 2);
+  const w = ui.spark.clientWidth, h = ui.spark.clientHeight;
+  ui.spark.width = w * dpr; ui.spark.height = h * dpr;
+  sparkCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+function drawSpark(){
+  const w = ui.spark.clientWidth, h = ui.spark.clientHeight;
+  const g = sparkCtx;
+  g.clearRect(0, 0, w, h);
+  if (hist.length < 2) return;
+
+  const pad = 8;
+  // data extremes (what the labels report) vs plot extremes (what the scale
+  // spans — always wide enough to contain the baseline)
+  let dataLo = Infinity, dataHi = -Infinity;
+  for (const p of hist){ dataLo = Math.min(dataLo, p.v); dataHi = Math.max(dataHi, p.v); }
+  const lo = Math.min(dataLo, T_BASE - 1), hi = Math.max(dataHi, T_BASE + 1);
+  const span = Math.max(hi - lo, 2);
+  const X = i => pad + (i / (hist.length - 1)) * (w - pad * 2 - 26);
+  const Y = v => pad + (1 - (v - lo) / span) * (h - pad * 2);
+  const yBase = Y(T_BASE);
+
+  // baseline: hairline, solid, recessive — and it is the diverging midpoint
+  g.strokeStyle = 'rgba(255,255,255,.20)'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(pad, yBase); g.lineTo(w - 26, yBase); g.stroke();
+
+  // area wash, split at the baseline: warm above, cool below (~10% opacity)
+  for (const side of ['hot', 'cold']){
+    g.save();
+    g.beginPath();
+    g.rect(pad, side === 'hot' ? 0 : yBase, w, side === 'hot' ? yBase : h - yBase);
+    g.clip();
+    g.beginPath();
+    g.moveTo(X(0), yBase);
+    hist.forEach((p, i) => g.lineTo(X(i), Y(p.v)));
+    g.lineTo(X(hist.length - 1), yBase);
+    g.closePath();
+    g.fillStyle = side === 'hot' ? 'rgba(230,103,103,.22)' : 'rgba(57,135,229,.22)';
+    g.fill();
+    g.restore();
+  }
+
+  // the line itself: 2px, ink rather than a series hue, so the fill carries
+  // the polarity without two colours fighting inside one mark
+  g.strokeStyle = 'rgba(255,255,255,.82)';
+  g.lineWidth = 2; g.lineJoin = 'round'; g.lineCap = 'round';
+  g.beginPath();
+  hist.forEach((p, i) => i ? g.lineTo(X(i), Y(p.v)) : g.moveTo(X(i), Y(p.v)));
+  g.stroke();
+
+  // end marker: 8px dot in the current pole colour + 2px surface ring
+  const last = hist[hist.length - 1];
+  const cx = X(hist.length - 1), cy = Y(last.v);
+  g.fillStyle = '#0b1018';
+  g.beginPath(); g.arc(cx, cy, 6, 0, 7); g.fill();
+  g.fillStyle = last.v >= T_BASE ? '#e66767' : '#3987e5';
+  g.beginPath(); g.arc(cx, cy, 4, 0, 7); g.fill();
+
+  // three selective labels only
+  g.font = '500 10px ui-monospace, SFMono-Regular, Menlo, monospace';
+  g.textBaseline = 'middle';
+  g.fillStyle = '#ffffff';
+  g.fillText(degStr(last.v), cx + 8, cy);
+  g.fillStyle = '#898781';
+  g.textBaseline = 'top';    g.fillText('max ' + degStr(dataHi), pad, 1);
+  g.textBaseline = 'bottom'; g.fillText('min ' + degStr(dataLo), pad, h - 1);
+}
+sizeSpark();
+
+/* ==========================================================================
+   14 · ANIMATION LOOP
+   ========================================================================== */
+const clock = new THREE.Clock();
+let M = 0;                            // mean anomaly
+let Tdisp = T_BASE;                   // displayed (lagged) temperature
+let prevEarth = new THREE.Vector3(A_ORBIT, 0, 0);
+let orbitCount = 0, lastPhase = 0;
+let fpsAcc = 0, fpsFrames = 0, hudAcc = 0, sparkAcc = 0;
+let orbitMin = Infinity, orbitMax = -Infinity, orbitSum = 0, orbitN = 0;
+
+// initial placement so the first frame is already correct
+rebuildOrbit(eNow);
+{
+  const k = solveKepler(0, eNow);
+  earthPivot.position.set(k.r * Math.cos(k.nu), 0, k.r * Math.sin(k.nu));
+  prevEarth.copy(earthPivot.position);
+  setView('earth', false);
+}
+
+// cinematic entry: start wide and ease in
+if (!reduceMotion){
+  camera.position.copy(earthPivot.position).add(new THREE.Vector3(-14, 7, 17));
+  setView('earth', true);
+  transition.dur = 3.0;
+}
+
+function frame(){
+  requestAnimationFrame(frame);
+  const dtRaw = Math.min(clock.getDelta(), 0.1);
+  const dt = paused ? 0 : dtRaw;
+
+  /* ---- 1. eccentricity easing: the ellipse morphs, it never snaps ----- */
+  const morphing = Math.abs(eNow - eTarget) > 1e-5;
+  if (morphing){
+    eNow += (eTarget - eNow) * Math.min(1, dtRaw * 4.5);
+    rebuildOrbit(eNow);
+  }
+
+  /* ---- 2. advance the orbit (Kepler) --------------------------------- */
+  M += dt * (Math.PI * 2 / YEAR_SEC) * speedMul;
+  const { r, nu } = solveKepler(M, eNow);
+  earthPivot.position.set(r * Math.cos(nu), 0, r * Math.sin(nu));
+
+  const phase = ((M % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / (Math.PI * 2);
+  if (phase < lastPhase){                       // crossed perihelion: new year
+    orbitCount++;
+    lastOrbitStats = { min: orbitMin, max: orbitMax, mean: orbitSum / Math.max(orbitN, 1) };
+    orbitMin = Infinity; orbitMax = -Infinity; orbitSum = 0; orbitN = 0;
+  }
+  lastPhase = phase;
+
+  /* ---- 3. spin + cloud drift ----------------------------------------- */
+  earth.rotation.y  += dt * 0.62 * spinMul;     // visual rate, not to scale
+  clouds.rotation.y += dt * 0.74 * spinMul;     // clouds lead the surface
+  sky.rotation.y    += dt * 0.0015;
+
+  /* ---- 4. re-aim the sun --------------------------------------------- */
+  const sunDir = earthPivot.position.clone().negate().normalize();  // surface -> sun
+  earthU.uSunDirW.value.copy(sunDir);
+  atmoU.uSunDir.value.copy(sunDir);
+  sunLight.position.set(0, 0, 0);
+  sunLight.target.position.copy(earthPivot.position);
+  sunLight.target.updateMatrixWorld();
+  // Tone-compressed inverse-square falloff. The true ratio at e = 0.6 is 16:1
+  // between the apses, which would flatten perihelion into a white disc, so the
+  // exponent is below 2 and the result is clamped: perihelion reads brighter
+  // while the surface keeps its detail.
+  sunLight.intensity = 2.6 * clamp((A_ORBIT / r) ** 0.9, 0.55, 1.45);
+  // keep the shadow frustum tight around the Earth wherever it is
+  sunLight.shadow.camera.near = Math.max(0.1, r - R_EARTH * 3);
+  sunLight.shadow.camera.far  = r + R_EARTH * 3;
+  sunLight.shadow.camera.updateProjectionMatrix();
+
+  /* ---- 5. climate ---------------------------------------------------- */
+  // ice-albedo feedback: a colder planet is whiter, which cools it further
+  const iceFrac = smoothstep(15, -6, Tdisp);
+  const albedo = clamp(0.30 + 0.12 * iceFrac, 0.28, 0.46);
+  const { S, T: Teq } = surfaceTemp(r, albedo);
+  // thermal inertia (oceans + ice): relax toward equilibrium, never jump
+  const tau = 0.13 * YEAR_SEC / Math.max(speedMul, 0.05);
+  Tdisp += (Teq - Tdisp) * (1 - Math.exp(-dt / tau));
+
+  earthU.uIce.value     = clamp(smoothstep(14, -3, Tdisp), 0, 1);
+  // |sin(lat)| where the ice line sits: 0.86 ~ 59 deg (today), 0.62 ~ 38 deg
+  earthU.uIceEdge.value = THREE.MathUtils.lerp(0.86, 0.62, earthU.uIce.value);
+  earthU.uWarm.value    = clamp(smoothstep(18, 34, Tdisp), 0, 1);
+  // a warmer planet evaporates more water: nudge cloud cover (subtle)
+  cloudMat.opacity = 0.92 * (0.85 + 0.2 * earthU.uWarm.value);
+
+  if (dt > 0){
+    orbitMin = Math.min(orbitMin, Tdisp); orbitMax = Math.max(orbitMax, Tdisp);
+    orbitSum += Tdisp; orbitN++;
+  }
+
+  /* ---- 6. orbit decorations ------------------------------------------ */
+  const rPeri = A_ORBIT * (1 - eNow), rApo = A_ORBIT * (1 + eNow);
+  periMark.position.set(rPeri, 0, 0);
+  apoMark.position.set(-rApo, 0, 0);
+  const rv = radiusVec.geometry.attributes.position;
+  rv.setXYZ(0, 0, 0, 0);
+  rv.setXYZ(1, earthPivot.position.x, 0, earthPivot.position.z);
+  rv.needsUpdate = true;
+  radiusVec.geometry.computeBoundingSphere();
+  streak.material.rotation += dtRaw * 0.008;   // barely-there flare drift
+
+  /* ---- 7. camera ----------------------------------------------------- */
+  if (transition){
+    transition.t += dtRaw;
+    const k = easeInOut(clamp(transition.t / transition.dur, 0, 1));
+    // recompute the destination each frame: the Earth keeps moving
+    const dest = poseFor(viewMode, earthPivot.position);
+    camera.position.lerpVectors(transition.fromPos, dest.pos, k);
+    controls.target.lerpVectors(transition.fromTgt, dest.tgt, k);
+    if (transition.t >= transition.dur){ transition = null; controls.enabled = true; }
+  } else if (viewMode === 'earth'){
+    // follow: translate the camera by the Earth's own displacement so the
+    // framing holds still while the planet travels
+    camera.position.add(earthPivot.position.clone().sub(prevEarth));
+    controls.target.copy(earthPivot.position);
+  } else if (viewMode === 'system' && morphing){
+    // dolly out (or in) while the ellipse is actually changing shape, so the
+    // money shot stays framed. Idle zoom is left to the user.
+    const want = fitDistance(eNow), cur = camera.position.length() || 1;
+    camera.position.multiplyScalar(1 + (want / cur - 1) * Math.min(1, dtRaw * 2.0));
+  }
+  prevEarth.copy(earthPivot.position);
+  controls.update();
+
+  // fade the orbit diagram down in the close-up view
+  const wantMix = viewMode === 'earth' ? 0.16 : 1.0;
+  decorMix += (wantMix - decorMix) * Math.min(1, dtRaw * 3);
+  for (const d of decor) d.m.opacity = d.base * decorMix;
+
+  /* ---- 8. HUD (throttled) -------------------------------------------- */
+  fpsAcc += dtRaw; fpsFrames++; hudAcc += dtRaw; sparkAcc += dtRaw;
+  if (fpsAcc > 0.6){ ui.fps.textContent = Math.round(fpsFrames / fpsAcc) + ' fps'; fpsAcc = 0; fpsFrames = 0; }
+
+  if (hudAcc > 0.1){
+    hudAcc = 0;
+    const au = r / A_ORBIT;
+    ui.temp.textContent = degStr(Tdisp);
+    const d = Tdisp - T_BASE;
+    ui.delta.textContent = (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(1) + '  vs baseline';
+
+    const hot = d >= 0;
+    const poleCol = hot ? '#e66767' : '#3987e5';
+    ui.stateDot.style.background = poleCol;
+    ui.stateDot.style.color = poleCol;
+    ui.stateTxt.textContent =
+      Tdisp < -5 ? 'Snowball risk' : Tdisp < 8 ? 'Glacial' :
+      Tdisp < 20 ? 'Temperate'     : Tdisp < 28 ? 'Hothouse' : 'Runaway heat';
+
+    // meter: fill runs from the baseline toward the current value
+    const lo = -20, hi = 45;
+    const pB = (T_BASE - lo) / (hi - lo) * 100;
+    const pV = clamp((Tdisp - lo) / (hi - lo), 0, 1) * 100;
+    ui.base.style.left = pB + '%';
+    ui.fill.style.left = Math.min(pB, pV) + '%';
+    ui.fill.style.width = Math.abs(pV - pB) + '%';
+    ui.fill.style.background = poleCol;
+
+    ui.dist.textContent = au.toFixed(3);
+    ui.sol.textContent = fmt(S);
+    // time-averaged insolation over one orbit is S0/sqrt(1-e^2) — the reason
+    // a more eccentric orbit is not climate-neutral even at fixed a
+    const meanS = S0 / Math.sqrt(1 - eNow * eNow);
+    ui.solMean.textContent = fmt(meanS);
+    ui.range.textContent = (rPeri / A_ORBIT).toFixed(2) + '–' + (rApo / A_ORBIT).toFixed(2);
+    ui.doy.textContent = String(Math.floor(phase * DAYS_YEAR) + 1);
+
+    // season from the angle between the (fixed) north axis and the sun
+    const decl = NORTH_AXIS.dot(sunDir);
+    ui.season.textContent =
+      decl >  0.34 ? 'Summer' : decl >  0.08 ? 'Late spring' :
+      decl > -0.08 ? 'Equinox' : decl > -0.34 ? 'Late autumn' : 'Winter';
+
+    if (!ui.dataTable.hidden){
+      const st = lastOrbitStats;
+      ui.dataBody.innerHTML = `
+        <tr><th>Eccentricity</th><td>${eNow.toFixed(3)}</td></tr>
+        <tr><th>Perihelion</th><td>${(rPeri / A_ORBIT).toFixed(3)} AU</td></tr>
+        <tr><th>Aphelion</th><td>${(rApo / A_ORBIT).toFixed(3)} AU</td></tr>
+        <tr><th>Insolation at perihelion</th><td>${fmt(S0 / (1 - eNow) ** 2)} W/m²</td></tr>
+        <tr><th>Insolation at aphelion</th><td>${fmt(S0 / (1 + eNow) ** 2)} W/m²</td></tr>
+        <tr><th>Annual mean insolation</th><td>${fmt(meanS)} W/m²</td></tr>
+        <tr><th>Planetary albedo</th><td>${albedo.toFixed(3)}</td></tr>
+        <tr><th>Temperature now</th><td>${degStr(Tdisp)} °C</td></tr>
+        <tr><th>Last orbit min</th><td>${st ? degStr(st.min) + ' °C' : '—'}</td></tr>
+        <tr><th>Last orbit mean</th><td>${st ? degStr(st.mean) + ' °C' : '—'}</td></tr>
+        <tr><th>Last orbit max</th><td>${st ? degStr(st.max) + ' °C' : '—'}</td></tr>
+        <tr><th>Orbits elapsed</th><td>${orbitCount}</td></tr>`;
+    }
+  }
+
+  // sample on orbital phase, redraw on wall clock
+  let pushed = false;
+  while (M - lastSampleM >= M_PER_SAMPLE){
+    lastSampleM += M_PER_SAMPLE;
+    hist.push({ t: phase, v: Tdisp });
+    pushed = true;
+    if (hist.length > HISTORY * 2) break;   // guard against a huge dt spike
+  }
+  if (pushed) while (hist.length > HISTORY) hist.shift();
+  if (sparkAcc > 0.08){ sparkAcc = 0; drawSpark(); }
+
+  composer.render();
+}
+
+/* ==========================================================================
+   15 · REVEAL, RESIZE, START
+   ========================================================================== */
+// Reveal before starting the loop: a runtime fault should never leave the
+// viewer stuck behind a loading screen with no explanation.
+loaderMsg.textContent = 'ready';
+bar.style.width = '100%';
+requestAnimationFrame(() => setTimeout(() => document.getElementById('loader').classList.add('done'), 260));
+
+addEventListener('error', e => {
+  const f = document.getElementById('fatal');
+  f.hidden = false;
+  f.innerHTML = '<strong>Runtime error</strong><br /><code>' + String(e.message || e.error) + '</code>';
+  document.getElementById('loader').classList.remove('done');
+});
+
+addEventListener('resize', () => {
+  const w = innerWidth, h = innerHeight;
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+  bloom.setSize(w, h);
+  orbitMat.resolution.set(w, h);
+  orbitHaloMat.resolution.set(w, h);
+  sizeSpark(); drawSpark();
+});
+
+// seed two samples so the sparkline has something to draw even if the viewer
+// pauses immediately
+hist.push({ t: 0, v: T_BASE }, { t: 0, v: T_BASE });
+drawSpark();
+
+frame();
+</script>
+</body>
+</html>
