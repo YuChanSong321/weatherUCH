@@ -64,8 +64,14 @@ export const S4_MAX = 100
 export const S6_MAX = 120
 export const TOTAL_MAX = S1_MAX + S4_MAX + S6_MAX
 
+/** 발표/디버그용: 주소창의 #s5 같은 해시로 특정 단계에서 바로 시작한다. */
+function initialStage(): Stage {
+  const hash = typeof window === 'undefined' ? '' : window.location.hash.replace('#', '')
+  return (STAGE_ORDER as string[]).includes(hash) ? (hash as Stage) : 's0'
+}
+
 export function JourneyProvider({ children }: { children: ReactNode }) {
-  const [stage, setStage] = useState<Stage>('s0')
+  const [stage, setStage] = useState<Stage>(initialStage)
   const [rounds, setRounds] = useState<RoundScore[]>([])
   const [yearGuess, setYearGuessState] = useState<YearGuessResult | null>(null)
   const [orbitResult, setOrbitResultState] = useState<OrbitMissionResult | null>(null)

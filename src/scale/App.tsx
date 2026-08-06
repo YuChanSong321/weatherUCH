@@ -11,6 +11,8 @@ import { S0Intro } from './stages/S0Intro'
 import { S1Forecast } from './stages/S1'
 import { S2Transition } from './stages/S2Transition'
 import { S3Climate } from './stages/S3Climate'
+import { S4YearGuess } from './stages/S4YearGuess'
+import { S5Future } from './stages/S5Future'
 import { JourneyProvider, STAGE_SCALE, useJourney } from './state/journey'
 
 export default function App() {
@@ -57,7 +59,9 @@ function Journey() {
             {stage === 's1' && <S1Forecast cases={cases} />}
             {stage === 's2' && <S2Transition year={focusYear} onNext={next} />}
             {stage === 's3' && <S3Climate highlightYear={focusYear} onNext={next} />}
-            {(stage === 's4' || stage === 's5' || stage === 's6' || stage === 's7') && <StagePlaceholder />}
+            {stage === 's4' && <S4YearGuess onNext={next} />}
+            {stage === 's5' && <S5Future onNext={next} />}
+            {(stage === 's6' || stage === 's7') && <StagePlaceholder />}
           </motion.div>
         </AnimatePresence>
       </main>

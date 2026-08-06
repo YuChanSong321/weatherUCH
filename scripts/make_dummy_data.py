@@ -284,13 +284,17 @@ def generate_yearly(daily_years: dict[int, dict]) -> list[dict]:
     return out
 
 
-def generate_ssp() -> list[dict]:
+def generate_ssp(yearly: list[dict]) -> tuple[float, list[dict]]:
     """SSP 시나리오별 경상권 기온 전망 (기준: 1995-2014 평균).
 
     값은 국내 남부권 시나리오 전망을 단순화한 근사치. 실데이터 교체 시
     기후변화정보포털(CCIC) 시나리오 자료로 대체한다.
+
+    기준값은 관측 시계열의 1995-2014 평균에서 그대로 가져온다 — 그래야 S5에서
+    관측 곡선과 시나리오 부채꼴이 같은 높이에서 이어진다.
     """
-    baseline = 15.0
+    base_rows = [r["tavg"] for r in yearly if 1995 <= r["year"] <= 2014]
+    baseline = round(sum(base_rows) / len(base_rows), 2)
     years = [2025, 2035, 2045, 2055, 2065, 2075, 2085, 2095, 2100]
     # 세 시나리오는 현재(2025) 근처에서 거의 같은 값에서 출발해 뒤로 갈수록
     # 갈라진다 — S5의 "부채꼴" 연출이 성립하려면 이 성질이 반드시 필요하다.
@@ -328,7 +332,7 @@ def generate_ssp() -> list[dict]:
             "color": color,
             "points": points,
         })
-    return scenarios
+    return baseline, scenarios
 
 
 def write_json(path: Path, payload: dict) -> None:
@@ -399,16 +403,17 @@ def main() -> None:
         "records": yearly,
     })
 
+    ssp_baseline, ssp_scenarios = generate_ssp(yearly)
     write_json(DATA_DIR / "future_ssp.json", {
         "meta": {
             "schemaVersion": SCHEMA_VERSION,
             "source": SOURCE_TAG,
             "region": "경상권",
-            "baseline": {"period": "1995-2014", "tavg": 15.0},
+            "baseline": {"period": "1995-2014", "tavg": ssp_baseline},
             "units": {"tavg": "°C", "anomaly": "°C"},
             "note": "합성 근사치. 실데이터는 기후변화정보포털(CCIC) 남부권 시나리오로 교체.",
         },
-        "scenarios": generate_ssp(),
+        "scenarios": ssp_scenarios,
     })
 
     # 생성 결과가 "가르치려는 규칙"을 실제로 만족하는지 자체 검증

@@ -94,23 +94,9 @@ export function YearlyChart({
 
         {/* 관측 점 */}
         {visible.map((r) => {
-          const isHidden = hiddenYear === r.year
           const isHi = highlightYear === r.year
-          if (isHidden) {
-            return (
-              <circle
-                key={r.year}
-                cx={x(r.year)}
-                cy={y(r.tavg)}
-                r={5}
-                fill="none"
-                stroke="var(--color-ink-3)"
-                strokeWidth={1.5}
-                strokeDasharray="3 3"
-                opacity={0.5}
-              />
-            )
-          }
+          // 숨긴 해는 위치조차 그리지 않는다 (점선 원으로도 정답이 새면 안 된다)
+          if (hiddenYear === r.year) return null
           return (
             <circle
               key={r.year}
@@ -128,7 +114,9 @@ export function YearlyChart({
 
         {/* 히트박스 — 마크보다 크게 */}
         {tooltipEnabled &&
-          visible.map((r) => (
+          visible
+            .filter((r) => r.year !== hiddenYear)
+            .map((r) => (
             <circle
               key={`hit-${r.year}`}
               cx={x(r.year)}
