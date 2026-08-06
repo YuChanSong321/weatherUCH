@@ -14,6 +14,7 @@ import { S3Climate } from './stages/S3Climate'
 import { S4YearGuess } from './stages/S4YearGuess'
 import { S5Future } from './stages/S5Future'
 import { S6Orbital } from './stages/S6'
+import { S7Ending } from './stages/S7Ending'
 import { JourneyProvider, STAGE_SCALE, useJourney } from './state/journey'
 
 export default function App() {
@@ -63,33 +64,10 @@ function Journey() {
             {stage === 's4' && <S4YearGuess onNext={next} />}
             {stage === 's5' && <S5Future onNext={next} />}
             {stage === 's6' && <S6Orbital onNext={next} />}
-            {stage === 's7' && <StagePlaceholder />}
+            {stage === 's7' && <S7Ending />}
           </motion.div>
         </AnimatePresence>
       </main>
-    </div>
-  )
-}
-
-/** 아직 구현 전인 단계 — 흐름을 걸어볼 수 있도록 임시로 이어준다. */
-function StagePlaceholder() {
-  const { stage, next, restart } = useJourney()
-  const meta = STAGE_SCALE[stage]
-  return (
-    <div className="mx-auto flex max-w-lg flex-col items-center gap-4 text-center">
-      <div className="text-[11px] font-medium tracking-[0.18em] text-ink-3">{stage.toUpperCase()}</div>
-      <h1 className="text-[24px] font-semibold tracking-tight">시간 규모 · {meta.scaleLabel}</h1>
-      <p className="text-[13px] text-ink-2">이 단계는 다음 커밋에서 구현된다.</p>
-      <div className="flex gap-2">
-        {stage !== 's7' && (
-          <button type="button" className="btn btn-primary" onClick={next}>
-            다음 단계
-          </button>
-        )}
-        <button type="button" className="btn btn-ghost" onClick={restart}>
-          처음으로
-        </button>
-      </div>
     </div>
   )
 }
