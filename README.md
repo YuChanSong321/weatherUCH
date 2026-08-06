@@ -1,16 +1,161 @@
-# React + Vite
+# 예측의 스케일 (Scales of Prediction)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+부산을 무대로, 사용자가 직접 예측해보며 시간 규모를 **며칠 → 수십 년 → 수만 년**으로
+넓혀가는 인터랙티브 교육 콘텐츠. "날씨는 왜 못 맞히고 기후는 왜 맞히는지"를 설명으로
+듣는 대신 스스로 발견하게 만드는 것이 목표다.
 
-Currently, two official plugins are available:
+**핵심 메시지 — 예측 가능성은 시간 규모에 따라 U자를 그린다.**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| 시간 규모 | 예측 가능성 | 이유 |
+| --- | --- | --- |
+| 시간·일 | 높음 | 지속성 — 내일의 대기는 오늘과 닮아 있다 |
+| 2주 ~ 몇 달 | 바닥 | 혼돈 — 작은 오차가 며칠마다 두 배로 자란다 |
+| 수십 ~ 수백 년 | 회복 | 평균·통계 + 온실가스 강제력 |
+| 수만 년 | 최고 | 천체역학 = 시계 |
 
-## React Compiler
+사용자 권한이 단계마다 올라간다: **예측한다(관찰자) → 조작한다(분석가) → 창조한다(조종자).**
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## 실행
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev      # http://localhost:5173  ← 예측의 스케일
+npm run build    # 정적 빌드 (dist/)
+npm run preview  # 빌드 결과 확인
+npx tsc --noEmit # 타입 검사
+```
+
+Node 20.19+ / 22.13+ 필요 (Vite 8). 데스크톱 1280px 이상 기준으로 설계했다.
+
+엔트리 세 개가 함께 빌드된다.
+
+| 경로 | 내용 |
+| --- | --- |
+| `/` | **예측의 스케일** (출품 콘텐츠) |
+| `/legacy.html` | 기존 TERRA React 앱 |
+| `/terra-orbital-sim.html` | 기존 standalone 궤도 시뮬레이터 |
+
+발표용 딥링크: 주소 끝에 `#s4` 처럼 붙이면 그 단계에서 바로 시작한다 (`#s0` ~ `#s7`).
+
+---
+
+## ⚠️ 절대 조건: 브라우저에서 외부 API를 호출하지 않는다
+
+- 모든 데이터는 `/data` 의 JSON을 **빌드 시점에 번들**로 읽는다. 런타임 `fetch` 없음.
+- 폰트도 로컬 시스템 폰트만 쓴다 (외부 CDN 요청 0건). 발표 현장 네트워크가 죽어도 돌아간다.
+- API 키는 코드·커밋·예시파일 어디에도 두지 않는다. 수집 스크립트만 환경변수로 받는다.
+  (`.gitignore` 에 `scripts/.env`, `scripts/raw/` 등록)
+
+데이터 접근은 [src/scale/data/loader.ts](src/scale/data/loader.ts) 한 곳으로만 들어온다.
+화면은 `meta.source` 를 읽어 현재 표시 중인 값이 합성 데이터인지 실측인지 정직하게 표시한다.
+
+---
+
+## 화면 흐름 (S0 → S7)
+
+| 단계 | 내용 | 가르치는 것 |
+| --- | --- | --- |
+| **S0** | 도전장 — "당신은 며칠 앞을 맞힐 수 있을까?" | 설명 없이 10초 안에 첫 조작 |
+| **S1** | 날씨 맞히기 3라운드 (기온 슬라이더 50 + 강수 4지선다 30 + 보너스 20) | 지속성 / 기압·습도 → 비 / 운량 → 일교차 / 북풍 → 기온 하강 |
+| **S2** | 일별 점 365개 → 월평균 → 연평균 압축 | "이게 날씨입니다 → 이것이 기후입니다" |
+| **S3** | 40년 연평균 점 누적 + 추세선 | 개별 연도는 튀지만 방향은 남는다 |
+| **S4** | 빈 해 예측 (랜덤, 100점) | 평균은 예측 가능하다 |
+| **S5** | 곡선을 2100년까지 끌기 → SSP 부채꼴 | 미래는 갈라지는 부채 — 인간의 선택 |
+| **S6** | 밀란코비치 미션 (시간제한, 120점) | 천체역학은 시계다 |
+| **S7** | 처음의 질문 회수 + U자 곡선 + 학습 카드 3장 | 예측 가능성의 U자 |
+
+만점 500점 (S1 280 + S4 100 + S6 120).
+
+### 여정을 하나로 묶는 장치
+
+- S1에서 출제된 해가 S2의 압축 대상, S3의 하이라이트 연도로 그대로 이어진다.
+- S1 R1 일교차 해설이 "1년의 기온 폭은 무엇이 정하는가"라는 복선을 심고,
+  S6 자전축 기울기 슬라이더가 **부산 위도의 연교차 진폭**으로 그것을 회수한다.
+- S4는 사용자의 S1 평균 오차와 40년 규모 오차를 나란히 놓는다.
+- S7의 U자 곡선에는 사용자가 실제로 서 봤던 세 지점이 자기 점수와 함께 찍힌다.
+
+---
+
+## 데이터
+
+`/data` 의 JSON 4종. 현재는 스키마 검증용 **합성 데이터**이며, 대회 전에 실측으로 교체한다.
+
+| 파일 | 내용 | 쓰임 |
+| --- | --- | --- |
+| `busan_daily.json` | 일별 기온·강수·습도·기압·풍향/풍속·운량 (2019–2023) | S1 출제 풀, S2 압축 |
+| `busan_monthly.json` | 월별 평년값 (1991–2020) | S2 계절 곡선 |
+| `busan_yearly.json` | 연평균 기온 (1985–2024) | S3 점 누적, S4 빈 해 |
+| `future_ssp.json` | SSP1-2.6 / 2-4.5 / 5-8.5 경상권 전망 | S5 부채꼴 |
+
+### 합성 데이터를 그냥 랜덤으로 만들지 않은 이유
+
+S1의 채점 해설이 데이터와 어긋나면 교육 효과가 무너진다. 그래서 생성기는 종관 위상
+모델(고기압 → 저기압 접근 → 전선 통과 → 전선 후면)을 돌려 **콘텐츠가 가르칠 관계를
+데이터에 실제로 심고**, 실행할 때마다 그것이 성립하는지 검증 리포트를 출력한다.
+
+```bash
+python3 scripts/make_dummy_data.py
+#   지속성 예보 MAE(최고기온)  : 1.73 °C
+#   강수 신호일 다음날 비 확률 : 54 %  (전체 26 %)
+#   일교차 맑은날 / 흐린날     : 9.7 / 4.3 °C
+#   기온변화 북풍 / 남풍       : -0.66 / +0.61 °C
+#   연평균 상승 추세           : +0.39 °C / 10년
+```
+
+### 실데이터로 교체 (대회 전 1회)
+
+```bash
+export KMA_APIHUB_KEY="발급받은키"        # 기상청 API허브. 또는 DATA_GO_KR_KEY
+python3 scripts/fetch_asos.py --selftest  # 키 없이 파서만 점검
+python3 scripts/fetch_asos.py --dry-run   # 호출 없이 URL/키 인식 확인
+python3 scripts/fetch_asos.py --years 2019 2023 --normals 1991 2020
+```
+
+출력 스키마가 더미와 완전히 동일하므로 `/data` 를 덮어쓰면 앱 코드는 그대로다.
+같은 검증 리포트가 실데이터에도 돌아가므로, 컬럼 매핑을 잘못 잡으면 (예: 현지기압/해면기압
+혼동, 풍향 단위) 수치가 반대로 나와 바로 잡힌다.
+
+SSP 시나리오는 공개 API가 없다. 기후변화정보포털(CCIC)에서 경상권 전망을 CSV로 내려
+`scripts/raw/ssp_gyeongsang.csv` (`scenario,year,tavg[,low,high]`)로 두면 자동으로 읽고,
+없으면 근사 곡선으로 폴백하면서 `meta.source` 에 그 사실을 남긴다.
+
+---
+
+## 구조
+
+```
+data/                        번들되는 JSON 4종 (런타임 fetch 없음)
+scripts/
+  common.py                  스키마·집계·검증 (더미/실데이터 공용)
+  make_dummy_data.py         합성 데이터 생성기
+  fetch_asos.py              실데이터 수집기 (--selftest / --dry-run)
+src/scale/
+  App.tsx                    S0→S7 단계 전환
+  state/journey.tsx          여정 상태 (점수·단계·딥링크)
+  data/loader.ts             데이터 접근 유일 통로
+  lib/forecast.ts            S1 출제·채점·해설 규칙 엔진
+  lib/milankovitch.ts        일사량 물리 계산 (Berger 표준식)
+  lib/scales.ts              스케일·눈금·곡선 경로
+  components/                차트 골격, 별밭 배경, 시간 규모 자
+  stages/                    S0 … S7 화면
+```
+
+차트는 d3 없이 SVG를 직접 그린다. 시리즈 색은 dataviz 팔레트 검증기(어두운 배경,
+all-pairs, 색각 이상 분리도)를 통과한 조합만 쓴다 — 값을 바꾸려면 재검증할 것.
+
+### 물리 계산 검증
+
+S6는 데이터 파일이 아니라 Berger(1978) 표준식으로 일사량을 실시간 계산한다.
+현재 지구 값으로 북위 65° 하지 일사량 **478 W/m²** 가 나오며, 이는 문헌값(약 480 W/m²)과
+일치한다. 세차각은 기후학 관례(ω+180° = 근일점의 태양황경)를 따른다 — 이 180°를 빼먹으면
+"6월에 태양과 가장 가깝다"는 반대 결론이 나온다.
+
+---
+
+## 톤 가이드
+
+- 종말 공포 금지. 호기심과 도전으로 이끈다.
+- 틀림은 감점이 아니라 **발견**. 채점 문구는 "틀렸다"가 아니라 "무엇이 어긋났고 왜 그랬는지"를
+  실제 관측 숫자로 말한다.

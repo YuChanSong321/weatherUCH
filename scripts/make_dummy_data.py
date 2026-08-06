@@ -18,18 +18,26 @@
 
 from __future__ import annotations
 
-import json
 import math
 import random
 from datetime import date, timedelta
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = ROOT / "data"
+from common import (
+    DAILY_UNITS,
+    DATA_DIR,
+    SCHEMA_VERSION,
+    STATION,
+    baseline_from_yearly,
+    monthly_from_daily,
+    ssp_scenarios,
+    verify,
+    wind_dir_label,
+    wind_family,
+    write_json,
+    yearly_from_daily,
+)
 
-SCHEMA_VERSION = 1
-SOURCE_TAG = "SYNTHETIC_DUMMY"  # 실데이터 교체 시 "KMA_ASOS" 등으로 바뀐다
-STATION = {"name": "부산", "stnId": 159, "lat": 35.1047, "lon": 129.0320}
+SOURCE_TAG = "SYNTHETIC_DUMMY"  # 실데이터 교체 시 "KMA_ASOS" 로 바뀐다
 
 # 부산 평년값(1991-2020) 근사치 — 월별 [평균, 최고평균, 최저평균, 강수량mm, 습도%]
 MONTHLY_NORMALS = [
@@ -76,28 +84,6 @@ def smooth_seasonal(day_of_year: int, key: int) -> float:
             w = 0.5 - 0.5 * math.cos(math.pi * t)  # smoothstep
             return values[i] * (1 - w) + values[(i + 1) % 12] * w
     return values[0]
-
-
-def wind_dir_label(deg: float) -> str:
-    """16방위 대신 콘텐츠에서 쓰는 4계열(북/동/남/서) + 한글 방위명."""
-    dirs = [
-        (0, "북"), (45, "북동"), (90, "동"), (135, "남동"),
-        (180, "남"), (225, "남서"), (270, "서"), (315, "북서"),
-    ]
-    best = min(dirs, key=lambda d: min(abs(deg - d[0]), 360 - abs(deg - d[0])))
-    return best[1]
-
-
-def wind_family(deg: float) -> str:
-    """북·동·남·서 계열 (S1 R2 보너스 4지선다 정답 판정용)."""
-    d = deg % 360
-    if d >= 315 or d < 45:
-        return "N"
-    if d < 135:
-        return "E"
-    if d < 225:
-        return "S"
-    return "W"
 
 
 def generate_daily() -> list[dict]:
@@ -216,44 +202,6 @@ def generate_daily() -> list[dict]:
     return records
 
 
-def yearly_from_daily(daily: list[dict]) -> dict[int, dict]:
-    """일별 데이터에서 연평균을 계산 (S2 전환 애니메이션의 정합성용)."""
-    acc: dict[int, dict] = {}
-    for r in daily:
-        y = int(r["date"][:4])
-        a = acc.setdefault(y, {"tavg": 0.0, "tmax": 0.0, "tmin": 0.0, "precip": 0.0, "n": 0})
-        a["tavg"] += r["tavg"]
-        a["tmax"] += r["tmax"]
-        a["tmin"] += r["tmin"]
-        a["precip"] += r["precip"]
-        a["n"] += 1
-    out = {}
-    for y, a in acc.items():
-        n = a["n"]
-        out[y] = {
-            "tavg": round(a["tavg"] / n, 2),
-            "tmaxMean": round(a["tmax"] / n, 2),
-            "tminMean": round(a["tmin"] / n, 2),
-            "precip": round(a["precip"], 1),
-        }
-    return out
-
-
-def monthly_from_daily(daily: list[dict]) -> list[dict]:
-    """일별 데이터에서 월평균 시계열 (S2 압축 애니메이션이 실제로 쓰는 값)."""
-    acc: dict[str, dict] = {}
-    for r in daily:
-        key = r["date"][:7]
-        a = acc.setdefault(key, {"tavg": 0.0, "precip": 0.0, "n": 0})
-        a["tavg"] += r["tavg"]
-        a["precip"] += r["precip"]
-        a["n"] += 1
-    return [
-        {"month": k, "tavg": round(v["tavg"] / v["n"], 2), "precip": round(v["precip"], 1)}
-        for k, v in sorted(acc.items())
-    ]
-
-
 def generate_yearly(daily_years: dict[int, dict]) -> list[dict]:
     """연평균 기온 시계열 — 선형 추세 + 십년 규모 변동 + 잡음."""
     rng = random.Random(1985)
@@ -284,66 +232,6 @@ def generate_yearly(daily_years: dict[int, dict]) -> list[dict]:
     return out
 
 
-def generate_ssp(yearly: list[dict]) -> tuple[float, list[dict]]:
-    """SSP 시나리오별 경상권 기온 전망 (기준: 1995-2014 평균).
-
-    값은 국내 남부권 시나리오 전망을 단순화한 근사치. 실데이터 교체 시
-    기후변화정보포털(CCIC) 시나리오 자료로 대체한다.
-
-    기준값은 관측 시계열의 1995-2014 평균에서 그대로 가져온다 — 그래야 S5에서
-    관측 곡선과 시나리오 부채꼴이 같은 높이에서 이어진다.
-    """
-    base_rows = [r["tavg"] for r in yearly if 1995 <= r["year"] <= 2014]
-    baseline = round(sum(base_rows) / len(base_rows), 2)
-    years = [2025, 2035, 2045, 2055, 2065, 2075, 2085, 2095, 2100]
-    # 세 시나리오는 현재(2025) 근처에서 거의 같은 값에서 출발해 뒤로 갈수록
-    # 갈라진다 — S5의 "부채꼴" 연출이 성립하려면 이 성질이 반드시 필요하다.
-    # 색은 dataviz 팔레트 검증기(어두운 배경, all-pairs)를 통과한 조합이다 —
-    # 값을 바꾸려면 반드시 재검증할 것.
-    # (id, label, 설명, 색, 2100 편차, 곡률지수, 불확실성 폭)
-    specs = [
-        ("ssp126", "SSP1-2.6", "탄소중립에 가까운 저배출 경로", "#3987e5", 1.7, None, 0.9),
-        ("ssp245", "SSP2-4.5", "현재 정책이 완만히 이어지는 중간 경로", "#c98500", 3.1, 0.77, 1.1),
-        ("ssp585", "SSP5-8.5", "화석연료에 계속 의존하는 고배출 경로", "#d55181", 6.1, 1.09, 1.6),
-    ]
-    scenarios = []
-    for sid, label, desc, color, target, curve, spread in specs:
-        points = []
-        for y in years:
-            t = (y - 2015) / (2100 - 2015)
-            if curve is None:
-                # 2060년대 정점 후 완만한 하강 (감축이 효과를 내는 경로)
-                shape = 3.0 * t - 2.0 * t ** 2
-            else:
-                shape = t ** curve
-            anom = target * shape
-            band = spread * (0.35 + 0.65 * t)
-            points.append({
-                "year": y,
-                "anomaly": round(anom, 2),
-                "tavg": round(baseline + anom, 2),
-                "low": round(baseline + anom - band / 2, 2),
-                "high": round(baseline + anom + band / 2, 2),
-            })
-        scenarios.append({
-            "id": sid,
-            "label": label,
-            "description": desc,
-            "color": color,
-            "points": points,
-        })
-    return baseline, scenarios
-
-
-def write_json(path: Path, payload: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=1)
-        f.write("\n")
-    size_kb = path.stat().st_size / 1024
-    print(f"  {path.relative_to(ROOT)}  ({size_kb:,.0f} KB)")
-
-
 def main() -> None:
     print("부산 더미 데이터 생성 중...")
     daily = generate_daily()
@@ -358,11 +246,7 @@ def main() -> None:
             "station": STATION,
             "years": DAILY_YEARS,
             "count": len(daily),
-            "units": {
-                "tavg": "°C", "tmax": "°C", "tmin": "°C", "precip": "mm",
-                "humidity": "%", "pressure": "hPa (해면기압)",
-                "windDeg": "deg", "windSpeed": "m/s", "cloud": "0-10",
-            },
+            "units": DAILY_UNITS,
             "note": "합성 데이터. 지속성/기압-강수/운량-일교차/풍향-기온 관계가 내장되어 있다.",
         },
         "records": daily,
@@ -403,7 +287,7 @@ def main() -> None:
         "records": yearly,
     })
 
-    ssp_baseline, ssp_scenarios = generate_ssp(yearly)
+    ssp_baseline = baseline_from_yearly(yearly)
     write_json(DATA_DIR / "future_ssp.json", {
         "meta": {
             "schemaVersion": SCHEMA_VERSION,
@@ -413,44 +297,12 @@ def main() -> None:
             "units": {"tavg": "°C", "anomaly": "°C"},
             "note": "합성 근사치. 실데이터는 기후변화정보포털(CCIC) 남부권 시나리오로 교체.",
         },
-        "scenarios": ssp_scenarios,
+        "scenarios": ssp_scenarios(ssp_baseline),
     })
 
     # 생성 결과가 "가르치려는 규칙"을 실제로 만족하는지 자체 검증
     verify(daily, yearly)
     print("완료.")
-
-
-def verify(daily: list[dict], yearly: list[dict]) -> None:
-    n = len(daily)
-    pairs = [(daily[i], daily[i + 1]) for i in range(n - 1)]
-
-    # 1) 지속성
-    diffs = [abs(b["tmax"] - a["tmax"]) for a, b in pairs]
-    mae_persist = sum(diffs) / len(diffs)
-
-    # 2) 기압 하강 + 습도 상승 -> 다음날 비
-    signal = [(a, b) for (a, b), prev in zip(pairs[1:], pairs[:-1])
-              if a["pressure"] < prev[0]["pressure"] - 2 and a["humidity"] > prev[0]["humidity"] + 3]
-    rain_rate_signal = sum(1 for _, b in signal if b["precip"] >= 1.0) / max(1, len(signal))
-    rain_rate_all = sum(1 for r in daily if r["precip"] >= 1.0) / n
-
-    # 3) 운량 - 일교차
-    clear = [r["tmax"] - r["tmin"] for r in daily if r["cloud"] <= 2]
-    cloudy = [r["tmax"] - r["tmin"] for r in daily if r["cloud"] >= 8]
-
-    # 4) 풍향 - 기온 변화
-    north = [b["tavg"] - a["tavg"] for a, b in pairs if b["windFamily"] == "N"]
-    south = [b["tavg"] - a["tavg"] for a, b in pairs if b["windFamily"] == "S"]
-
-    print("\n[자체 검증]")
-    print(f"  지속성 예보 MAE(최고기온)  : {mae_persist:.2f} °C  (2~3도면 적정)")
-    print(f"  강수 신호일 다음날 비 확률 : {rain_rate_signal*100:.0f} %  (전체 {rain_rate_all*100:.0f} %)")
-    print(f"  일교차 맑은날 / 흐린날     : {sum(clear)/len(clear):.1f} / {sum(cloudy)/len(cloudy):.1f} °C")
-    print(f"  기온변화 북풍 / 남풍       : {sum(north)/len(north):+.2f} / {sum(south)/len(south):+.2f} °C")
-    first, last = yearly[0], yearly[-1]
-    span = (last["tavg"] - first["tavg"]) / (last["year"] - first["year"]) * 10
-    print(f"  연평균 상승 추세           : {span:+.2f} °C / 10년")
 
 
 if __name__ == "__main__":
