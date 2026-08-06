@@ -9,6 +9,8 @@ import { StarField } from './components/StarField'
 import { caseIndexOf, pickCase, type ForecastCase, type RoundNumber } from './lib/forecast'
 import { S0Intro } from './stages/S0Intro'
 import { S1Forecast } from './stages/S1'
+import { S2Transition } from './stages/S2Transition'
+import { S3Climate } from './stages/S3Climate'
 import { JourneyProvider, STAGE_SCALE, useJourney } from './state/journey'
 
 export default function App() {
@@ -33,6 +35,8 @@ function Journey() {
   const { stage, runId, next, totals } = useJourney()
   const cases = useMemo(() => makeCases(), [runId])
   const act = STAGE_SCALE[stage].act
+  // S1에서 예측했던 그 해를 S2·S3까지 끌고 간다 (여정의 연결선)
+  const focusYear = Number(cases[0].today.date.slice(0, 4))
 
   return (
     <div className="flex h-full flex-col">
@@ -51,7 +55,9 @@ function Journey() {
           >
             {stage === 's0' && <S0Intro firstCase={cases[0]} onStart={next} />}
             {stage === 's1' && <S1Forecast cases={cases} />}
-            {stage !== 's0' && stage !== 's1' && <StagePlaceholder />}
+            {stage === 's2' && <S2Transition year={focusYear} onNext={next} />}
+            {stage === 's3' && <S3Climate highlightYear={focusYear} onNext={next} />}
+            {(stage === 's4' || stage === 's5' || stage === 's6' || stage === 's7') && <StagePlaceholder />}
           </motion.div>
         </AnimatePresence>
       </main>

@@ -113,8 +113,8 @@ export function S2Transition({ year, onNext }: { year: number; onNext: () => voi
           />
           {phase >= 1 && (
             <text
-              x={monthPts[6][0] + 6}
-              y={normalPts[6][1] - 10}
+              x={normalPts[1][0] + 8}
+              y={normalPts[1][1] + 18}
               fontSize={10.5}
               fill="var(--color-ink-3)"
               style={{ transition: 'opacity 700ms ease' }}
