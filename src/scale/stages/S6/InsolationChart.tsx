@@ -13,7 +13,7 @@ import {
 } from '../../lib/milankovitch'
 
 const W = 600
-const H = 212
+const H = 196
 const M = { top: 20, right: 74, bottom: 34, left: 46 }
 
 const SEASON_TICKS = [

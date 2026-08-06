@@ -33,8 +33,8 @@ export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: ()
         {/* 라운드별 최고기온 오차 — 리드타임이 아니라 '날의 성격'이 난이도를 정했다 */}
         <div className="flex flex-col gap-2 border-t border-white/8 pt-3">
           {rounds.map((r) => (
-            <div key={r.round} className="grid grid-cols-[6.5rem_1fr_5.2rem] items-center gap-3">
-              <span className="text-[11.5px] text-ink-3">
+            <div key={r.round} className="grid grid-cols-[9.5rem_1fr_5.2rem] items-center gap-3">
+              <span className="text-[11.5px] whitespace-nowrap text-ink-3">
                 R{r.round} · {ROUND_TITLE[r.round]}
               </span>
               <div className="h-2 overflow-hidden rounded-full bg-white/8">

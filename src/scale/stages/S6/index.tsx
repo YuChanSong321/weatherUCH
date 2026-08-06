@@ -127,7 +127,7 @@ export function S6Orbital({ onNext }: { onNext: () => void }) {
 
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.55fr)] items-start gap-3">
         {/* 조종석 */}
-        <section className="panel flex flex-col gap-4 p-4">
+        <section className="panel flex flex-col gap-3 p-4">
           <div>
             <div className="text-[12px] leading-relaxed text-ink-2">{mission.goal}</div>
             <div className="mt-3 flex items-baseline gap-2">
@@ -392,7 +392,7 @@ function ResultBar({
   onNext: () => void
 }) {
   return (
-    <div className="panel flex items-start justify-between gap-6 px-5 py-4 rise">
+    <div className="panel flex items-start justify-between gap-6 px-5 py-3 rise">
       <div>
         <div
           className="text-[14px] font-semibold"
@@ -400,23 +400,20 @@ function ResultBar({
         >
           {success ? '미션 성공' : '시간 종료 — 실패도 발견이다'}
         </div>
-        <p className="mt-1 max-w-3xl text-[12.5px] leading-relaxed text-ink-2">
-          {message}
-          <br />
+        <p className="mt-1 max-w-4xl text-[12.5px] leading-relaxed text-ink-2">
+          {message}{' '}
           {success ? (
-            <>
-              지금 당신이 한 일은 지구가 <span className="text-ink-1">수만 년에 걸쳐 실제로 하는 일</span>이다. 그리고
-              이 움직임은 시계처럼 계산 가능하다 — 그래서 며칠 뒤보다 10만 년 뒤가 더 잘 보인다.
-            </>
+            <span className="text-ink-1">
+              지구가 수만 년에 걸쳐 실제로 하는 일이고, 시계처럼 계산 가능하다.
+            </span>
           ) : (
-            <>
-              세 다이얼은 서로를 밀고 당긴다. 세차를 바꾸지 않으면 이심률은 거의 아무 일도 하지 않는다 — 그 결합이
-              바로 밀란코비치 이론의 핵심이다.
-            </>
+            <span className="text-ink-1">
+              세차를 바꾸지 않으면 이심률은 거의 아무 일도 하지 않는다 — 그 결합이 밀란코비치 이론의 핵심이다.
+            </span>
           )}
         </p>
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         {!success && attempt < 3 && (
           <button type="button" className="btn btn-ghost" onClick={onRetry}>
             다시 시도

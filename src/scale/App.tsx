@@ -47,7 +47,7 @@ function Journey() {
       <StarField act={act} />
       <ScaleRail stage={stage} score={totals} />
 
-      <main className="flex flex-1 items-center justify-center overflow-y-auto px-8 py-6">
+      <main className="flex flex-1 items-center justify-center overflow-y-auto px-8 py-5">
         <AnimatePresence mode="wait">
           <motion.div
             key={stage}

@@ -26,7 +26,7 @@ export function RoundResult({
   const actualPrecipLabel = PRECIP_CLASSES.find((p) => p.id === actualClass)!.label
 
   return (
-    <section className="panel rise flex flex-col gap-4 p-5">
+    <section className="panel rise flex flex-col gap-3 p-4">
       <div className="flex items-baseline justify-between">
         <h2 className="text-[15px] font-semibold tracking-tight">내일이 도착했다</h2>
         <span className="tnum text-[12px]">
@@ -36,7 +36,7 @@ export function RoundResult({
       </div>
 
       {/* 실제 관측 */}
-      <div className="panel-quiet grid grid-cols-4 gap-2 px-3 py-3 text-center">
+      <div className="panel-quiet grid grid-cols-4 gap-2 px-3 py-2.5 text-center">
         <Fact label="최고기온" value={`${answer.tmax.toFixed(1)}℃`} sub={`예보 ${guess.tmax.toFixed(1)}℃`} />
         <Fact label="강수" value={answer.precip > 0 ? `${answer.precip} mm` : '없음'} sub={actualPrecipLabel} />
         <Fact label="일교차" value={`${dtrOf(answer).toFixed(1)}℃`} sub={`하늘 ${skyOf(answer.cloud)}`} />
@@ -44,11 +44,11 @@ export function RoundResult({
       </div>
 
       {/* 항목별 채점 + 해설 */}
-      <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-2">
         {score.items.map((item) => {
           const style = VERDICT_STYLE[item.verdict]
           return (
-            <div key={item.label} className="panel-quiet px-3.5 py-3">
+            <div key={item.label} className="panel-quiet px-3.5 py-2.5">
               <div className="flex items-center gap-2">
                 <span
                   className="rounded-full px-1.5 py-px text-[10px] font-semibold"
@@ -71,7 +71,7 @@ export function RoundResult({
 
       {/* 라운드가 가르친 규칙 */}
       <div
-        className="rounded-xl border px-3.5 py-3 text-[12.5px] leading-relaxed"
+        className="rounded-xl border px-3.5 py-2.5 text-[12.5px] leading-relaxed"
         style={{
           borderColor: 'color-mix(in oklab, var(--color-act-1) 40%, transparent)',
           background: 'color-mix(in oklab, var(--color-act-1) 12%, transparent)',

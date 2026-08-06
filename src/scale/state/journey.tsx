@@ -1,5 +1,5 @@
 /** 여정 전역 상태 — 어느 단계에 있고, 각 단계에서 몇 점을 얻었는지. */
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { RoundScore } from '../lib/forecast'
 
@@ -82,6 +82,13 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
     setStage(s)
   }, [])
 
+  // 이미 열려 있는 화면에서 주소의 해시만 바꿔도 그 단계로 이동한다 (발표 중 점프용)
+  useEffect(() => {
+    const onHashChange = () => setStage(initialStage())
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
+
   const next = useCallback(() => {
     setStage((s) => STAGE_ORDER[Math.min(STAGE_ORDER.length - 1, STAGE_ORDER.indexOf(s) + 1)])
   }, [])
@@ -97,6 +104,10 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
     setDragged2100State(null)
     setRunId((n) => n + 1)
     setStage('s0')
+    // 딥링크 해시를 지운다 — 남겨두면 새로고침 시 그 단계로 되돌아간다
+    if (window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    }
   }, [])
 
   const value = useMemo<JourneyValue>(() => {

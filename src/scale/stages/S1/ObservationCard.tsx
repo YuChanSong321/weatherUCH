@@ -23,7 +23,7 @@ export function ObservationCard({ forecastCase }: { forecastCase: ForecastCase }
   const { history, today, features } = forecastCase
 
   return (
-    <section className="panel flex flex-col gap-4 p-5">
+    <section className="panel flex flex-col gap-3.5 p-4">
       <div className="flex items-baseline justify-between">
         <h2 className="text-[15px] font-semibold tracking-tight">오늘까지의 관측</h2>
         <span className="text-[11px] text-ink-3">부산 · {fmtDate(today.date)}</span>

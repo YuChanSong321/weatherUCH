@@ -38,7 +38,7 @@ export function GuessPanel({
   const diff = tmax - today.tmax
 
   return (
-    <section className="panel flex flex-col gap-5 p-5">
+    <section className="panel flex flex-col gap-4 p-4">
       <div className="flex items-baseline justify-between">
         <h2 className="text-[15px] font-semibold tracking-tight">내일의 예보</h2>
         <span className="text-[11px] text-ink-3">라운드 {round} / 3</span>
