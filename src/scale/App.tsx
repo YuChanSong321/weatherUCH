@@ -13,6 +13,7 @@ import { S2Transition } from './stages/S2Transition'
 import { S3Climate } from './stages/S3Climate'
 import { S4YearGuess } from './stages/S4YearGuess'
 import { S5Future } from './stages/S5Future'
+import { S6Orbital } from './stages/S6'
 import { JourneyProvider, STAGE_SCALE, useJourney } from './state/journey'
 
 export default function App() {
@@ -61,7 +62,8 @@ function Journey() {
             {stage === 's3' && <S3Climate highlightYear={focusYear} onNext={next} />}
             {stage === 's4' && <S4YearGuess onNext={next} />}
             {stage === 's5' && <S5Future onNext={next} />}
-            {(stage === 's6' || stage === 's7') && <StagePlaceholder />}
+            {stage === 's6' && <S6Orbital onNext={next} />}
+            {stage === 's7' && <StagePlaceholder />}
           </motion.div>
         </AnimatePresence>
       </main>
