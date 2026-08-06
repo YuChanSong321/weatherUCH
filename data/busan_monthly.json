@@ -1,0 +1,130 @@
+{
+ "meta": {
+  "schemaVersion": 1,
+  "source": "SYNTHETIC_DUMMY",
+  "station": {
+   "name": "부산",
+   "stnId": 159,
+   "lat": 35.1047,
+   "lon": 129.032
+  },
+  "period": "1991-2020",
+  "units": {
+   "tavg": "°C",
+   "tmax": "°C",
+   "tmin": "°C",
+   "precip": "mm",
+   "humidity": "%"
+  }
+ },
+ "normals": [
+  {
+   "month": 1,
+   "tavg": 3.6,
+   "tmax": 8.2,
+   "tmin": -0.4,
+   "dtr": 8.6,
+   "precip": 33.2,
+   "humidity": 45
+  },
+  {
+   "month": 2,
+   "tavg": 5.4,
+   "tmax": 10.1,
+   "tmin": 1.2,
+   "dtr": 8.9,
+   "precip": 46.1,
+   "humidity": 48
+  },
+  {
+   "month": 3,
+   "tavg": 9.2,
+   "tmax": 14.0,
+   "tmin": 4.7,
+   "dtr": 9.3,
+   "precip": 83.4,
+   "humidity": 53
+  },
+  {
+   "month": 4,
+   "tavg": 13.9,
+   "tmax": 18.6,
+   "tmin": 9.4,
+   "dtr": 9.2,
+   "precip": 126.0,
+   "humidity": 57
+  },
+  {
+   "month": 5,
+   "tavg": 18.2,
+   "tmax": 22.6,
+   "tmin": 14.1,
+   "dtr": 8.5,
+   "precip": 148.3,
+   "humidity": 63
+  },
+  {
+   "month": 6,
+   "tavg": 21.3,
+   "tmax": 25.1,
+   "tmin": 18.1,
+   "dtr": 7.0,
+   "precip": 197.4,
+   "humidity": 73
+  },
+  {
+   "month": 7,
+   "tavg": 24.9,
+   "tmax": 28.2,
+   "tmin": 22.2,
+   "dtr": 6.0,
+   "precip": 315.2,
+   "humidity": 82
+  },
+  {
+   "month": 8,
+   "tavg": 26.5,
+   "tmax": 30.1,
+   "tmin": 23.6,
+   "dtr": 6.5,
+   "precip": 273.1,
+   "humidity": 79
+  },
+  {
+   "month": 9,
+   "tavg": 22.9,
+   "tmax": 26.9,
+   "tmin": 19.5,
+   "dtr": 7.4,
+   "precip": 168.2,
+   "humidity": 72
+  },
+  {
+   "month": 10,
+   "tavg": 18.3,
+   "tmax": 23.0,
+   "tmin": 14.1,
+   "dtr": 8.9,
+   "precip": 76.3,
+   "humidity": 62
+  },
+  {
+   "month": 11,
+   "tavg": 12.2,
+   "tmax": 17.0,
+   "tmin": 7.9,
+   "dtr": 9.1,
+   "precip": 54.2,
+   "humidity": 55
+  },
+  {
+   "month": 12,
+   "tavg": 6.0,
+   "tmax": 10.8,
+   "tmin": 1.9,
+   "dtr": 8.9,
+   "precip": 27.4,
+   "humidity": 48
+  }
+ ]
+}

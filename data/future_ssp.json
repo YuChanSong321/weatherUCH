@@ -1,0 +1,231 @@
+{
+ "meta": {
+  "schemaVersion": 1,
+  "source": "SYNTHETIC_DUMMY",
+  "region": "경상권",
+  "baseline": {
+   "period": "1995-2014",
+   "tavg": 15.0
+  },
+  "units": {
+   "tavg": "°C",
+   "anomaly": "°C"
+  },
+  "note": "합성 근사치. 실데이터는 기후변화정보포털(CCIC) 남부권 시나리오로 교체."
+ },
+ "scenarios": [
+  {
+   "id": "ssp126",
+   "label": "SSP1-2.6",
+   "description": "탄소중립에 가까운 저배출 경로",
+   "color": "#3987e5",
+   "points": [
+    {
+     "year": 2025,
+     "anomaly": 0.55,
+     "tavg": 15.55,
+     "low": 15.36,
+     "high": 15.74
+    },
+    {
+     "year": 2035,
+     "anomaly": 1.01,
+     "tavg": 16.01,
+     "low": 15.79,
+     "high": 16.24
+    },
+    {
+     "year": 2045,
+     "anomaly": 1.38,
+     "tavg": 16.38,
+     "low": 16.12,
+     "high": 16.64
+    },
+    {
+     "year": 2055,
+     "anomaly": 1.65,
+     "tavg": 16.65,
+     "low": 16.35,
+     "high": 16.94
+    },
+    {
+     "year": 2065,
+     "anomaly": 1.82,
+     "tavg": 16.82,
+     "low": 16.49,
+     "high": 17.15
+    },
+    {
+     "year": 2075,
+     "anomaly": 1.91,
+     "tavg": 16.91,
+     "low": 16.54,
+     "high": 17.27
+    },
+    {
+     "year": 2085,
+     "anomaly": 1.89,
+     "tavg": 16.89,
+     "low": 16.5,
+     "high": 17.29
+    },
+    {
+     "year": 2095,
+     "anomaly": 1.79,
+     "tavg": 16.79,
+     "low": 16.36,
+     "high": 17.22
+    },
+    {
+     "year": 2100,
+     "anomaly": 1.7,
+     "tavg": 16.7,
+     "low": 16.25,
+     "high": 17.15
+    }
+   ]
+  },
+  {
+   "id": "ssp245",
+   "label": "SSP2-4.5",
+   "description": "현재 정책이 완만히 이어지는 중간 경로",
+   "color": "#c98500",
+   "points": [
+    {
+     "year": 2025,
+     "anomaly": 0.6,
+     "tavg": 15.6,
+     "low": 15.36,
+     "high": 15.83
+    },
+    {
+     "year": 2035,
+     "anomaly": 1.02,
+     "tavg": 16.02,
+     "low": 15.74,
+     "high": 16.29
+    },
+    {
+     "year": 2045,
+     "anomaly": 1.39,
+     "tavg": 16.39,
+     "low": 16.07,
+     "high": 16.71
+    },
+    {
+     "year": 2055,
+     "anomaly": 1.73,
+     "tavg": 16.73,
+     "low": 16.37,
+     "high": 17.1
+    },
+    {
+     "year": 2065,
+     "anomaly": 2.06,
+     "tavg": 17.06,
+     "low": 16.66,
+     "high": 17.46
+    },
+    {
+     "year": 2075,
+     "anomaly": 2.37,
+     "tavg": 17.37,
+     "low": 16.93,
+     "high": 17.82
+    },
+    {
+     "year": 2085,
+     "anomaly": 2.67,
+     "tavg": 17.67,
+     "low": 17.18,
+     "high": 18.16
+    },
+    {
+     "year": 2095,
+     "anomaly": 2.96,
+     "tavg": 17.96,
+     "low": 17.43,
+     "high": 18.49
+    },
+    {
+     "year": 2100,
+     "anomaly": 3.1,
+     "tavg": 18.1,
+     "low": 17.55,
+     "high": 18.65
+    }
+   ]
+  },
+  {
+   "id": "ssp585",
+   "label": "SSP5-8.5",
+   "description": "화석연료에 계속 의존하는 고배출 경로",
+   "color": "#d55181",
+   "points": [
+    {
+     "year": 2025,
+     "anomaly": 0.59,
+     "tavg": 15.59,
+     "low": 15.25,
+     "high": 15.93
+    },
+    {
+     "year": 2035,
+     "anomaly": 1.26,
+     "tavg": 16.26,
+     "low": 15.86,
+     "high": 16.66
+    },
+    {
+     "year": 2045,
+     "anomaly": 1.96,
+     "tavg": 16.96,
+     "low": 16.5,
+     "high": 17.42
+    },
+    {
+     "year": 2055,
+     "anomaly": 2.68,
+     "tavg": 17.68,
+     "low": 17.16,
+     "high": 18.21
+    },
+    {
+     "year": 2065,
+     "anomaly": 3.42,
+     "tavg": 18.42,
+     "low": 17.84,
+     "high": 19.01
+    },
+    {
+     "year": 2075,
+     "anomaly": 4.17,
+     "tavg": 19.17,
+     "low": 18.53,
+     "high": 19.82
+    },
+    {
+     "year": 2085,
+     "anomaly": 4.94,
+     "tavg": 19.94,
+     "low": 19.23,
+     "high": 20.64
+    },
+    {
+     "year": 2095,
+     "anomaly": 5.71,
+     "tavg": 20.71,
+     "low": 19.94,
+     "high": 21.48
+    },
+    {
+     "year": 2100,
+     "anomaly": 6.1,
+     "tavg": 21.1,
+     "low": 20.3,
+     "high": 21.9
+    }
+   ]
+  }
+ ]
+}
