@@ -228,6 +228,118 @@ three.js 는 CDN import map 이 아니라 `node_modules` 에서 번들된다(외
 
 ---
 
+## 저작권 · 출처
+
+대회 규정(표절 검증 / 오픈소스 라이선스 확인 / 이미지·폰트 출처 명시 / 데이터 원출처
+표기 필수 / 기상청 자료는 공공누리 유형 확인)에 대응하는 내용을 여기 모아둔다.
+앱 안에서는 상단 자의 **ⓘ 자료 출처** 버튼이 같은 내용을 상시 노출한다
+([Attribution.tsx](src/scale/components/Attribution.tsx)).
+
+### 데이터 출처
+
+⚠️ **현재 6종 모두 합성(더미) 데이터다.** 아래 "출처 기관"은 실측 교체 시 들어갈 값이고,
+지금 앱은 화면에 "합성" 배지를 띄운다. 표시값은 각 JSON 의 `meta` 에서 읽으므로
+파일을 교체하면 화면이 자동으로 따라간다 — 배지를 코드로 지우지 말 것.
+
+| 데이터 | 출처 기관 · 데이터명 | 수집일 | 이용 조건 | 현재 상태 |
+| --- | --- | --- | --- | --- |
+| `busan_daily.json` | 기상청 · 종관기상관측(ASOS) 일자료 | 미수집 | 공공누리 유형 확인 필요 | 합성 |
+| `busan_monthly.json` | 기상청 · 기후통계 평년값(1991–2020) | 미수집 | 〃 | 합성 |
+| `busan_yearly.json` | 기상청 · 기후통계 연자료 | 미수집 | 〃 | 합성 |
+| `busan_past_forecast.json` | 기상청 · 단기예보 과거자료 + 기상특보 이력 | 미수집 | 〃 | 합성 |
+| `busan_blossom.json` | 기상청 · 계절관측(생물계절) | 미수집 | 〃 | 합성 |
+| `future_ssp.json` | 기후변화정보포털(추정) · SSP 시나리오 | 미수집 | 확인 필요 | 합성 |
+
+수집 절차와 공백 현황은 [docs/DATA_AVAILABILITY.md](docs/DATA_AVAILABILITY.md).
+
+### 라이브러리 라이선스
+
+전체 의존성 트리 251개를 조사했다. **GPL·AGPL·LGPL·SSPL 계열은 없다.**
+
+| 패키지 | 버전 | 라이선스 | 배포본 포함 |
+| --- | --- | --- | --- |
+| react / react-dom | 19.2.7 | MIT | ○ |
+| three | 0.184.0 | MIT | ○ |
+| framer-motion | 13.0.0 | MIT | ○ |
+| d3 | 7.9.0 | ISC | ○ |
+| @react-three/fiber | 9.6.1 | MIT | ○ (legacy.html) |
+| @react-three/drei | 10.7.7 | MIT | ○ (legacy.html) |
+| lucide-react | 1.21.0 | ISC | ○ (legacy.html) |
+| tailwindcss / @tailwindcss/vite | 4.3.1 | MIT | 빌드 |
+| vite | 8.0.16 | MIT | 빌드 |
+| @vitejs/plugin-react | 6.0.2 | MIT | 빌드 |
+| typescript | 5.9.3 | Apache-2.0 | 빌드 |
+| eslint (+플러그인) | 10.5.0 | MIT | 빌드 |
+| postcss / autoprefixer | 8.5.15 / 10.5.0 | MIT | 빌드 |
+
+전체 분포: MIT 169 · ISC 44 · Apache-2.0 19 · BSD-2/3 11 · MPL-2.0 3 · 0BSD 1 ·
+BlueOak-1.0.0 1 · Unlicense 1 · CC-BY-4.0 1 · 라이선스 필드 없음 1.
+
+**주의가 필요한 3건 — 셋 다 빌드 전용이며 브라우저 번들(`dist/assets/*.js`)에 없다.**
+
+| 패키지 | 라이선스 | 판단 |
+| --- | --- | --- |
+| `lightningcss` 외 2 | MPL-2.0 | 파일 단위 카피레프트. Tailwind v4 의 CSS 변환기로 **빌드 시에만** 쓰고 수정·재배포하지 않으므로 의무가 발생하지 않는다. |
+| `caniuse-lite` | CC-BY-4.0 | browserslist 데이터. 데이터 자체를 재배포하지 않으므로 표시 의무 없음. 배포한다면 출처 표시 필요. |
+| `webgl-constants` | 라이선스 필드 없음 | `@react-three/drei` 의 전이 의존성. 번들에 포함되지 않음. legacy.html 을 출품에서 뺄 경우 의존성 자체가 사라진다. |
+
+### 폰트
+
+**웹폰트를 하나도 내려받지 않는다.** `@font-face` 도 Google Fonts 링크도 없다.
+시스템에 이미 있는 폰트만 이름으로 지정한다 — 폰트 파일을 배포하지 않으므로
+폰트 라이선스 이슈가 발생하지 않는다.
+
+```
+system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo",
+"Malgun Gothic", "Noto Sans KR", sans-serif
+```
+
+### 이미지 · 아이콘
+
+| 파일 | 출처 | 조치 |
+| --- | --- | --- |
+| `public/favicon.svg` | **직접 제작** — U자 곡선(콘텐츠의 핵심 메시지) + 3막 액센트 색 | 사용 중 |
+| 차트·다이어그램 전부 | 코드가 그리는 SVG (d3 없이 직접) | — |
+| 지구 절차적 텍스처 | 코드가 fBm 노이즈로 합성 ([terra-engine.js](src/sim/terra-engine.js)) | — |
+
+**제거한 것** — 초기 스캐폴드에 딸려 온 타사 브랜드 마크. 전부 미사용이었고,
+표절·저작권 검증에서 불필요한 위험이라 삭제했다.
+
+| 제거 파일 | 내용 |
+| --- | --- |
+| `public/icons.svg` | Bluesky · Discord · GitHub · X 로고 심볼 6종 |
+| `public/favicon.svg` (구) | 출처 불명의 보라색 마크 → 직접 제작본으로 교체 |
+| `src/assets/hero.png` | 출처 불명 343×361 PNG |
+| `src/assets/vite.svg`, `react.svg` | Vite · React 로고 |
+
+### 지구 텍스처 (⚠️ 확인 필요)
+
+S6 지구본은 텍스처 6장(약 9.0 MB)을 **런타임에 원격에서** 받는다. 저장소에는 없다.
+
+| 용도 | 호스트 | 크기 |
+| --- | --- | --- |
+| 지표 · 고도 · 수면 · 구름 · 성운 | `raw.githubusercontent.com/turban/webgl-earth` | 8.3 MB |
+| 야간 도시불빛 | `unpkg.com/three-globe/example` | 0.7 MB |
+
+원본 영상은 NASA Blue Marble / Black Marble 계열로 알려져 있고 NASA 영상은 일반적으로
+퍼블릭 도메인이지만, **위 두 저장소의 라이선스 파일을 직접 확인하지 않았다.**
+출품 전에 확인하고 결과를 이 표에 적을 것. 받지 못하면 엔진이 절차적 합성으로
+폴백하므로 화면이 깨지지는 않는다.
+
+### 외부 코드 복붙 점검
+
+코드베이스에서 외부 저작권 표기·라이선스 헤더가 박힌 블록은 **발견되지 않았다.**
+표절 검증에서 질문이 나올 수 있는 지점은 하나다.
+
+- [terra-engine.js](src/sim/terra-engine.js) 의 절차적 노이즈가 GLSL 관용구
+  `fract(sin(x) * 43758.5453)` 을 쓴다. 특정 저작물이 아니라 셰이더 분야의 공용
+  관용구지만, 유사도 검사에서 걸릴 수 있으므로 출처를 물으면 이 문단을 근거로 답할 것.
+- 이 파일은 원래 이 프로젝트의 standalone 시뮬레이터(`terra-orbital-sim.html`)에
+  있던 코드를 모듈로 옮긴 것이다. 영문 주석이 많은 이유가 그것이며, 외부에서
+  가져온 것이 아니다.
+
+---
+
 ## 톤 가이드
 
 - **화면에 뜨는 문구는 합니다체**로 쓴다. 교육 콘텐츠라 읽는 사람에게 말을 거는 쪽이 맞다.

@@ -2,6 +2,7 @@
  * 상단 시간 규모 자 (ruler). 단계가 넘어갈 때 마커가 오른쪽으로 미끄러지며
  * "카메라가 뒤로 물러난다"는 감각을 하나의 연속된 여정으로 묶어준다.
  */
+import { Attribution } from './Attribution'
 import { STAGE_SCALE, type Stage } from '../state/journey'
 
 /** 로그 시간축 위의 위치(0~1) — 하루에서 수만 년까지 */
@@ -66,6 +67,9 @@ export function ScaleRail({ stage, score }: { stage: Stage; score: { earned: num
           />
         </div>
       </div>
+
+      {/* 자료 출처 — 대회 규정상 상시 노출이어야 한다 */}
+      <Attribution />
 
       <div className="min-w-[7.5rem] text-right">
         <div className="tnum text-[13px] font-semibold" style={{ color }}>

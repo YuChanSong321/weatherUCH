@@ -91,6 +91,50 @@ export const dataSources = {
 }
 export const isDummyData = Object.values(dataSources).some((s) => s === 'SYNTHETIC_DUMMY')
 
+/**
+ * 화면에 띄우는 출처 표기 — 대회 규정이 데이터 원출처 표기를 필수로 둔다.
+ *
+ * 값을 코드에 적어두지 않고 **각 JSON 의 meta 에서 읽는다.** 파일이 실측으로 바뀌면
+ * 화면도 반드시 따라 바뀌어야 하고, 반대로 합성 데이터를 실측처럼 보이게 만드는 일이
+ * 절대 없어야 하기 때문이다.
+ */
+export type DatasetCredit = {
+  file: string
+  label: string
+  provider: string
+  dataset: string
+  fetchedAt: string | null
+  license: string
+  synthetic: boolean
+}
+
+const creditOf = (
+  file: string,
+  label: string,
+  meta: DataMeta,
+  fallbackDataset: string,
+): DatasetCredit => {
+  const synthetic = meta.source === 'SYNTHETIC_DUMMY'
+  return {
+    file,
+    label,
+    provider: synthetic ? '합성 생성기 (scripts/make_dummy_data.py)' : String(meta._provider ?? '기상청'),
+    dataset: synthetic ? '' : String(meta._dataset ?? fallbackDataset),
+    fetchedAt: typeof meta._fetched_at === 'string' ? meta._fetched_at.slice(0, 10) : null,
+    license: String(meta._license ?? '공공누리 유형 확인 필요'),
+    synthetic,
+  }
+}
+
+export const datasetCredits: DatasetCredit[] = [
+  creditOf('busan_daily.json', '일별 관측', dailyFile.meta, '종관기상관측(ASOS) 일자료'),
+  creditOf('busan_monthly.json', '월 평년값', monthlyFile.meta, '기후통계 평년값'),
+  creditOf('busan_yearly.json', '연평균 기온', yearlyFile.meta, '기후통계 연자료'),
+  creditOf('busan_past_forecast.json', '과거 예보·특보', pastForecastFile.meta, '단기예보 과거자료 / 기상특보 이력'),
+  creditOf('busan_blossom.json', '벚꽃 개화일', blossomFile.meta, '계절관측(생물계절)'),
+  creditOf('future_ssp.json', 'SSP 시나리오', sspFile.meta, '기후변화 시나리오'),
+]
+
 const byDate = new Map(daily.map((r) => [r.date, r]))
 export const getDay = (date: string): DailyRecord | undefined => byDate.get(date)
 

@@ -43,6 +43,7 @@ import urllib.parse
 from datetime import date
 
 from common import (  # noqa: E402
+    mask_url,
     DATA_DIR,
     RAW_DIR,
     REQUEST_PAUSE,
@@ -189,7 +190,7 @@ def fetch_api(key: str, start: int, end: int, dry_run: bool) -> list[dict]:
         }
         url = f"{SEASON_URL}?{urllib.parse.urlencode(params)}"
         if dry_run:
-            print(f"  [dry-run] {year} {url.replace(key, '***')}")
+            print(f"  [dry-run] {year} {mask_url(url, key)}")
             continue
         try:
             records.extend(parse_api(fetch(url)))

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -180,28 +181,43 @@ def ssp_scenarios(baseline: float) -> list[dict]:
 # ⚠️ 키는 환경변수로만 받고, 값은 어떤 경로로도 화면·로그에 남기지 않는다.
 
 
-def load_key(required: bool = True) -> tuple[str, str]:
-    """(provider, key). 키 값은 절대 로그로 출력하지 않는다."""
-    # 편의를 위해 scripts/.env 도 읽는다 (gitignore 대상)
-    env_file = ROOT / "scripts" / ".env"
-    if env_file.exists():
+# .env 를 찾는 순서. 루트가 우선이다 (프로젝트 표준 위치).
+ENV_FILES = (ROOT / ".env", ROOT / "scripts" / ".env")
+
+# 받아들이는 키 이름. 앞이 우선.
+KEY_NAMES = ("KMA_API_KEY", "KMA_APIHUB_KEY")
+DATA_GO_KR_NAMES = ("DATA_GO_KR_KEY",)
+
+
+def load_env() -> None:
+    """.env 를 환경변수로 올린다. 이미 설정된 값은 덮어쓰지 않는다."""
+    for env_file in ENV_FILES:
+        if not env_file.exists():
+            continue
         for line in env_file.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
                 os.environ.setdefault(k.strip(), v.strip().strip("'\""))
 
-    if os.environ.get("KMA_APIHUB_KEY"):
-        return "apihub", os.environ["KMA_APIHUB_KEY"]
-    if os.environ.get("DATA_GO_KR_KEY"):
-        return "data.go.kr", os.environ["DATA_GO_KR_KEY"]
+
+def load_key(required: bool = True) -> tuple[str, str]:
+    """(provider, key). 키 값은 어떤 경로로도 화면·로그에 남기지 않는다."""
+    load_env()
+
+    for name in KEY_NAMES:
+        if os.environ.get(name):
+            return "apihub", os.environ[name]
+    for name in DATA_GO_KR_NAMES:
+        if os.environ.get(name):
+            return "data.go.kr", os.environ[name]
 
     if not required:
         return "none", ""
     sys.exit(
-        "API 키가 없다. 아래 중 하나를 환경변수로 설정할 것 (커밋 금지):\n"
-        "  export KMA_APIHUB_KEY=...   # 기상청 API허브\n"
-        "  export DATA_GO_KR_KEY=...   # 공공데이터포털"
+        "API 키가 없다. 프로젝트 루트에 .env 를 만들고 아래 한 줄을 넣을 것.\n"
+        "  KMA_API_KEY=발급받은키          # 기상청 API허브 (apihub.kma.go.kr)\n"
+        "(.gitignore 에 .env 가 등록되어 있어 커밋되지 않는다)"
     )
 
 
@@ -210,14 +226,30 @@ def masked(key: str) -> str:
     return f"확인됨 (길이 {len(key)})"
 
 
-def fetch(url: str) -> str:
-    """GET with 재시도. 실패 응답 본문에 키가 들어갈 수 있어 그대로 찍지 않는다."""
+def mask_url(url: str, key: str = "") -> str:
+    """로그·보고서에 남길 URL — 인증 파라미터를 지운다.
+
+    키 문자열을 아는 경우(key 인자)뿐 아니라, 모르는 경우에도 authKey/serviceKey/
+    apiKey 파라미터 값을 통째로 *** 로 바꾼다. 실수로 다른 키가 섞여 들어와도
+    새어 나가지 않게 하려는 것이다.
+    """
+    out = url
+    if key:
+        out = out.replace(key, "***")
+    return re.sub(r"((?:authKey|serviceKey|apiKey|key)=)[^&\s]+", r"\1***", out, flags=re.I)
+
+
+def fetch(url: str, key: str = "") -> str:
+    """GET with 재시도. 예외 메시지에도 URL(=키)이 실리지 않게 한다."""
     last_err: Exception | None = None
     for attempt in range(1, MAX_RETRY + 1):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "prediction-scale/1.0"})
             with urllib.request.urlopen(req, timeout=30) as resp:
                 return resp.read().decode("utf-8", errors="replace")
+        except urllib.error.HTTPError as e:
+            # HTTPError 는 str() 에 요청 URL 이 들어갈 수 있다 — 상태코드만 남긴다
+            raise RuntimeError(f"HTTP {e.code} ({mask_url(url, key)})") from None
         except (urllib.error.URLError, TimeoutError) as e:
             last_err = e
             wait = attempt * 2

@@ -50,6 +50,7 @@ import urllib.parse
 from datetime import date, datetime, timedelta
 
 from common import (  # noqa: E402
+    mask_url,
     DATA_DIR,
     PRECIP_ORDER,
     RAW_DIR,
@@ -275,7 +276,7 @@ def fetch_forecasts(key: str, targets: list[date], dry_run: bool) -> list[dict]:
         }
         url = f"{FCST_URL}?{urllib.parse.urlencode(params)}"
         if dry_run:
-            safe = url.replace(key, "***")
+            safe = mask_url(url, key)
             print(f"  [dry-run] {start:%Y-%m} {safe}")
             continue
 
@@ -299,7 +300,7 @@ def fetch_advisories(key: str, targets: list[date], dry_run: bool) -> dict[str, 
     }
     url = f"{WARN_URL}?{urllib.parse.urlencode(params)}"
     if dry_run:
-        print(f"  [dry-run] 특보 {url.replace(key, '***')}")
+        print(f"  [dry-run] 특보 {mask_url(url, key)}")
         return {}
 
     try:
