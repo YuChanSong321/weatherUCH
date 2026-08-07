@@ -24,6 +24,10 @@
   --color-ssp126: #3987e5;
   --color-ssp245: #c98500;
   --color-ssp585: #d55181;
+  /* 벚꽃 개화일 (S3 보조 레이어). 추세선(act-2)과 all-pairs 검증 통과:
+     deutan ΔE 21.0 / tritan 8.5 / 정상시야 23.8. ssp585 와 색이 겹치지 않게
+     따로 잡았다 — 다른 화면의 다른 대상이 같은 색을 쓰면 안 된다. */
+  --color-blossom: #c86bb4;
 
   --color-good: #2f9e6e;
   --color-warn: #c98500;
