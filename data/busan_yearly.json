@@ -1,340 +1,342 @@
 {
  "meta": {
   "schemaVersion": 1,
-  "source": "SYNTHETIC_DUMMY",
+  "source": "KMA_ASOS",
+  "_source": "KMA API Hub",
+  "_provider": "기상청",
+  "_dataset": "ASOS 일자료 집계 · 연평균기온",
+  "_station": {
+   "name": "부산",
+   "stnId": 159,
+   "lat": 35.1047,
+   "lon": 129.032
+  },
+  "_fetched_at": "2026-08-07T16:49:30+09:00",
+  "_license": "공공누리 유형 확인 필요",
   "station": {
    "name": "부산",
    "stnId": 159,
    "lat": 35.1047,
    "lon": 129.032
   },
-  "period": "1985-2024",
+  "period": "1985-2023",
   "units": {
    "tavg": "°C",
    "precip": "mm"
-  },
-  "note": "일별 데이터가 있는 해(2019-2023)의 값은 일별 평균에서 계산됨."
+  }
  },
  "records": [
   {
    "year": 1985,
-   "tavg": 13.99,
+   "tavg": 14.29,
    "tmaxMean": 18.47,
-   "tminMean": 9.64,
-   "precip": 1532.7,
-   "fromDaily": false
+   "tminMean": 10.96,
+   "precip": 2200.5,
+   "fromDaily": true
   },
   {
    "year": 1986,
-   "tavg": 14.54,
-   "tmaxMean": 18.79,
-   "tminMean": 10.49,
-   "precip": 1221.6,
-   "fromDaily": false
+   "tavg": 13.8,
+   "tmaxMean": 18.5,
+   "tminMean": 10.21,
+   "precip": 1143.4,
+   "fromDaily": true
   },
   {
    "year": 1987,
-   "tavg": 13.97,
-   "tmaxMean": 18.44,
-   "tminMean": 9.79,
-   "precip": 2012.3,
-   "fromDaily": false
+   "tavg": 14.38,
+   "tmaxMean": 18.87,
+   "tminMean": 10.99,
+   "precip": 1422.9,
+   "fromDaily": true
   },
   {
    "year": 1988,
-   "tavg": 14.67,
-   "tmaxMean": 19.25,
-   "tminMean": 10.59,
-   "precip": 1843.8,
-   "fromDaily": false
+   "tavg": 14.17,
+   "tmaxMean": 18.76,
+   "tminMean": 10.82,
+   "precip": 901.5,
+   "fromDaily": true
   },
   {
    "year": 1989,
-   "tavg": 15.08,
-   "tmaxMean": 19.31,
-   "tminMean": 11.0,
-   "precip": 1479.3,
-   "fromDaily": false
+   "tavg": 14.92,
+   "tmaxMean": 19.33,
+   "tminMean": 11.74,
+   "precip": 1750.1,
+   "fromDaily": true
   },
   {
    "year": 1990,
-   "tavg": 14.39,
-   "tmaxMean": 18.89,
-   "tminMean": 10.09,
-   "precip": 1259.7,
-   "fromDaily": false
+   "tavg": 15.48,
+   "tmaxMean": 19.66,
+   "tminMean": 12.34,
+   "precip": 1270.9,
+   "fromDaily": true
   },
   {
    "year": 1991,
-   "tavg": 14.47,
-   "tmaxMean": 19.04,
-   "tminMean": 10.32,
-   "precip": 1257.8,
-   "fromDaily": false
+   "tavg": 14.43,
+   "tmaxMean": 18.68,
+   "tminMean": 11.25,
+   "precip": 2167.1,
+   "fromDaily": true
   },
   {
    "year": 1992,
-   "tavg": 14.51,
-   "tmaxMean": 19.05,
-   "tminMean": 10.11,
-   "precip": 1500.1,
-   "fromDaily": false
+   "tavg": 14.78,
+   "tmaxMean": 18.8,
+   "tminMean": 11.51,
+   "precip": 1308.9,
+   "fromDaily": true
   },
   {
    "year": 1993,
-   "tavg": 14.36,
-   "tmaxMean": 18.46,
-   "tminMean": 10.09,
-   "precip": 1390.2,
-   "fromDaily": false
+   "tavg": 14.09,
+   "tmaxMean": 18.23,
+   "tminMean": 10.75,
+   "precip": 1615.3,
+   "fromDaily": true
   },
   {
    "year": 1994,
-   "tavg": 13.96,
-   "tmaxMean": 18.21,
-   "tminMean": 9.64,
-   "precip": 1485.5,
-   "fromDaily": false
+   "tavg": 15.69,
+   "tmaxMean": 20.09,
+   "tminMean": 12.24,
+   "precip": 959.9,
+   "fromDaily": true
   },
   {
    "year": 1995,
-   "tavg": 14.94,
-   "tmaxMean": 19.3,
-   "tminMean": 10.67,
-   "precip": 1659.4,
-   "fromDaily": false
+   "tavg": 14.55,
+   "tmaxMean": 19.12,
+   "tminMean": 11.0,
+   "precip": 1005.7,
+   "fromDaily": true
   },
   {
    "year": 1996,
-   "tavg": 14.15,
-   "tmaxMean": 18.56,
-   "tminMean": 10.01,
-   "precip": 1735.6,
-   "fromDaily": false
+   "tavg": 14.52,
+   "tmaxMean": 19.13,
+   "tminMean": 10.96,
+   "precip": 1289.6,
+   "fromDaily": true
   },
   {
    "year": 1997,
-   "tavg": 15.33,
-   "tmaxMean": 20.09,
-   "tminMean": 11.25,
-   "precip": 1500.9,
-   "fromDaily": false
+   "tavg": 15.23,
+   "tmaxMean": 19.84,
+   "tminMean": 11.71,
+   "precip": 1598.1,
+   "fromDaily": true
   },
   {
    "year": 1998,
-   "tavg": 14.98,
-   "tmaxMean": 19.68,
-   "tminMean": 10.6,
-   "precip": 1377.2,
-   "fromDaily": false
+   "tavg": 15.87,
+   "tmaxMean": 19.78,
+   "tminMean": 12.82,
+   "precip": 2028.8,
+   "fromDaily": true
   },
   {
    "year": 1999,
-   "tavg": 14.9,
-   "tmaxMean": 19.22,
-   "tminMean": 11.03,
-   "precip": 1852.9,
-   "fromDaily": false
+   "tavg": 15.09,
+   "tmaxMean": 19.24,
+   "tminMean": 11.85,
+   "precip": 2396.7,
+   "fromDaily": true
   },
   {
    "year": 2000,
-   "tavg": 15.34,
-   "tmaxMean": 19.51,
-   "tminMean": 11.19,
-   "precip": 1276.9,
-   "fromDaily": false
+   "tavg": 14.96,
+   "tmaxMean": 19.24,
+   "tminMean": 11.62,
+   "precip": 1248.5,
+   "fromDaily": true
   },
   {
    "year": 2001,
-   "tavg": 15.41,
-   "tmaxMean": 20.03,
-   "tminMean": 11.12,
-   "precip": 1846.8,
-   "fromDaily": false
+   "tavg": 15.37,
+   "tmaxMean": 19.99,
+   "tminMean": 12.05,
+   "precip": 1171.3,
+   "fromDaily": true
   },
   {
    "year": 2002,
-   "tavg": 15.11,
-   "tmaxMean": 19.37,
-   "tminMean": 10.94,
-   "precip": 1506.2,
-   "fromDaily": false
+   "tavg": 14.71,
+   "tmaxMean": 18.91,
+   "tminMean": 11.46,
+   "precip": 2085.2,
+   "fromDaily": true
   },
   {
    "year": 2003,
-   "tavg": 15.11,
-   "tmaxMean": 19.59,
-   "tminMean": 10.77,
-   "precip": 2053.2,
-   "fromDaily": false
+   "tavg": 14.34,
+   "tmaxMean": 18.51,
+   "tminMean": 11.18,
+   "precip": 2328.3,
+   "fromDaily": true
   },
   {
    "year": 2004,
-   "tavg": 14.77,
-   "tmaxMean": 18.99,
-   "tminMean": 10.21,
-   "precip": 1537.7,
-   "fromDaily": false
+   "tavg": 14.9,
+   "tmaxMean": 19.32,
+   "tminMean": 11.5,
+   "precip": 1386.5,
+   "fromDaily": true
   },
   {
    "year": 2005,
-   "tavg": 15.09,
-   "tmaxMean": 19.35,
-   "tminMean": 10.96,
-   "precip": 1624.2,
-   "fromDaily": false
+   "tavg": 13.88,
+   "tmaxMean": 18.19,
+   "tminMean": 10.56,
+   "precip": 1383.9,
+   "fromDaily": true
   },
   {
    "year": 2006,
-   "tavg": 14.94,
-   "tmaxMean": 19.2,
-   "tminMean": 10.89,
-   "precip": 1753.2,
-   "fromDaily": false
+   "tavg": 14.71,
+   "tmaxMean": 18.92,
+   "tminMean": 11.45,
+   "precip": 1528.3,
+   "fromDaily": true
   },
   {
    "year": 2007,
-   "tavg": 15.62,
-   "tmaxMean": 19.89,
-   "tminMean": 11.36,
-   "precip": 1251.0,
-   "fromDaily": false
+   "tavg": 15.34,
+   "tmaxMean": 19.16,
+   "tminMean": 12.41,
+   "precip": 1276.5,
+   "fromDaily": true
   },
   {
    "year": 2008,
-   "tavg": 15.36,
-   "tmaxMean": 19.57,
-   "tminMean": 11.22,
-   "precip": 1036.0,
-   "fromDaily": false
+   "tavg": 15.02,
+   "tmaxMean": 18.85,
+   "tminMean": 12.05,
+   "precip": 1168.3,
+   "fromDaily": true
   },
   {
    "year": 2009,
-   "tavg": 15.34,
-   "tmaxMean": 19.65,
-   "tminMean": 10.92,
-   "precip": 1752.3,
-   "fromDaily": false
+   "tavg": 15.2,
+   "tmaxMean": 19.2,
+   "tminMean": 12.1,
+   "precip": 1772.9,
+   "fromDaily": true
   },
   {
    "year": 2010,
-   "tavg": 15.42,
-   "tmaxMean": 19.91,
-   "tminMean": 11.27,
-   "precip": 2019.2,
-   "fromDaily": false
+   "tavg": 14.99,
+   "tmaxMean": 19.04,
+   "tminMean": 11.72,
+   "precip": 1441.9,
+   "fromDaily": true
   },
   {
    "year": 2011,
-   "tavg": 15.8,
-   "tmaxMean": 19.93,
-   "tminMean": 11.57,
-   "precip": 1565.3,
-   "fromDaily": false
+   "tavg": 14.59,
+   "tmaxMean": 18.77,
+   "tminMean": 11.35,
+   "precip": 1478.6,
+   "fromDaily": true
   },
   {
    "year": 2012,
-   "tavg": 16.0,
-   "tmaxMean": 20.38,
-   "tminMean": 11.55,
-   "precip": 1194.9,
-   "fromDaily": false
+   "tavg": 14.57,
+   "tmaxMean": 18.6,
+   "tminMean": 11.36,
+   "precip": 1983.3,
+   "fromDaily": true
   },
   {
    "year": 2013,
-   "tavg": 15.98,
-   "tmaxMean": 20.42,
-   "tminMean": 11.28,
-   "precip": 1408.6,
-   "fromDaily": false
+   "tavg": 15.32,
+   "tmaxMean": 19.56,
+   "tminMean": 11.86,
+   "precip": 1130.1,
+   "fromDaily": true
   },
   {
    "year": 2014,
-   "tavg": 15.56,
-   "tmaxMean": 19.96,
-   "tminMean": 11.7,
-   "precip": 1387.4,
-   "fromDaily": false
+   "tavg": 15.13,
+   "tmaxMean": 19.29,
+   "tminMean": 12.0,
+   "precip": 1693.1,
+   "fromDaily": true
   },
   {
    "year": 2015,
-   "tavg": 15.12,
-   "tmaxMean": 19.34,
-   "tminMean": 11.0,
-   "precip": 1960.7,
-   "fromDaily": false
+   "tavg": 15.48,
+   "tmaxMean": 19.58,
+   "tminMean": 12.25,
+   "precip": 1396.7,
+   "fromDaily": true
   },
   {
    "year": 2016,
-   "tavg": 15.77,
-   "tmaxMean": 19.94,
-   "tminMean": 11.54,
-   "precip": 1508.9,
-   "fromDaily": false
+   "tavg": 15.74,
+   "tmaxMean": 19.86,
+   "tminMean": 12.57,
+   "precip": 1760.2,
+   "fromDaily": true
   },
   {
    "year": 2017,
-   "tavg": 15.61,
-   "tmaxMean": 19.96,
-   "tminMean": 11.56,
-   "precip": 1628.0,
-   "fromDaily": false
+   "tavg": 15.25,
+   "tmaxMean": 19.63,
+   "tminMean": 11.74,
+   "precip": 1014.4,
+   "fromDaily": true
   },
   {
    "year": 2018,
-   "tavg": 15.83,
-   "tmaxMean": 20.01,
-   "tminMean": 11.67,
-   "precip": 1741.4,
-   "fromDaily": false
+   "tavg": 15.12,
+   "tmaxMean": 19.29,
+   "tminMean": 11.85,
+   "precip": 1778.6,
+   "fromDaily": true
   },
   {
    "year": 2019,
    "tavg": 15.75,
-   "tmaxMean": 20.01,
-   "tminMean": 12.27,
-   "precip": 1403.2,
+   "tmaxMean": 19.88,
+   "tminMean": 12.53,
+   "precip": 1623.2,
    "fromDaily": true
   },
   {
    "year": 2020,
-   "tavg": 16.39,
-   "tmaxMean": 20.62,
-   "tminMean": 12.92,
-   "precip": 1370.9,
+   "tavg": 15.21,
+   "tmaxMean": 19.45,
+   "tminMean": 11.95,
+   "precip": 2281.6,
    "fromDaily": true
   },
   {
    "year": 2021,
-   "tavg": 16.24,
-   "tmaxMean": 20.54,
-   "tminMean": 12.73,
-   "precip": 1634.5,
+   "tavg": 15.77,
+   "tmaxMean": 19.96,
+   "tminMean": 12.45,
+   "precip": 1807.8,
    "fromDaily": true
   },
   {
    "year": 2022,
-   "tavg": 16.33,
-   "tmaxMean": 20.6,
-   "tminMean": 12.85,
-   "precip": 1376.4,
+   "tavg": 15.42,
+   "tmaxMean": 19.81,
+   "tminMean": 12.09,
+   "precip": 991.9,
    "fromDaily": true
   },
   {
    "year": 2023,
-   "tavg": 16.51,
-   "tmaxMean": 20.84,
-   "tminMean": 12.96,
-   "precip": 1194.2,
+   "tavg": 16.07,
+   "tmaxMean": 20.27,
+   "tminMean": 12.8,
+   "precip": 2191.4,
    "fromDaily": true
-  },
-  {
-   "year": 2024,
-   "tavg": 15.52,
-   "tmaxMean": 19.83,
-   "tminMean": 11.24,
-   "precip": 2059.9,
-   "fromDaily": false
   }
  ]
 }

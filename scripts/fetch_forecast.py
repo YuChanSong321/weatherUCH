@@ -52,6 +52,7 @@ from datetime import date, datetime, timedelta
 from common import (  # noqa: E402
     mask_url,
     DATA_DIR,
+    STATION,
     PRECIP_ORDER,
     RAW_DIR,
     REQUEST_PAUSE,
@@ -76,13 +77,37 @@ BASE_TIME = "0500"
 
 SOURCE_TAG = "KMA_APIHUB_FCT"
 
-# 특보 코드 → 이름. wrn_met_data 의 WRN(종류) + LVL(급) 조합이다.
-# ⚠️ 문서 기준값이며, 첫 실행 때 --dry-run 응답으로 반드시 대조할 것.
+# ⚠️ 응답에는 MAN_ID(예보관 ID)와 MAN_FC(예보관 이름)가 들어 있다. 개인정보이므로
+#    파싱 대상에서 제외하고 출력 JSON 에도 남기지 않는다 — 아래 select_forecasts 가
+#    쓰는 컬럼은 TM_FC / TM_EF / TA / ST / PREP 뿐이다.
+
+# 특보 코드 → 이름. wrn_met_data 의 WRN(종류) + LVL(수준) 조합이다.
+# 아래 값은 응답의 help=1 설명 블록에서 직접 확인했다 (추정 아님).
 WARN_KINDS = {
     "W": "강풍", "R": "호우", "C": "한파", "D": "건조", "O": "폭풍해일",
     "N": "지진해일", "V": "풍랑", "T": "태풍", "S": "대설", "Y": "황사", "H": "폭염",
 }
-WARN_LEVELS = {"1": "주의보", "2": "경보"}
+# ⚠️ 처음에 {1:주의보, 2:경보} 로 잘못 적어두고 있었다. 실제 문서는 아래와 같고,
+#    그대로 뒀으면 예비특보가 '주의보'로, 주의보가 '경보'로 한 칸씩 올라간
+#    잘못된 배지가 화면에 떴을 것이다.
+WARN_LEVELS = {"1": "예비", "2": "주의보", "3": "경보", "4": "중대경보"}
+# 예비특보(1)는 '앞으로 나갈 수 있다'는 예고라 배지로 쓰지 않는다.
+WARN_LEVELS_SHOWN = {"2", "3", "4"}
+# 특보명령: 1 발표 / 2 대치 / 3 해제 / 4 대치해제 / 5 연장 / 6 변경 / 7 변경해제
+WARN_CMD_START = {"1", "2", "5", "6"}
+
+# 부산 특보구역코드 (특보는 예보구역과 다른 코드 체계를 쓴다).
+#
+# ⚠️ 이 코드들은 2025년에 신설됐다. 직접 확인한 사실:
+#      2023년 7~8월 전국 특보 8,968건에 L10825/26/27 은 단 한 건도 없다.
+#      2025년 같은 기간에는 98건 나온다. 부산·울산이 그 사이에 세분화된 것이다.
+#    2019~2023 구간의 부산 특보는 부산지방기상청(STN 159)이 발표한 29개 구역 어딘가에
+#    섞여 있는데, 호우는 광역이라 관측 강수로 구분되지 않고 폭염으로 갈라봐도
+#    어느 구역도 해안 부산의 서명(33℃ 미달)을 보이지 않았다. 즉 그 시기에는 부산
+#    단독 구역이 없었다고 보는 편이 맞다.
+#    → 현재 출제 풀(2019–2023)에서는 advisory 를 비워 둔다. 화면은 배지 없이 정상
+#      동작한다. 지어내는 것보다 비우는 쪽이 옳다.
+BUSAN_WARN_REGIONS = ("L1082500", "L1082600", "L1082700")  # 동부/중부/서부, 2025~
 
 
 # ────────────────────────────────────────────────────────── 헤더 기반 파서
@@ -95,9 +120,12 @@ def split_cells(line: str) -> list[str]:
     한 칸을 두 칸으로 만들어 그 줄 전체의 열이 밀린다 — 조용히 틀린 값이 들어가느니
     형식을 바꾸는 쪽이 낫다.
     """
-    if "," in line:
-        return [c.strip() for c in line.split(",")]
-    return line.split()
+    cells = [c.strip() for c in line.split(",")] if "," in line else line.split()
+    # 데이터 줄은 '…,흐리고 비,=' 처럼 종결 표시 '=' 로 끝난다. 헤더에는 없는
+    # 칸이라 그대로 두면 칸 수가 하나 더 많아 전 행이 버려진다.
+    while cells and cells[-1] in ("=", ""):
+        cells.pop()
+    return cells
 
 
 def parse_apihub_table(text: str) -> list[dict[str, str]]:
@@ -293,7 +321,8 @@ def fetch_advisories(key: str, targets: list[date], dry_run: bool) -> dict[str, 
     if not targets:
         return {}
     params = {
-        "reg": REG_ID,
+        # 특보는 예보구역(REG_ID)이 아니라 특보구역 코드를 쓴다. 위 주석 참고.
+        "reg": ",".join(BUSAN_WARN_REGIONS),
         "tmfc1": min(targets).strftime("%Y%m%d") + "0000",
         "tmfc2": max(targets).strftime("%Y%m%d") + "2359",
         "disp": "1", "help": "1", "authKey": key,
@@ -316,9 +345,12 @@ def fetch_advisories(key: str, targets: list[date], dry_run: bool) -> dict[str, 
     out: dict[str, dict] = {}
     for r in rows:
         kind = WARN_KINDS.get(r.get("WRN", ""))
-        level = WARN_LEVELS.get(r.get("LVL", ""))
-        if not kind or not level:
-            continue
+        lvl = r.get("LVL", "")
+        if not kind or lvl not in WARN_LEVELS_SHOWN:
+            continue  # 예비특보와 알 수 없는 수준은 배지로 쓰지 않는다
+        if r.get("CMD", "") not in WARN_CMD_START:
+            continue  # 해제 레코드는 '발효'가 아니다
+        level = WARN_LEVELS[lvl]
         # 발효(TM_EF)부터 해제(TM_FC/TM_IN)까지 걸친 날 전부에 붙인다
         try:
             start = datetime.strptime(r["TM_EF"][:8], "%Y%m%d").date()
@@ -430,7 +462,9 @@ def selftest() -> None:
 
     wrows = parse_apihub_table(SAMPLE_WARN)
     assert wrows and wrows[0]["WRN"] == "R" and wrows[0]["LVL"] == "1", wrows
-    assert WARN_KINDS["R"] + WARN_LEVELS["1"] == "호우주의보"
+    # LVL 은 1=예비, 2=주의보, 3=경보 다 (문서 확인). 1 을 주의보로 읽던 버그의 회귀 방지.
+    assert WARN_KINDS["R"] + WARN_LEVELS["2"] == "호우주의보", WARN_LEVELS
+    assert WARN_LEVELS["1"] == "예비" and "1" not in WARN_LEVELS_SHOWN
 
     print("  헤더 기반 파서 OK — 컬럼명으로 값을 찾는다 (열 순서 무관)")
     print("  강수 등급 경계가 관측(precip_class_of)과 같은지 확인 OK")
@@ -484,7 +518,23 @@ def main() -> None:
     if covered < 60:
         print("⚠️ 커버리지가 낮다. 빠진 날은 웹앱에서 3자 대결이 빠진 채로 진행된다.")
 
-    write_json(DATA_DIR / "busan_past_forecast.json", forecast_payload(records, SOURCE_TAG))
+    payload = forecast_payload(records, SOURCE_TAG)
+    # 앱의 출처 표기 화면이 읽는 필드 (Attribution.tsx). 빠뜨리면 '확인 필요'로 뜬다.
+    payload["meta"].update({
+        "_source": "KMA API Hub",
+        "_provider": "기상청",
+        "_dataset": "단기예보 과거자료(fct_afs_dl)"
+                    + (" + 기상특보 이력(wrn_met_data)" if advisories else ""),
+        "_station": STATION,
+        "_fetched_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "_license": "공공누리 유형 확인 필요",
+    })
+    if not advisories:
+        payload["meta"]["_advisory_note"] = (
+            "부산 단독 특보구역(L10825~27)은 2025년 신설이라 이 기간에는 존재하지 않는다. "
+            "지어내지 않고 비워 둔다 — docs/DATA_AVAILABILITY.md 참고."
+        )
+    write_json(DATA_DIR / "busan_past_forecast.json", payload)
     print("완료.")
 
 

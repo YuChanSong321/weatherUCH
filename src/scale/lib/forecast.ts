@@ -143,13 +143,29 @@ const labelOfWind = (c: WindFamily) => WIND_FAMILIES.find((p) => p.id === c)!.la
 
 type Candidate = { index: number; features: CaseFeatures }
 
-/** 3일 관측 + 다음날 정답을 뽑을 수 있는 모든 위치 */
+/** 두 날짜가 하루 차이인가 — 실측에는 결측일이 있어 배열이 연속을 보장하지 않는다 */
+const isNextDay = (a: string, b: string): boolean =>
+  Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z') === 86_400_000
+
+/**
+ * 3일 관측 + 다음날 정답을 뽑을 수 있는 모든 위치.
+ *
+ * ⚠️ 배열 인덱스가 곧 '어제'라고 가정하면 안 된다. 실측 ASOS 에는 결측일이 있고
+ * (예: 2023-05-24 는 최저기온이 -99 로 와서 통째로 빠졌다), 그 자리에서는
+ * daily[i-1] 이 실제로는 이틀 전이 된다. 그러면 "어제와 비슷하게 찍으면"이라는
+ * S1 의 지속성 수업이 조용히 거짓이 된다. 네 날이 실제로 연속일 때만 후보로 쓴다.
+ */
 const candidates: Candidate[] = (() => {
   const out: Candidate[] = []
   for (let i = 2; i < daily.length - 1; i++) {
     const prev = daily[i - 1]
     const today = daily[i]
     const answer = daily[i + 1]
+    const contiguous =
+      isNextDay(daily[i - 2].date, prev.date) &&
+      isNextDay(prev.date, today.date) &&
+      isNextDay(today.date, answer.date)
+    if (!contiguous) continue
     out.push({
       index: i,
       features: {

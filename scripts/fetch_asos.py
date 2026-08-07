@@ -40,7 +40,7 @@ import json
 import sys
 import time
 import urllib.parse
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from common import (  # noqa: E402
     DAILY_UNITS,
@@ -65,6 +65,23 @@ from common import (  # noqa: E402
 )
 
 SSP_CSV = RAW_DIR / "ssp_gyeongsang.csv"
+
+
+def prov_meta(dataset: str, source: str = "KMA_ASOS") -> dict:
+    """앱의 출처 표기 화면(Attribution.tsx)이 그대로 읽는 필드들.
+
+    빠뜨리면 화면에 '확인 필요'로 뜬다. 대회 규정상 데이터 원출처 표기가 필수라
+    수집 시점에 반드시 채워야 한다.
+    """
+    return {
+        "source": source,
+        "_source": "KMA API Hub",
+        "_provider": "기상청",
+        "_dataset": dataset,
+        "_station": STATION,
+        "_fetched_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "_license": "공공누리 유형 확인 필요",
+    }
 
 APIHUB_URL = "https://apihub.kma.go.kr/api/typ01/url/kma_sfcdd3.php"
 DATA_GO_KR_URL = "https://apis.data.go.kr/1360000/AsosDalyInfoService/getWthrDataList"
@@ -111,7 +128,11 @@ def to_record(
 
 
 def num(v) -> float | None:
-    """빈칸/결측(-9, -99, '') 처리."""
+    """빈칸/결측 처리.
+
+    ⚠️ 기온에 -9 를 결측으로 쓰면 안 된다 — -9 ℃ 는 실제로 있을 수 있는 값이다.
+    그래서 여기서는 -90 이하만 결측으로 보고, -9 계열은 필드별로 아래 num9() 가 맡는다.
+    """
     if v is None:
         return None
     s = str(v).strip()
@@ -124,48 +145,76 @@ def num(v) -> float | None:
     return None if f <= -90 else f
 
 
+def num9(v) -> float | None:
+    """-9 도 결측으로 보는 필드용 (강수·습도·운량·풍속·기압).
+
+    ASOS 일자료는 강수가 없는 날 RN_DAY 를 -9.0 으로 준다. 그대로 두면 앱에
+    '강수 -9mm' 가 들어가고, S1 의 강수 등급이 통째로 어긋난다.
+    """
+    f = num(v)
+    return None if f is not None and f <= -9 else f
+
+
+# kma_sfcdd3 의 컬럼 순서 (응답의 help=1 설명 블록 그대로, 56개).
+#
+# ⚠️ 이름으로 매핑하면 안 된다. 실제 데이터 위 헤더 줄은 축약된 이름이 중복해서
+#    나온다 (WS 4번, TA 5번, WD 2번, HM 3번 …). dict(zip(header, parts)) 로 읽으면
+#    같은 이름끼리 덮어써서 조용히 틀린 값이 들어간다. 위치로 읽고, 필드 개수가
+#    문서와 다르면 멈춘다.
+SFCDD3_COLS = [
+    "TM", "STN", "WS_AVG", "WR_DAY", "WD_MAX", "WS_MAX", "WS_MAX_TM", "WD_INS", "WS_INS",
+    "WS_INS_TM", "TA_AVG", "TA_MAX", "TA_MAX_TM", "TA_MIN", "TA_MIN_TM", "TD_AVG", "TS_AVG",
+    "TG_MIN", "HM_AVG", "HM_MIN", "HM_MIN_TM", "PV_AVG", "EV_S", "EV_L", "FG_DUR", "PA_AVG",
+    "PS_AVG", "PS_MAX", "PS_MAX_TM", "PS_MIN", "PS_MIN_TM", "CA_TOT", "SS_DAY", "SS_DUR",
+    "SS_CMB", "SI_DAY", "SI_60M_MAX", "SI_60M_MAX_TM", "RN_DAY", "RN_D99", "RN_DUR",
+    "RN_60M_MAX", "RN_60M_MAX_TM", "RN_10M_MAX", "RN_10M_MAX_TM", "RN_POW_MAX",
+    "RN_POW_MAX_TM", "SD_NEW", "SD_NEW_TM", "SD_MAX", "SD_MAX_TM", "TE_05", "TE_10",
+    "TE_15", "TE_30", "TE_50",
+]
+COL = {name: i for i, name in enumerate(SFCDD3_COLS)}
+
+# 풍향은 36방위다 — 값 × 10 = 도. 실제 응답의 고유값이 5,7,9,11,14,16,…,34 로
+# 22.5° 간격(=2.25 단위)을 이루는 것으로 확인했다. 16방위(×22.5)로 읽으면 방위가
+# 2배 이상 돌아간다.
+WD_TO_DEG = 10.0
+
+
 def parse_apihub(text: str) -> list[dict]:
     """기상청 API허브 kma_sfcdd3 응답(공백 구분 텍스트) 파싱.
 
-    컬럼 순서는 응답 헤더(#로 시작하는 줄)에 적혀 있다. 헤더를 읽어 이름으로
-    매핑하므로 컬럼 순서가 바뀌어도 견딘다.
+    컬럼은 위치로 읽는다 (위 SFCDD3_COLS 주석 참고).
     """
-    header: list[str] = []
     rows: list[dict] = []
+    bad_width = 0
     for line in text.splitlines():
-        line = line.rstrip()
-        if not line:
-            continue
-        if line.startswith("#"):
-            # 헤더 후보: YYMMDDHHMI STN ... 형태의 컬럼 이름 줄
-            tokens = line.lstrip("#").split()
-            if tokens and tokens[0].upper().startswith(("TM", "YYMM")):
-                header = [t.upper() for t in tokens]
-            continue
-        if not header:
+        line = line.strip()
+        if not line or line.startswith("#"):
             continue
         parts = line.split()
-        if len(parts) < len(header):
+        if len(parts) != len(SFCDD3_COLS):
+            bad_width += 1
             continue
-        row = dict(zip(header, parts))
-        tm = row.get("TM", "")
-        if len(tm) < 8:
+        tm = parts[COL["TM"]]
+        if len(tm) < 8 or not tm[:8].isdigit():
             continue
-        day = f"{tm[:4]}-{tm[4:6]}-{tm[6:8]}"
+        deg = num9(parts[COL["WD_MAX"]])
         rec = to_record(
-            day,
-            tavg=num(row.get("TA_AVG")),
-            tmax=num(row.get("TA_MAX")),
-            tmin=num(row.get("TA_MIN")),
-            precip=num(row.get("RN_DAY")),
-            humidity=num(row.get("HM_AVG")),
-            pressure=num(row.get("PS_AVG")),  # 해면기압
-            wind_deg=num(row.get("WD_MAX")) or num(row.get("WD_AVG")),
-            wind_speed=num(row.get("WS_AVG")),
-            cloud=num(row.get("CA_TOT")),
+            f"{tm[:4]}-{tm[4:6]}-{tm[6:8]}",
+            tavg=num(parts[COL["TA_AVG"]]),
+            tmax=num(parts[COL["TA_MAX"]]),
+            tmin=num(parts[COL["TA_MIN"]]),
+            # 강수는 '없는 날'을 -9 로 준다 → 0 으로. 기온만 num() 을 쓴다(-9℃ 가능)
+            precip=num9(parts[COL["RN_DAY"]]) or 0.0,
+            humidity=num9(parts[COL["HM_AVG"]]),
+            pressure=num9(parts[COL["PS_AVG"]]),   # 해면기압. PA_AVG(현지기압) 아님
+            wind_deg=(deg * WD_TO_DEG) if deg is not None else None,
+            wind_speed=num9(parts[COL["WS_AVG"]]),
+            cloud=num9(parts[COL["CA_TOT"]]),
         )
         if rec:
             rows.append(rec)
+    if bad_width:
+        print(f"    ! 필드 개수가 {len(SFCDD3_COLS)}개가 아닌 줄 {bad_width}개를 건너뛰었다")
     return rows
 
 
@@ -196,9 +245,8 @@ def parse_data_go_kr(payload: str) -> list[dict]:
 # ────────────────────────────────────────────────────────── 파서 자체 점검
 
 SAMPLE_APIHUB = """#START7777
-# TM STN TA_AVG TA_MAX TA_MIN RN_DAY HM_AVG PS_AVG WD_AVG WS_AVG CA_TOT
-20230519 159 17.6 20.3 13.8 7.5 67.0 1016.0 320 3.9 2.4
-20230520 159 18.9 23.1 14.2 0.0 58.0 1019.2 70 2.1 1.1
+20230519 159  2.9  2544   7  4.9 1710   5 11.4 1240  17.9  21.8 1618  15.8  208  14.7  22.8  15.0  82.5  63.0 1611  16.7   4.0   2.8 -9.00  999.7 1007.8 1010.6 2138 1005.0  444  8.3  3.4 14.1 -9.0 13.99  1.98 1300    4.6    0.0  9.45    2.0    3    0.7    2   -9.0   -9   -9.0   -9   -9.0   -9  22.0  17.5  16.6  15.0  16.3
+20230520 159  2.7  2369  11  5.1 1244  25  7.3 2310  18.4  22.2 1312  14.5  533  13.3  25.4  11.7  73.0  57.0 1529  15.3   6.7   4.7 -9.00 1002.2 1010.3 1012.1  917 1009.0 1821  2.5 12.3 14.1 -9.0 29.59  3.67 1200   -9.0   -9.0 -9.00   -9.0   -9   -9.0   -9   -9.0   -9   -9.0   -9   -9.0   -9  21.9  17.7  16.8  15.0  16.3
 #7777END
 """
 
@@ -226,19 +274,32 @@ SAMPLE_DATA_GO_KR = json.dumps({
 
 def selftest() -> None:
     """키 없이 파서/정규화를 점검한다. 실제 응답 컬럼이 바뀌면 여기서 먼저 깨진다."""
-    for name, rows in (("apihub", parse_apihub(SAMPLE_APIHUB)), ("data.go.kr", parse_data_go_kr(SAMPLE_DATA_GO_KR))):
-        assert len(rows) == 2, f"{name}: 2일치를 기대했으나 {len(rows)}건"
-        first = rows[0]
-        assert first["date"] == "2023-05-19", first["date"]
-        assert first["tmax"] == 20.3 and first["tmin"] == 13.8, first
-        assert first["precip"] == 7.5 and first["humidity"] == 67, first
-        assert first["windDir"] == "북서" and first["windFamily"] == "N", first
-        assert rows[1]["precip"] == 0.0, rows[1]
-        assert set(first) == {
-            "date", "tavg", "tmax", "tmin", "precip", "humidity",
-            "pressure", "windDeg", "windDir", "windFamily", "windSpeed", "cloud",
-        }, sorted(first)
-        print(f"  {name} 파서 OK — {rows[0]['date']} ~ {rows[-1]['date']}")
+    SCHEMA = {
+        "date", "tavg", "tmax", "tmin", "precip", "humidity",
+        "pressure", "windDeg", "windDir", "windFamily", "windSpeed", "cloud",
+    }
+
+    # SAMPLE_APIHUB 는 실제 응답 2일치다 (부산 159, 2023-05-19~20). 값을 손으로
+    # 지어내지 않았으므로, 컬럼 위치가 어긋나면 여기서 바로 깨진다.
+    rows = parse_apihub(SAMPLE_APIHUB)
+    assert len(rows) == 2, f"apihub: 2일치를 기대했으나 {len(rows)}건"
+    a, b = rows
+    assert a["date"] == "2023-05-19" and b["date"] == "2023-05-20", rows
+    assert a["tmax"] == 21.8 and a["tmin"] == 15.8 and a["tavg"] == 17.9, a
+    assert a["precip"] == 4.6, a
+    # 강수 없는 날은 RN_DAY 가 -9.0 로 온다 → 0 이어야 한다
+    assert b["precip"] == 0.0, f"결측 -9 가 그대로 새어 들어왔다: {b}"
+    assert a["pressure"] == 1007.8, f"해면기압(PS_AVG)이어야 한다. 현지기압은 999.7: {a}"
+    # 풍향 36방위(×10°): WD_MAX 7 → 70° → 동
+    assert a["windDeg"] == 70 and a["windFamily"] == "E", a
+    assert a["humidity"] == 82 and a["cloud"] == 8.3, a
+    assert set(a) == SCHEMA, sorted(a)
+    print(f"  apihub 파서 OK — {a['date']} ~ {b['date']} (위치 기반 56컬럼)")
+    print("    해면기압/현지기압 구분 · 결측 -9 → 0 · 풍향 36방위 확인")
+
+    rows = parse_data_go_kr(SAMPLE_DATA_GO_KR)
+    assert len(rows) == 2 and set(rows[0]) == SCHEMA, rows
+    print(f"  data.go.kr 파서 OK — {rows[0]['date']} ~ {rows[-1]['date']}")
     print("자체 점검 통과: 두 API 응답 모두 웹앱 스키마로 정규화된다.")
 
 
@@ -410,7 +471,7 @@ def main() -> None:
     write_json(DATA_DIR / "busan_daily.json", {
         "meta": {
             "schemaVersion": SCHEMA_VERSION,
-            "source": "KMA_ASOS",
+            **prov_meta("종관기상관측(ASOS) 일자료"),
             "provider": provider,
             "station": STATION,
             "years": list(range(args.years[0], args.years[1] + 1)),
@@ -425,7 +486,7 @@ def main() -> None:
     write_json(DATA_DIR / "busan_monthly.json", {
         "meta": {
             "schemaVersion": SCHEMA_VERSION,
-            "source": "KMA_ASOS",
+            **prov_meta(f"ASOS 일자료 집계 · 월 평년값 {args.normals[0]}–{args.normals[1]}"),
             "station": STATION,
             "period": f"{args.normals[0]}-{args.normals[1]}",
             "units": {"tavg": "°C", "tmax": "°C", "tmin": "°C", "precip": "mm", "humidity": "%"},
@@ -436,7 +497,7 @@ def main() -> None:
     write_json(DATA_DIR / "busan_yearly.json", {
         "meta": {
             "schemaVersion": SCHEMA_VERSION,
-            "source": "KMA_ASOS",
+            **prov_meta("ASOS 일자료 집계 · 연평균기온"),
             "station": STATION,
             "period": f"{yearly[0]['year']}-{yearly[-1]['year']}",
             "units": {"tavg": "°C", "precip": "mm"},
@@ -447,7 +508,17 @@ def main() -> None:
     write_json(DATA_DIR / "future_ssp.json", {
         "meta": {
             "schemaVersion": SCHEMA_VERSION,
-            "source": ssp_source,
+            # CSV 가 있으면 실측, 없으면 근사 곡선이다. 근사인데 실측처럼 표기하면
+            # 화면이 거짓말을 한다 — 출처 필드도 그에 맞춰 갈린다.
+            **(prov_meta("기후변화 시나리오 · 경상권 연평균기온", ssp_source)
+               if ssp_source != "APPROX_CURVE" else {
+                   "source": "APPROX_CURVE",
+                   "_source": "approximation (not observed)",
+                   "_provider": "합성 근사 곡선 (scripts/common.py)",
+                   "_dataset": "실측 아님 — 기후변화정보포털 CSV 로 교체 필요",
+                   "_fetched_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                   "_license": "실측 아님",
+               }),
             "region": "경상권",
             "baseline": {"period": "1995-2014", "tavg": baseline},
             "units": {"tavg": "°C", "anomaly": "°C"},

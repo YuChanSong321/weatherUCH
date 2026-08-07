@@ -245,8 +245,16 @@ def fetch(url: str, key: str = "") -> str:
     for attempt in range(1, MAX_RETRY + 1):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "prediction-scale/1.0"})
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                return resp.read().decode("utf-8", errors="replace")
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                raw = resp.read()
+            # API허브 typ01 응답의 주석 헤더는 CP949 다. utf-8 로 강제하면 컬럼 설명이
+            # 깨지고, 그 상태로 헤더를 읽으면 매핑이 어긋난다.
+            for enc in ("cp949", "utf-8"):
+                try:
+                    return raw.decode(enc)
+                except UnicodeDecodeError:
+                    continue
+            return raw.decode("utf-8", errors="replace")
         except urllib.error.HTTPError as e:
             # HTTPError 는 str() 에 요청 URL 이 들어갈 수 있다 — 상태코드만 남긴다
             raise RuntimeError(f"HTTP {e.code} ({mask_url(url, key)})") from None

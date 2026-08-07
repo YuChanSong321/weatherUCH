@@ -89,7 +89,16 @@ export const dataSources = {
   pastForecast: pastForecastFile.meta.source,
   blossom: blossomFile.meta.source,
 }
-export const isDummyData = Object.values(dataSources).some((s) => s === 'SYNTHETIC_DUMMY')
+/**
+ * '실측이 아닌' 출처 태그. 화면은 이 중 하나라도 있으면 "합성" 배지를 띄운다.
+ *
+ * SYNTHETIC_DUMMY 만 보면 구멍이 생긴다 — SSP 는 CSV 가 없을 때 근사 곡선으로
+ * 폴백하면서 APPROX_CURVE 를 남기는데, 그걸 놓치면 근사값이 실측인 척하게 된다.
+ */
+const NOT_OBSERVED = new Set(['SYNTHETIC_DUMMY', 'APPROX_CURVE'])
+const isSynthetic = (source: string) => NOT_OBSERVED.has(source)
+
+export const isDummyData = Object.values(dataSources).some(isSynthetic)
 
 /**
  * 화면에 띄우는 출처 표기 — 대회 규정이 데이터 원출처 표기를 필수로 둔다.
@@ -114,7 +123,7 @@ const creditOf = (
   meta: DataMeta,
   fallbackDataset: string,
 ): DatasetCredit => {
-  const synthetic = meta.source === 'SYNTHETIC_DUMMY'
+  const synthetic = isSynthetic(String(meta.source))
   return {
     file,
     label,

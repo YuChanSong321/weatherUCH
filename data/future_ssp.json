@@ -1,17 +1,20 @@
 {
  "meta": {
   "schemaVersion": 1,
-  "source": "SYNTHETIC_DUMMY",
+  "source": "APPROX_CURVE",
+  "_source": "approximation (not observed)",
+  "_provider": "합성 근사 곡선 (scripts/common.py)",
+  "_dataset": "",
+  "_license": "실측 아님",
   "region": "경상권",
   "baseline": {
    "period": "1995-2014",
-   "tavg": 15.26
+   "tavg": 14.91
   },
   "units": {
    "tavg": "°C",
    "anomaly": "°C"
-  },
-  "note": "합성 근사치. 실데이터는 기후변화정보포털(CCIC) 남부권 시나리오로 교체."
+  }
  },
  "scenarios": [
   {
@@ -23,65 +26,65 @@
     {
      "year": 2025,
      "anomaly": 0.55,
-     "tavg": 15.81,
-     "low": 15.62,
-     "high": 16.0
+     "tavg": 15.46,
+     "low": 15.27,
+     "high": 15.65
     },
     {
      "year": 2035,
      "anomaly": 1.01,
-     "tavg": 16.27,
-     "low": 16.05,
-     "high": 16.5
+     "tavg": 15.92,
+     "low": 15.7,
+     "high": 16.15
     },
     {
      "year": 2045,
      "anomaly": 1.38,
-     "tavg": 16.64,
-     "low": 16.38,
-     "high": 16.9
+     "tavg": 16.29,
+     "low": 16.03,
+     "high": 16.55
     },
     {
      "year": 2055,
      "anomaly": 1.65,
-     "tavg": 16.91,
-     "low": 16.61,
-     "high": 17.2
+     "tavg": 16.56,
+     "low": 16.26,
+     "high": 16.85
     },
     {
      "year": 2065,
      "anomaly": 1.82,
-     "tavg": 17.08,
-     "low": 16.75,
-     "high": 17.41
+     "tavg": 16.73,
+     "low": 16.4,
+     "high": 17.06
     },
     {
      "year": 2075,
      "anomaly": 1.91,
-     "tavg": 17.17,
-     "low": 16.8,
-     "high": 17.53
+     "tavg": 16.82,
+     "low": 16.45,
+     "high": 17.18
     },
     {
      "year": 2085,
      "anomaly": 1.89,
-     "tavg": 17.15,
-     "low": 16.76,
-     "high": 17.55
+     "tavg": 16.8,
+     "low": 16.41,
+     "high": 17.2
     },
     {
      "year": 2095,
      "anomaly": 1.79,
-     "tavg": 17.05,
-     "low": 16.62,
-     "high": 17.48
+     "tavg": 16.7,
+     "low": 16.27,
+     "high": 17.13
     },
     {
      "year": 2100,
      "anomaly": 1.7,
-     "tavg": 16.96,
-     "low": 16.51,
-     "high": 17.41
+     "tavg": 16.61,
+     "low": 16.16,
+     "high": 17.06
     }
    ]
   },
@@ -94,65 +97,65 @@
     {
      "year": 2025,
      "anomaly": 0.6,
-     "tavg": 15.86,
-     "low": 15.62,
-     "high": 16.09
+     "tavg": 15.51,
+     "low": 15.27,
+     "high": 15.74
     },
     {
      "year": 2035,
      "anomaly": 1.02,
-     "tavg": 16.28,
-     "low": 16.0,
-     "high": 16.55
+     "tavg": 15.93,
+     "low": 15.65,
+     "high": 16.2
     },
     {
      "year": 2045,
      "anomaly": 1.39,
-     "tavg": 16.65,
-     "low": 16.33,
-     "high": 16.97
+     "tavg": 16.3,
+     "low": 15.98,
+     "high": 16.62
     },
     {
      "year": 2055,
      "anomaly": 1.73,
-     "tavg": 16.99,
-     "low": 16.63,
-     "high": 17.36
+     "tavg": 16.64,
+     "low": 16.28,
+     "high": 17.01
     },
     {
      "year": 2065,
      "anomaly": 2.06,
-     "tavg": 17.32,
-     "low": 16.92,
-     "high": 17.72
+     "tavg": 16.97,
+     "low": 16.57,
+     "high": 17.37
     },
     {
      "year": 2075,
      "anomaly": 2.37,
-     "tavg": 17.63,
-     "low": 17.19,
-     "high": 18.08
+     "tavg": 17.28,
+     "low": 16.84,
+     "high": 17.73
     },
     {
      "year": 2085,
      "anomaly": 2.67,
-     "tavg": 17.93,
-     "low": 17.44,
-     "high": 18.42
+     "tavg": 17.58,
+     "low": 17.09,
+     "high": 18.07
     },
     {
      "year": 2095,
      "anomaly": 2.96,
-     "tavg": 18.22,
-     "low": 17.69,
-     "high": 18.75
+     "tavg": 17.87,
+     "low": 17.34,
+     "high": 18.4
     },
     {
      "year": 2100,
      "anomaly": 3.1,
-     "tavg": 18.36,
-     "low": 17.81,
-     "high": 18.91
+     "tavg": 18.01,
+     "low": 17.46,
+     "high": 18.56
     }
    ]
   },
@@ -165,65 +168,65 @@
     {
      "year": 2025,
      "anomaly": 0.59,
-     "tavg": 15.85,
-     "low": 15.51,
-     "high": 16.19
+     "tavg": 15.5,
+     "low": 15.16,
+     "high": 15.84
     },
     {
      "year": 2035,
      "anomaly": 1.26,
-     "tavg": 16.52,
-     "low": 16.12,
-     "high": 16.92
+     "tavg": 16.17,
+     "low": 15.77,
+     "high": 16.57
     },
     {
      "year": 2045,
      "anomaly": 1.96,
-     "tavg": 17.22,
-     "low": 16.76,
-     "high": 17.68
+     "tavg": 16.87,
+     "low": 16.41,
+     "high": 17.33
     },
     {
      "year": 2055,
      "anomaly": 2.68,
-     "tavg": 17.94,
-     "low": 17.42,
-     "high": 18.47
+     "tavg": 17.59,
+     "low": 17.07,
+     "high": 18.12
     },
     {
      "year": 2065,
      "anomaly": 3.42,
-     "tavg": 18.68,
-     "low": 18.1,
-     "high": 19.27
+     "tavg": 18.33,
+     "low": 17.75,
+     "high": 18.92
     },
     {
      "year": 2075,
      "anomaly": 4.17,
-     "tavg": 19.43,
-     "low": 18.79,
-     "high": 20.08
+     "tavg": 19.08,
+     "low": 18.44,
+     "high": 19.73
     },
     {
      "year": 2085,
      "anomaly": 4.94,
-     "tavg": 20.2,
-     "low": 19.49,
-     "high": 20.9
+     "tavg": 19.85,
+     "low": 19.14,
+     "high": 20.55
     },
     {
      "year": 2095,
      "anomaly": 5.71,
-     "tavg": 20.97,
-     "low": 20.2,
-     "high": 21.74
+     "tavg": 20.62,
+     "low": 19.85,
+     "high": 21.39
     },
     {
      "year": 2100,
      "anomaly": 6.1,
-     "tavg": 21.36,
-     "low": 20.56,
-     "high": 22.16
+     "tavg": 21.01,
+     "low": 20.21,
+     "high": 21.81
     }
    ]
   }
