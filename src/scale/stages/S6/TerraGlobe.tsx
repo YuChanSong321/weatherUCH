@@ -20,7 +20,13 @@ import type { OrbitParams } from '../../lib/milankovitch'
 
 type Sim = Awaited<ReturnType<typeof createTerraSim>>
 
-/** 근접 뷰에 머무는 시간. 이 뒤에 카메라가 궤도 전체로 빠진다. */
+/**
+ * 진입 연출은 **한 방향으로만** 움직인다: 지구 근접에서 시작해 궤도 전체로 빠진다.
+ *
+ * 엔진에는 자체 시네마틱(멀리서 지구로 3초간 날아 들어가는 연출)이 있는데, 그걸 켠 채
+ * 여기서 줌아웃까지 걸면 카메라가 지구로 가다 말고 되돌아 나온다 — 연출이 아니라
+ * 버그로 읽힌다. 그래서 intro 는 끄고(=지구 근접에 바로 놓고) 후퇴만 남긴다.
+ */
 const HOLD_MS = 1500
 const PULL_OUT_SEC = 2.6
 
@@ -41,6 +47,7 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
     if (!host) return
     let cancelled = false
     let pullOut = 0
+    let arrive = 0
 
     createTerraSim(host, {
       // standalone(/terra-orbital-sim.html)과 같은 설정이다. 화질을 낮추거나
@@ -50,7 +57,8 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
       params: paramsRef.current,
       motion: { speed: 1, spin: 1, exposure: 1.05 },
       view: 'earth',
-      intro: true,
+      // 엔진 시네마틱은 끈다 — 아래 줌아웃과 방향이 반대라 서로 덮어쓴다 (위 주석)
+      intro: false,
       onViewChange: setView,
     }).then((sim) => {
       if (cancelled) {
@@ -63,7 +71,9 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
       // 줌아웃: 지구 근접 → 궤도 전체
       pullOut = window.setTimeout(() => {
         sim.setView('system', true, PULL_OUT_SEC)
-        setArrived(true)
+        // 자막은 후퇴가 끝난 뒤에 걷는다. 시작과 동시에 지우면 정작 "지상을 벗어나는"
+        // 장면에서는 자막이 없다.
+        arrive = window.setTimeout(() => setArrived(true), PULL_OUT_SEC * 1000)
       }, HOLD_MS)
     })
 
@@ -77,6 +87,7 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
     return () => {
       cancelled = true
       window.clearTimeout(pullOut)
+      window.clearTimeout(arrive)
       window.removeEventListener('resize', onResize)
       ro.disconnect()
       simRef.current?.dispose()
