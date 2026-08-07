@@ -117,20 +117,26 @@ export function S6Orbital({ onNext }: { onNext: () => void }) {
   const presentPct = ((PRESENT_SUMMER - SUMMER_BOUNDS.min) / (SUMMER_BOUNDS.max - SUMMER_BOUNDS.min)) * 100
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
+    /* 원본 시뮬레이터와 같은 구성: 우주가 화면 전체, 유리 패널이 그 위에 뜬다.
+       컨테이너는 pointer-events-none 이라 패널이 없는 자리에서는 드래그·줌이
+       그대로 지구에 닿는다 (캔버스는 TerraGlobe 안에서 fixed inset-0 로 깔린다). */
+    <div className="pointer-events-none relative flex h-[calc(100vh-8rem)] min-h-[520px] w-full flex-col gap-2">
+      {/* 상단 — 미션과 타이머만 띄운다 */}
       <div className="flex items-end justify-between">
-        <div>
+        <div className="pointer-events-auto">
           <div className="text-[11px] font-medium tracking-[0.14em] text-act-3">3단계 · 수만 년</div>
-          <h1 className="mt-0.5 text-[22px] leading-tight font-semibold tracking-tight">
+          <h1 className="mt-0.5 text-[20px] leading-tight font-semibold tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
             미션 · {mission.title}
           </h1>
         </div>
-        <Timer remaining={remaining} started={started} outcome={outcome} />
+        <div className="pointer-events-auto">
+          <Timer remaining={remaining} started={started} outcome={outcome} />
+        </div>
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.55fr)] items-start gap-3">
+      <div className="grid min-h-0 flex-1 grid-cols-[332px_minmax(0,1fr)_344px] gap-3">
         {/* 조종석 */}
-        <section className="panel flex flex-col gap-3 p-4">
+        <section className="panel pointer-events-auto flex flex-col gap-3 overflow-y-auto p-4 backdrop-blur-md">
           <div>
             <div className="text-[12px] leading-relaxed text-ink-2">{mission.goal}</div>
             <div className="mt-3 flex items-baseline gap-2">
@@ -159,7 +165,7 @@ export function S6Orbital({ onNext }: { onNext: () => void }) {
             <div className="mt-1.5 flex justify-between text-[10px] text-ink-3">
               <span className="tnum">{SUMMER_BOUNDS.min.toFixed(0)}</span>
               <span>
-                현재 지구 <span className="tnum">{PRESENT_SUMMER.toFixed(0)}</span> · 목표{' '}
+                현재 <span className="tnum">{PRESENT_SUMMER.toFixed(0)}</span> · 목표{' '}
                 <span className="tnum">{mission.threshold.toFixed(0)}</span>
               </span>
               <span className="tnum">{SUMMER_BOUNDS.max.toFixed(0)}</span>
@@ -196,7 +202,7 @@ export function S6Orbital({ onNext }: { onNext: () => void }) {
             />
             <Slider
               label="세차 (근일점 경도)"
-              note="어느 계절에 태양과 가까워지는지를 정한다"
+              note="어느 계절에 태양과 가까워지는지"
               cycle={RANGES.precession.cycle}
               value={params.precession}
               min={RANGES.precession.min}
@@ -210,7 +216,7 @@ export function S6Orbital({ onNext }: { onNext: () => void }) {
             />
             <Slider
               label="궤도 이심률"
-              note="세차의 효과를 증폭한다 (혼자서는 힘이 약하다)"
+              note="세차의 효과를 증폭한다"
               cycle={RANGES.eccentricity.cycle}
               value={params.eccentricity}
               min={RANGES.eccentricity.min}
@@ -224,47 +230,54 @@ export function S6Orbital({ onNext }: { onNext: () => void }) {
             />
           </div>
 
-          <div className="panel-quiet px-3 py-2.5 text-[11.5px] leading-relaxed text-ink-2">
+          <div className="panel-quiet mt-auto px-3 py-2.5 text-[11px] leading-relaxed text-ink-2">
             <span className="text-ink-3">부산(북위 35°) 연교차 진폭 </span>
             <span className="tnum font-semibold">{amplitude.toFixed(0)} W/m²</span>
-            <span className="text-ink-3"> (현재 지구 {annualAmplitude(PRESENT).toFixed(0)})</span>
+            <span className="text-ink-3"> (현재 {annualAmplitude(PRESENT).toFixed(0)})</span>
             <br />
             1단계에서 하루의 기온 폭을 정한 건 구름이었다. 1년의 기온 폭을 정하는 건 자전축의 기울기다.
           </div>
         </section>
 
+        {/* 우주 — 캔버스는 뷰포트 전체에 깔리고, 여기에는 자막과 뷰 토글만 뜬다 */}
+        <div className="relative">
+          <TerraGlobe params={params} />
+        </div>
+
         {/* 계기판 */}
-        <div className="flex flex-col gap-3">
-          <div className="grid h-[264px] grid-cols-[minmax(0,1fr)_232px] items-stretch gap-3">
-            <TerraGlobe params={params} />
-            <div className="panel flex h-full flex-col justify-between gap-2 overflow-hidden p-4 text-[11.5px] leading-relaxed text-ink-2">
-              <div>
-                <h3 className="text-[13px] font-semibold text-ink-1">시계로서의 지구</h3>
-                <p className="mt-1.5">
-                  세 값은 지구가 정하는 것이 아니라 다른 행성들의 중력이 만드는{' '}
-                  <span className="text-ink-1">천체역학의 결과</span>다.
-                </p>
-              </div>
-              <p className="text-ink-3">
-                궤도 위의 <span style={{ color: '#ffb454' }}>큰 고리</span>가 북반구 하지다. 세차를 돌리면 그 고리가
-                궤도를 미끄러진다 — 여름이 태양과 가까워지거나 멀어진다.
-              </p>
-              <p>
-                내일의 비는 못 맞히지만, <span className="text-ink-1">10만 년 뒤 여름의 햇빛 양은 맞힐 수 있다.</span>
-              </p>
-            </div>
+        <div className="pointer-events-auto flex min-h-0 flex-col gap-3 overflow-y-auto">
+          <InsolationChart
+            params={params}
+            mission={mission}
+            summer={summer}
+            met={met}
+            width={344}
+            height={186}
+          />
+          <div className="panel flex flex-col gap-2 p-4 text-[11.5px] leading-relaxed text-ink-2 backdrop-blur-md">
+            <h3 className="text-[13px] font-semibold text-ink-1">시계로서의 지구</h3>
+            <p>
+              세 값은 지구가 정하는 것이 아니라 다른 행성들의 중력이 만드는{' '}
+              <span className="text-ink-1">천체역학의 결과</span>다.
+            </p>
+            <p className="text-ink-3">
+              궤도 위의 <span style={{ color: '#ffb454' }}>큰 고리</span>가 북반구 하지다. 세차를 돌리면 그 고리가
+              궤도를 미끄러진다 — 여름이 태양과 가까워지거나 멀어진다.
+            </p>
+            <p>
+              내일의 비는 못 맞히지만, <span className="text-ink-1">10만 년 뒤 여름의 햇빛 양은 맞힐 수 있다.</span>
+            </p>
           </div>
-          <InsolationChart params={params} mission={mission} summer={summer} met={met} />
         </div>
       </div>
 
       {/* 하단: 안내 / 결과 */}
       {!outcome ? (
-        <div className="flex items-start justify-between gap-6">
-          <p className="max-w-4xl text-[12.5px] leading-relaxed text-ink-2">
+        <div className="pointer-events-auto flex items-baseline justify-between gap-6 rounded-xl bg-black/45 px-4 py-2 backdrop-blur-sm">
+          <p className="text-[12px] leading-relaxed text-ink-2">
             {/* 처음부터 답을 주지 않는다 — 절반쯤 지나면 힌트를 연다 */}
             {!started
-              ? '슬라이더를 움직이면 제한 시간이 시작된다. 세 다이얼이 여름 햇빛의 양을 어떻게 바꾸는지는 직접 만져보며 찾아라.'
+              ? '슬라이더를 움직이면 제한 시간이 시작된다. 세 다이얼이 여름 햇빛의 양을 어떻게 바꾸는지는 직접 만져보며 찾아라. 빈 곳을 끌면 시점이 돌아간다.'
               : remaining > TIME_LIMIT * 0.55
                 ? '각 슬라이더 옆에 목표에 가까워지는지 멀어지는지가 표시된다.'
                 : mission.hint}
@@ -394,7 +407,7 @@ function ResultBar({
   onNext: () => void
 }) {
   return (
-    <div className="panel flex items-start justify-between gap-6 px-5 py-3 rise">
+    <div className="panel rise pointer-events-auto flex items-start justify-between gap-6 px-5 py-3 backdrop-blur-md">
       <div>
         <div
           className="text-[14px] font-semibold"

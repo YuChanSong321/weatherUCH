@@ -36,7 +36,7 @@ export function ScaleRail({ stage, score }: { stage: Stage; score: { earned: num
   const pos = POSITION[stage]
 
   return (
-    <header className="flex items-center gap-6 px-8 py-4">
+    <header className="relative z-20 flex items-center gap-6 px-8 py-4">
       <div className="flex min-w-[13rem] items-center gap-3">
         <span
           className="inline-block h-2 w-2 rounded-full"

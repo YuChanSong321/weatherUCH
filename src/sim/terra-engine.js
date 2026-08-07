@@ -244,7 +244,6 @@ function proceduralSky(){
  *   motion       {speed, spin, exposure}
  *   view         'earth' | 'system'
  *   intro        시네마틱 진입 연출 (기본 true)
- *   quality      'high' | 'lite'  — lite 는 별/그림자/구체 분할을 낮춘다
  *   onProgress   (name, loaded, total) => void
  *   onTelemetry  (t) => void   0.1초마다. 계기판은 전부 여기서 그린다.
  *   onViewChange (mode) => void
@@ -257,13 +256,11 @@ export async function createTerraSim(container, opts = {}){
     motion: initialMotion = {},
     view: initialView = 'earth',
     intro = true,
-    quality = 'high',
     onProgress = () => {},
     onTelemetry = null,
     onViewChange = null,
   } = opts;
 
-  const lite = quality === 'lite';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const W = () => Math.max(1, container.clientWidth  || 1);
@@ -308,8 +305,8 @@ export async function createTerraSim(container, opts = {}){
   /* ==========================================================================
      2 · RENDERER / SCENE / CAMERA
      ========================================================================== */
-  const renderer = new THREE.WebGLRenderer({ antialias: !lite, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, lite ? 1.5 : 2));
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(W(), H());
   renderer.toneMapping = THREE.ACESFilmicToneMapping;   // filmic highlight rolloff
   renderer.toneMappingExposure = initialMotion.exposure ?? 1.05;
@@ -356,7 +353,7 @@ export async function createTerraSim(container, opts = {}){
     return new THREE.CanvasTexture(c);
   }
   const stars = (() => {
-    const N = lite ? 2600 : 7000;
+    const N = 7000;
     const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), siz = new Float32Array(N);
     const c = new THREE.Color();
     for (let i = 0; i < N; i++){
@@ -412,7 +409,7 @@ export async function createTerraSim(container, opts = {}){
   // tone-compressed inverse-square law so perihelion visibly brightens.
   const sunLight = new THREE.DirectionalLight(0xfff4e6, 3.0);
   sunLight.castShadow = true;
-  sunLight.shadow.mapSize.set(lite ? 512 : 1024, lite ? 512 : 1024);
+  sunLight.shadow.mapSize.set(1024, 1024);
   sunLight.shadow.camera.left = -1.6; sunLight.shadow.camera.right = 1.6;
   sunLight.shadow.camera.top  =  1.6; sunLight.shadow.camera.bottom = -1.6;
   sunLight.shadow.bias = -0.0004;
@@ -503,7 +500,7 @@ export async function createTerraSim(container, opts = {}){
       .normalize();
   }
 
-  const earthGeo = new THREE.SphereGeometry(R_EARTH, lite ? 96 : 128, lite ? 72 : 96);
+  const earthGeo = new THREE.SphereGeometry(R_EARTH, 128, 96);
 
   // Uniforms shared with the injected shader code below.
   const earthU = {
@@ -630,7 +627,7 @@ export async function createTerraSim(container, opts = {}){
     map: tex.clouds, transparent: true, opacity: 0.92,
     depthWrite: false, specular: 0x111111, shininess: 4
   });
-  const clouds = new THREE.Mesh(new THREE.SphereGeometry(R_EARTH * 1.006, lite ? 64 : 96, lite ? 48 : 64), cloudMat);
+  const clouds = new THREE.Mesh(new THREE.SphereGeometry(R_EARTH * 1.006, 96, 64), cloudMat);
   clouds.castShadow = true;
   // The visible material keeps soft edges (no alphaTest); the shadow pass gets
   // its own depth material that DOES alpha-test, so cloud shadows are shaped
@@ -728,7 +725,7 @@ export async function createTerraSim(container, opts = {}){
   // 2.4% of the radius ~= 150 km, about where the visible limb haze ends. The
   // shell's thickness sets the ring's on-screen width, so keep it tight: a
   // thicker shell reads as a painted outline rather than air.
-  const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(R_EARTH * 1.024, lite ? 64 : 96, lite ? 48 : 64), atmoMat);
+  const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(R_EARTH * 1.024, 96, 64), atmoMat);
   tiltGroup.add(atmosphere);
 
   /* ==========================================================================

@@ -12,9 +12,14 @@ import {
   type OrbitParams,
 } from '../../lib/milankovitch'
 
+/** 기본 크기. 좁은 HUD 열에 넣을 때는 width/height 로 줄인다. */
 const W = 600
 const H = 196
-const M = { top: 20, right: 74, bottom: 34, left: 46 }
+/** 오른쪽 여백은 목표선 라벨('목표 478')이 들어갈 자리다 — 좁혀도 이 아래로는 못 간다 */
+const marginsFor = (w: number) =>
+  w >= 480
+    ? { top: 20, right: 74, bottom: 34, left: 46 }
+    : { top: 16, right: 58, bottom: 30, left: 38 }
 
 const SEASON_TICKS = [
   { lambda: 0, label: '춘분' },
@@ -29,17 +34,22 @@ export function InsolationChart({
   mission,
   summer,
   met,
+  width = W,
+  height = H,
 }: {
   params: OrbitParams
   mission: Mission
   summer: number
   met: boolean
+  width?: number
+  height?: number
 }) {
   const curve = seasonalCurve(params)
   const presentCurve = seasonalCurve(PRESENT)
 
-  const x = linearScale([0, 360], [M.left, W - M.right])
-  const y = linearScale([0, 620], [H - M.bottom, M.top])
+  const M = marginsFor(width)
+  const x = linearScale([0, 360], [M.left, width - M.right])
+  const y = linearScale([0, 620], [height - M.bottom, M.top])
   const yTicks = niceTicks(0, 620, 4)
 
   const toPts = (c: Array<{ lambda: number; q: number }>) =>
@@ -60,8 +70,8 @@ export function InsolationChart({
       </div>
 
       <ChartFrame
-        width={W}
-        height={H}
+        width={width}
+        height={height}
         margins={M}
         x={x}
         y={y}
@@ -74,7 +84,7 @@ export function InsolationChart({
         {/* 목표선 */}
         <line
           x1={M.left}
-          x2={W - M.right}
+          x2={width - M.right}
           y1={y(mission.threshold)}
           y2={y(mission.threshold)}
           stroke={met ? 'var(--color-good)' : 'var(--color-act-3)'}
@@ -82,7 +92,7 @@ export function InsolationChart({
           strokeDasharray="5 4"
         />
         <text
-          x={W - M.right + 6}
+          x={width - M.right + 6}
           y={y(mission.threshold) + 4}
           fontSize={10}
           fill={met ? 'var(--color-good)' : 'var(--color-act-3)'}
@@ -101,7 +111,7 @@ export function InsolationChart({
           x1={x(90)}
           x2={x(90)}
           y1={y(summer)}
-          y2={H - M.bottom}
+          y2={height - M.bottom}
           stroke="rgb(255 255 255 / 0.14)"
           strokeWidth={1}
         />

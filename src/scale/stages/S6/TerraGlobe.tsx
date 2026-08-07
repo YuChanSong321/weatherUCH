@@ -1,9 +1,13 @@
 /**
- * S6 우주 뷰 — 기존 TERRA 궤도 시뮬레이터를 그대로 얹는다.
+ * S6 우주 배경 — 기존 TERRA 궤도 시뮬레이터를 그대로 얹는다.
  *
  * 렌더링·궤도·조명은 전부 [src/sim/terra-engine.js] 다. 이 파일은 리액트 수명주기에
- * 맞춰 엔진을 붙였다 떼고, 슬라이더 값을 흘려보내는 껍데기일 뿐이다. 궤도 표현을
- * 여기서 다시 그리지 않는 것이 요점이다.
+ * 맞춰 엔진을 붙였다 떼고, 슬라이더 값을 흘려보내는 껍데기일 뿐이다.
+ *
+ * 배치도 원본을 따른다. standalone 시뮬레이터는 우주가 화면 전체를 채우고 유리 패널만
+ * 그 위에 작게 떠 있는 구성이고, S6도 같은 구성이다 — 캔버스는 `fixed inset-0` 로
+ * 뷰포트를 통째로 덮고, 미션 UI 는 그 위에 떠 있는 패널들이다. 캔버스가 UI 뒤에 있으니
+ * 패널이 없는 자리에서는 드래그·줌이 그대로 지구에 닿는다 (원본의 pointer-events 규칙).
  *
  * 연출: S5(지상의 기온 곡선)에서 넘어오자마자 지구 근접 뷰로 시작해 궤도 전체 뷰로
  * 카메라를 뺀다. 시뮬레이터의 우주 톤이 다른 화면과 이질적인 것은 감추지 않고,
@@ -38,12 +42,12 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
     let pullOut = 0
 
     createTerraSim(host, {
-      // 발표 현장 네트워크와 무관해야 한다 — 외부 요청 0건, 절차적 텍스처만 쓴다.
-      // (public/textures/ 에 플레이트를 두면 textureMode:'local' 로 올릴 수 있다)
-      textureMode: 'procedural',
-      quality: 'lite',
+      // standalone(/terra-orbital-sim.html)과 같은 설정이다. 화질을 낮추거나
+      // 텍스처를 합성으로 바꾸지 말 것 — 이 지구본이 이 단계의 핵심이다.
+      // 원격 플레이트가 막히면 엔진이 알아서 절차적 폴백으로 내려간다(원본 동작).
+      textureMode: 'remote',
       params: paramsRef.current,
-      motion: { speed: 1.6, spin: 1, exposure: 1.05 },
+      motion: { speed: 1, spin: 1, exposure: 1.05 },
       view: 'earth',
       intro: true,
       onViewChange: setView,
@@ -53,7 +57,6 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
         return
       }
       simRef.current = sim
-      sim.setToggle('grid', false) // 패널 크기에서는 황도 격자가 노이즈로만 읽힌다
       sim.setParams(paramsRef.current) // 로딩 중에 슬라이더가 움직였을 수 있다
       setReady(true)
       // 줌아웃: 지구 근접 → 궤도 전체
@@ -63,13 +66,13 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
       }, HOLD_MS)
     })
 
-    const ro = new ResizeObserver(() => simRef.current?.resize())
-    ro.observe(host)
+    const onResize = () => simRef.current?.resize()
+    window.addEventListener('resize', onResize)
 
     return () => {
       cancelled = true
       window.clearTimeout(pullOut)
-      ro.disconnect()
+      window.removeEventListener('resize', onResize)
       simRef.current?.dispose()
       simRef.current = null
     }
@@ -82,10 +85,10 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
   }, [params])
 
   return (
-    <div className="panel relative overflow-hidden">
-      <div ref={hostRef} className="h-full w-full" />
+    <>
+      {/* 우주. 뷰포트 전체를 덮고, HUD 는 이 위에 뜬다. */}
+      <div ref={hostRef} className="fixed inset-0 z-0" />
 
-      {/* 로딩 — 절차적 텍스처 합성은 한 프레임 안에 안 끝난다 */}
       {!ready && (
         <div className="absolute inset-0 grid place-items-center text-[11.5px] tracking-[0.14em] text-ink-3">
           우주로 나가는 중…
@@ -95,10 +98,10 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
       {/* 도착 자막. 궤도 전체가 잡히면 사라진다. */}
       {ready && (
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 p-3 text-[11.5px] leading-relaxed transition-opacity duration-700"
+          className="pointer-events-none absolute inset-x-0 top-1 flex justify-center text-[12px] transition-opacity duration-700"
           style={{ opacity: arrived ? 0 : 1 }}
         >
-          <span className="rounded bg-black/45 px-2 py-1 text-ink-2 backdrop-blur-sm">
+          <span className="rounded-full bg-black/50 px-3 py-1.5 text-ink-2 backdrop-blur-sm">
             지상을 벗어난다 — 여기서부터는 대기가 아니라 <span className="text-ink-1">궤도</span>가 기후를 정한다
           </span>
         </div>
@@ -106,7 +109,7 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
 
       {/* 뷰 전환. 기울기는 근접 뷰에서, 세차·이심률은 궤도 뷰에서 잘 보인다. */}
       {ready && (
-        <div className="absolute right-2 bottom-2 flex gap-1">
+        <div className="pointer-events-none absolute inset-x-0 bottom-1 flex justify-center gap-1">
           {(
             [
               ['earth', '지구'],
@@ -118,11 +121,11 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
               type="button"
               onClick={() => simRef.current?.setView(mode)}
               aria-pressed={view === mode}
-              className="rounded border px-2 py-1 text-[10.5px] transition-colors"
+              className="pointer-events-auto rounded-full border px-3 py-1 text-[11px] backdrop-blur-sm transition-colors"
               style={{
                 borderColor: view === mode ? 'var(--color-act-3)' : 'rgb(255 255 255 / 0.14)',
                 color: view === mode ? 'var(--color-ink-1)' : 'var(--color-ink-3)',
-                background: view === mode ? 'rgb(144 133 233 / 0.16)' : 'rgb(0 0 0 / 0.35)',
+                background: view === mode ? 'rgb(144 133 233 / 0.22)' : 'rgb(0 0 0 / 0.42)',
               }}
             >
               {label}
@@ -130,6 +133,6 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
           ))}
         </div>
       )}
-    </div>
+    </>
   )
 }
