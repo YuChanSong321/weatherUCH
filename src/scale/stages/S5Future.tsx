@@ -2,7 +2,7 @@
  * S5 · 2단계-B — 사용자가 곡선을 2100년까지 끌어 연장한다.
  * 손을 떼면 SSP 세 시나리오가 부채꼴로 펼쳐진다: 미래는 하나의 선이 아니다.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { CHART_MARGINS, YearlyChart } from '../components/YearlyChart'
 import { scenarios, sspBaseline, sspRegion, yearly, yearlyTrend } from '../data/loader'
 import { clamp, linearScale, smoothPath } from '../lib/scales'
@@ -301,27 +301,104 @@ export function S5Future({ onNext }: { onNext: () => void }) {
           유지된다는 가정이에요. 어디에 점을 놓으시겠어요? 끌었다가 손을 떼면 과학이 계산한 답이 펼쳐집니다.
         </p>
       ) : (
-        <div className="panel flex items-start justify-between gap-6 px-5 py-4 rise">
-          <div className="flex flex-col gap-2">
-            <p className="max-w-3xl text-[13.5px] leading-relaxed text-ink-2">
+        /* 결과 문장과 시나리오 설명을 한 패널에 넣는다 — 1280×800 에서 둘로 나누면
+           세로가 넘친다. 곡선 세 개만 보여주고 SSP 가 뭔지 안 알려주면 이 화면은
+           읽히지 않으므로, 자리를 만들어야 하는 쪽은 결과 문장이다. */
+        <div className="panel flex flex-col gap-2.5 px-5 py-3 rise">
+          <div className="flex items-start justify-between gap-6">
+            <p className="text-[13px] leading-relaxed text-ink-2">
               당신이 놓은 2100년은 <span className="tnum font-semibold text-act-3">{endValue.toFixed(2)}℃</span> —{' '}
               <span style={{ color: nearest.scenario.color }} className="font-semibold">
                 {nearest.scenario.label}
               </span>{' '}
-              경로와 가장 가깝습니다 ({nearest.scenario.description}).
-              <br />
-              미래는 하나의 선이 아니라 <span className="text-ink-1">갈라지는 부채</span>입니다. 세 갈래는 물리가 아니라
-              배출량 선택이 만들어요 — <span className="text-ink-1">어느 갈래인지는 인간의 선택</span>입니다.
+              경로와 가장 가깝습니다. 미래는 하나의 선이 아니라{' '}
+              <span className="text-ink-1">갈라지는 부채</span>예요. 세 갈래는 물리가 아니라 배출량 선택이 만듭니다 —{' '}
+              <span className="text-ink-1">어느 갈래인지는 인간의 선택</span>입니다.
             </p>
-            <p className="text-[11px] text-ink-3">
-              {sspRegion} 시나리오 · 기준 {sspBaseline.period} 평균 {sspBaseline.tavg}℃ · 음영은 불확실성 범위
-            </p>
+            <button type="button" className="btn btn-primary shrink-0" onClick={onNext}>
+              그런데 이 기후를 움직이는 건 무엇일까요
+            </button>
           </div>
-          <button type="button" className="btn btn-primary shrink-0" onClick={onNext}>
-            그런데 이 기후를 움직이는 건 무엇일까요
-          </button>
+
+          <ScenarioGuide nearestId={nearest.scenario.id} />
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * SSP 세 시나리오가 각각 무엇을 뜻하는지.
+ *
+ * 곡선 세 개와 'SSP5-8.5' 라는 이름만으로는 아무것도 읽히지 않는다. 이름을 풀고,
+ * 어떤 세상을 가정한 경로인지 한 줄로 붙인다.
+ *
+ * ⚠️ 숫자를 두 벌 보여주는 이유.
+ * 흔히 인용되는 "+1.8 / +2.7 / +4.4℃" 는 **전 지구 평균**을 **산업화 이전(1850–1900)**
+ * 과 비교한 값이다(IPCC AR6, 2081–2100). 반면 이 그래프는 **경상권 연평균기온**을
+ * **1995–2014 평균**과 비교한다. 지역도 기준연도도 다르므로 두 값은 원래 일치하지
+ * 않는다. 한쪽만 적어두면 "그래프는 +6.1인데 표는 +4.4"라는 모순으로 읽히므로,
+ * 둘 다 적고 기준이 다르다는 것을 밝힌다 — 그리고 그 차이 자체가 가르칠 거리다.
+ * 중위도 육지는 전 지구 평균보다 빠르게 데워진다.
+ */
+const SCENARIO_GUIDE: Record<string, { grade: string; meaning: string; global: string }> = {
+  ssp126: { grade: '모범적 대응', meaning: '친환경 성장 + 탄소 배출 감축 성공', global: '+1.8' },
+  ssp245: { grade: '중간 단계', meaning: '지금과 비슷한 수준으로 현상 유지', global: '+2.7' },
+  ssp585: { grade: '최악의 경우', meaning: '화석연료 남용 + 무분별한 산업 개발', global: '+4.4' },
+}
+
+const GRADE_TONE: Record<string, string> = {
+  ssp126: 'var(--color-good)',
+  ssp245: 'var(--color-warn)',
+  ssp585: 'var(--color-bad)',
+}
+
+function ScenarioGuide({ nearestId }: { nearestId: string }) {
+  return (
+    <div className="flex flex-col gap-1.5 border-t border-white/8 pt-2.5">
+      <div className="flex items-baseline justify-between gap-4">
+        <h3 className="text-[12.5px] font-semibold">세 갈래는 각각 어떤 세상일까요</h3>
+        <span className="text-[10.5px] text-ink-3">
+          SSP = 공통사회경제경로 · 뒤의 숫자는 2100년의 온실가스 강제력(W/m²)
+        </span>
+      </div>
+
+      <div className="grid grid-cols-[104px_84px_minmax(0,1fr)_140px_96px] items-baseline gap-x-3 gap-y-0.5 text-[11.5px]">
+        <div className="text-[10.5px] text-ink-3">시나리오</div>
+        <div className="text-[10.5px] text-ink-3">구분</div>
+        <div className="text-[10.5px] text-ink-3">의미</div>
+        <div className="text-right text-[10.5px] text-ink-3">{sspRegion} 2100년</div>
+        <div className="text-right text-[10.5px] text-ink-3">전 지구 평균</div>
+
+        {scenarios.map((s) => {
+          const g = SCENARIO_GUIDE[s.id]
+          const last = s.points[s.points.length - 1]
+          const isNearest = s.id === nearestId
+          // subgrid 없이 평평한 5열 격자에 그대로 흘린다 (브라우저 의존을 줄인다)
+          return (
+            <Fragment key={s.id}>
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} />
+                <span className={isNearest ? 'font-semibold text-ink-1' : 'text-ink-2'}>{s.label}</span>
+              </div>
+              <div style={{ color: GRADE_TONE[s.id] ?? 'var(--color-ink-2)' }}>{g?.grade}</div>
+              <div className="text-ink-2">{g?.meaning}</div>
+              <div className="tnum text-right text-ink-1">
+                {last.tavg.toFixed(1)}℃
+                <span className="text-ink-3"> (+{last.anomaly.toFixed(1)})</span>
+              </div>
+              <div className="tnum text-right text-ink-3">{g?.global}℃</div>
+            </Fragment>
+          )
+        })}
+      </div>
+
+      <p className="mt-0.5 text-[10.5px] leading-relaxed text-ink-3">
+        두 숫자의 기준이 다릅니다 — {sspRegion} 값은 {sspBaseline.period} 평균({sspBaseline.tavg}℃) 대비,
+        전 지구 평균은 산업화 이전(1850–1900) 대비입니다. 그래서 값이 서로 다른 게 정상이고,
+        <span className="text-ink-2"> 중위도 육지가 전 지구 평균보다 빠르게 데워진다</span>는 뜻이기도 합니다.
+        바다는 천천히 데워지거든요.
+      </p>
     </div>
   )
 }
