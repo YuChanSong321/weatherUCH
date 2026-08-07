@@ -51,6 +51,26 @@ export function S1Forecast({ cases }: { cases: ForecastCase[] }) {
         <RoundDots count={cases.length} current={roundIndex} done={rounds.map((r) => r.round)} />
       </div>
 
+      {/* 기상특보 배지. '오늘'의 특보다 — 정답인 내일의 특보를 미리 보여주면
+          호우주의보 한 줄이 강수 4지선다의 답을 그대로 알려주게 된다. */}
+      {forecastCase.todayAdvisory && (
+        <div
+          className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[12px] leading-none"
+          style={{
+            borderColor: 'color-mix(in oklab, var(--color-warn) 45%, transparent)',
+            background: 'color-mix(in oklab, var(--color-warn) 12%, transparent)',
+          }}
+        >
+          <span className="font-semibold" style={{ color: 'var(--color-warn)' }}>
+            {forecastCase.todayAdvisory.kind}
+          </span>
+          <span className="text-ink-2">
+            이날 부산에는 {forecastCase.todayAdvisory.kind}가 발효 중이었습니다 —{' '}
+            {forecastCase.todayAdvisory.headline}
+          </span>
+        </div>
+      )}
+
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-4">
         <ObservationCard forecastCase={forecastCase} />
         {phase.kind === 'guess' ? (

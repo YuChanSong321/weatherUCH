@@ -165,6 +165,101 @@ def ssp_scenarios(baseline: float) -> list[dict]:
     return scenarios
 
 
+# ─────────────────────────────────────────────── 강수 등급
+
+# S1의 4지선다와 같은 경계다 (src/scale/lib/forecast.ts 의 precipClassOf).
+# 한쪽만 바꾸면 채점이 어긋나므로 두 곳을 함께 고칠 것.
+PRECIP_ORDER = ["none", "light", "rain", "heavy"]
+
+
+def precip_class_of(mm: float) -> str:
+    if mm < 0.1:
+        return "none"
+    if mm < 5:
+        return "light"
+    if mm < 20:
+        return "rain"
+    return "heavy"
+
+
+# ─────────────────────────────────────────────── 기상특보 (S1 R3 배지)
+
+# 부산 기준 근사 임계값. 실제 특보는 3시간·12시간 누적처럼 일값이 아닌 기준으로
+# 발표되고, 발표 이력 자체가 별도 자료다. 여기서는 "그날 특보가 있었을 법한가"를
+# 일별 관측에서 근사한다 — 실데이터로 교체할 때는 fetch_forecast.py 가 기상청
+# 특보 이력으로 이 필드를 덮어쓴다.
+#
+# 합성 데이터에서는 강풍·한파 규칙이 한 번도 걸리지 않는다(생성기의 풍속이 7.5 m/s,
+# 최저기온이 -5.8 ℃ 를 넘지 않는다). 임계값을 더미에 맞춰 낮추는 대신 실제 기준을
+# 남겨둔다 — 실데이터를 넣으면 그대로 작동해야 하는 쪽이 이 표의 목적이다.
+ADVISORY_RULES = [
+    ("precip", 80.0, "호우경보", "12시간 강수량이 경보 기준을 넘었다"),
+    ("precip", 30.0, "호우주의보", "저기압·전선에 동반된 강한 비"),
+    ("windSpeed", 14.0, "강풍주의보", "평균풍속 14 m/s 이상"),
+    ("tmax", 33.0, "폭염주의보", "일 최고기온 33 ℃ 이상"),
+    ("tmin", -9.0, "한파주의보", "아침 최저기온이 급격히 떨어졌다"),
+]
+
+
+def advisory_for(record: dict) -> dict | None:
+    """일별 관측에서 그날 발효됐을 법한 기상특보 하나를 고른다 (없으면 None)."""
+    for key, threshold, kind, headline in ADVISORY_RULES:
+        value = record.get(key)
+        if value is None:
+            continue
+        hit = value <= threshold if key == "tmin" else value >= threshold
+        if hit:
+            return {"kind": kind, "headline": headline}
+    return None
+
+
+# ─────────────────────────────────────────────── 벚꽃 개화일
+
+def blossom_payload(records: list[dict], source: str) -> dict:
+    """busan_blossom.json 의 겉껍데기. 더미/실데이터가 같은 모양을 쓴다."""
+    return {
+        "meta": {
+            "schemaVersion": SCHEMA_VERSION,
+            "source": source,
+            "_source": "dummy" if source == "SYNTHETIC_DUMMY" else "kma",
+            "station": STATION,
+            "species": "왕벚나무",
+            "phenomenon": "개화",
+            "period": f"{records[0]['year']}-{records[-1]['year']}" if records else "",
+            "units": {"doy": "day of year (1 = 1월 1일)"},
+            "note": (
+                "계절관측 자료. doy 는 그해 개화일의 연중 일수 — 값이 작을수록 일찍 폈다. "
+                "S3에서 연평균 기온 곡선 위에 보조 축으로 겹친다."
+            ),
+        },
+        "records": records,
+    }
+
+
+def forecast_payload(records: list[dict], source: str) -> dict:
+    """busan_past_forecast.json 의 겉껍데기.
+
+    각 레코드는 '대상일 date 에 대해 baseDate/baseTime 에 발표된 예보'다.
+    S1은 관측(정답) 옆에 이 값을 세 번째 플레이어로 세운다.
+    """
+    return {
+        "meta": {
+            "schemaVersion": SCHEMA_VERSION,
+            "source": source,
+            "_source": "dummy" if source == "SYNTHETIC_DUMMY" else "kma",
+            "station": STATION,
+            "count": len(records),
+            "leadHours": 24,
+            "units": {"tmax": "°C", "tmin": "°C", "precipProb": "%"},
+            "note": (
+                "기상청이 '전날 05시'에 발표한 다음날 예보. advisory 는 선택 필드로, "
+                "그날 발효됐던 기상특보가 있으면 채워진다."
+            ),
+        },
+        "records": records,
+    }
+
+
 def baseline_from_yearly(yearly: list[dict], start: int = 1995, end: int = 2014) -> float:
     """SSP 기준값 — 관측 시계열의 기준기간 평균 (S5에서 곡선이 이어지도록)."""
     rows = [r["tavg"] for r in yearly if start <= r["year"] <= end]

@@ -12,11 +12,15 @@ import dailyJson from '../../../data/busan_daily.json'
 import monthlyJson from '../../../data/busan_monthly.json'
 import yearlyJson from '../../../data/busan_yearly.json'
 import sspJson from '../../../data/future_ssp.json'
+import pastForecastJson from '../../../data/busan_past_forecast.json'
+import blossomJson from '../../../data/busan_blossom.json'
 import type {
+  BlossomRecord,
   DailyRecord,
   DataMeta,
   MonthlyMean,
   MonthlyNormal,
+  PastForecast,
   Scenario,
   YearlyRecord,
 } from '../types'
@@ -29,10 +33,18 @@ type SspFile = {
   scenarios: Scenario[]
 }
 
+type PastForecastFile = { meta: DataMeta; records: PastForecast[] }
+type BlossomFile = {
+  meta: DataMeta & { species: string; phenomenon: string }
+  records: BlossomRecord[]
+}
+
 const dailyFile = dailyJson as unknown as DailyFile
 const monthlyFile = monthlyJson as unknown as MonthlyFile
 const yearlyFile = yearlyJson as unknown as YearlyFile
 const sspFile = sspJson as unknown as SspFile
+const pastForecastFile = pastForecastJson as unknown as PastForecastFile
+const blossomFile = blossomJson as unknown as BlossomFile
 
 export const CITY = dailyFile.meta.station?.name ?? '부산'
 
@@ -51,12 +63,31 @@ export const scenarios: Scenario[] = sspFile.scenarios
 export const sspBaseline = sspFile.meta.baseline
 export const sspRegion = sspFile.meta.region
 
+/**
+ * 기상청 과거 예보 (S1의 세 번째 플레이어).
+ *
+ * 실데이터 수집이 부분적으로만 성공할 수 있으므로 — 단기예보 과거자료는 날짜별로
+ * 구멍이 난다 — 없는 날은 `undefined` 를 돌려주고, 화면은 조용히 2자 대결로
+ * 돌아간다. 예보가 없다고 출제가 막히면 안 된다.
+ */
+const forecastByDate = new Map(pastForecastFile.records.map((r) => [r.date, r]))
+export const getPastForecast = (date: string): PastForecast | undefined => forecastByDate.get(date)
+export const hasPastForecast = forecastByDate.size > 0
+
+/** 벚꽃 개화일 (S3 보조 레이어) */
+export const blossom: BlossomRecord[] = blossomFile.records
+export const blossomSpecies = blossomFile.meta.species
+const blossomByYear = new Map(blossom.map((r) => [r.year, r]))
+export const getBlossom = (year: number): BlossomRecord | undefined => blossomByYear.get(year)
+
 /** 데이터 출처 배지용 — 더미인지 실데이터인지 화면에 정직하게 표시한다. */
 export const dataSources = {
   daily: dailyFile.meta.source,
   monthly: monthlyFile.meta.source,
   yearly: yearlyFile.meta.source,
   ssp: sspFile.meta.source,
+  pastForecast: pastForecastFile.meta.source,
+  blossom: blossomFile.meta.source,
 }
 export const isDummyData = Object.values(dataSources).some((s) => s === 'SYNTHETIC_DUMMY')
 

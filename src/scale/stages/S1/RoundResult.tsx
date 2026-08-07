@@ -1,4 +1,5 @@
 /** S1 채점 결과 — "틀렸다"가 아니라 "무엇이 어긋났고 왜 그랬는지". */
+import { KmaCompare } from './KmaCompare'
 import { dtrOf, skyOf, type ForecastCase, type Guess, type ItemScore, type RoundScore } from '../../lib/forecast'
 import { PRECIP_CLASSES, precipClassOf } from '../../lib/forecast'
 
@@ -37,11 +38,14 @@ export function RoundResult({
 
       {/* 실제 관측 */}
       <div className="panel-quiet grid grid-cols-4 gap-2 px-3 py-2.5 text-center">
-        <Fact label="최고기온" value={`${answer.tmax.toFixed(1)}℃`} sub={`예보 ${guess.tmax.toFixed(1)}℃`} />
+        <Fact label="최고기온" value={`${answer.tmax.toFixed(1)}℃`} sub={`당신 ${guess.tmax.toFixed(1)}℃`} />
         <Fact label="강수" value={answer.precip > 0 ? `${answer.precip} mm` : '없음'} sub={actualPrecipLabel} />
         <Fact label="일교차" value={`${dtrOf(answer).toFixed(1)}℃`} sub={`하늘 ${skyOf(answer.cloud)}`} />
         <Fact label="바람" value={`${answer.windDir} ${answer.windSpeed.toFixed(1)}`} sub={`${answer.windDeg}°`} />
       </div>
+
+      {/* 3자 대결 — 당신 / 기상청 / 실제 */}
+      <KmaCompare forecastCase={forecastCase} guess={guess} score={score} />
 
       {/* 항목별 채점 + 해설 */}
       <div className="flex flex-col gap-2">

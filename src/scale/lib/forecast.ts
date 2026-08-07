@@ -6,8 +6,8 @@
  *    골라낸다. 아무 날이나 뽑으면 해설이 데이터와 어긋나 교육 효과가 무너진다.
  *  - 채점 문구는 감점이 아니라 발견 프레임. 틀린 이유를 데이터의 실제 숫자로 말한다.
  */
-import { daily } from '../data/loader'
-import type { DailyRecord, DtrClass, PrecipClass, WindFamily } from '../types'
+import { daily, getPastForecast } from '../data/loader'
+import type { Advisory, DailyRecord, DtrClass, PastForecast, PrecipClass, WindFamily } from '../types'
 
 export type RoundNumber = 1 | 2 | 3
 export type BonusKind = 'dtr' | 'wind' | null
@@ -22,6 +22,15 @@ export type ForecastCase = {
   bonus: BonusKind
   /** 종관 국면 요약 (해설 생성용) */
   features: CaseFeatures
+  /** 그날 기상청이 실제로 냈던 예보 — 세 번째 플레이어. 없는 날도 있다. */
+  kma: PastForecast | null
+  /**
+   * 라운드 시작에 띄우는 기상특보 배지.
+   *
+   * '오늘'(= 예보 기준일)의 특보다. 정답인 '내일'의 특보를 미리 보여주면
+   * 호우주의보 한 줄이 강수 4지선다의 답을 그대로 알려주는 셈이 된다.
+   */
+  todayAdvisory: Advisory | null
 }
 
 export type CaseFeatures = {
@@ -53,6 +62,46 @@ export type RoundScore = {
   max: number
   tmaxError: number
   lesson: string
+  /** 기상청과의 3자 대결. 그날 예보 자료가 없으면 null. */
+  kma: KmaCompare | null
+}
+
+/** "당신 / 기상청 / 실제" 세 값의 비교 결과. */
+export type KmaCompare = {
+  tmax: number
+  /** 기상청의 최고기온 오차 */
+  error: number
+  /** 사용자 오차 − 기상청 오차. 음수면 사용자가 이겼다. */
+  margin: number
+  userWins: boolean
+  precipClass: PrecipClass
+  precipHit: boolean
+  precipProb: number | null
+  /**
+   * 기상청도 크게 어긋난 날. 이게 참이면 화면은 감점이 아니라 발견을 띄운다 —
+   * 슈퍼컴퓨터와 수백 명의 예보관도 틀린다는 사실이 이 콘텐츠의 핵심이다.
+   */
+  kmaMissed: boolean
+}
+
+/** 기상청 예보도 함께 채점한다. 사용자와 같은 기준(최고기온 오차·강수 등급)으로. */
+function compareWithKma(c: ForecastCase, guess: Guess): KmaCompare | null {
+  if (!c.kma) return null
+  const actualClass = precipClassOf(c.answer.precip)
+  const error = Math.abs(c.kma.tmax - c.answer.tmax)
+  const userError = Math.abs(guess.tmax - c.answer.tmax)
+  const precipHit = c.kma.precipClass === actualClass
+  return {
+    tmax: c.kma.tmax,
+    error,
+    margin: userError - error,
+    // 동점(0.05℃ 이내)은 사용자의 승리로 치지 않는다
+    userWins: userError < error - 0.05,
+    precipClass: c.kma.precipClass,
+    precipHit,
+    precipProb: c.kma.precipProb ?? null,
+    kmaMissed: error >= 2 || !precipHit,
+  }
 }
 
 export const PRECIP_CLASSES: { id: PrecipClass; label: string; range: string }[] = [
@@ -147,6 +196,10 @@ const roundFilters: Record<RoundNumber, ((c: Candidate) => boolean)[]> = {
   ],
   // R3: 지속성이 깨지는 날 — 전선 통과 / 한기 남하처럼 변동이 큰 날
   3: [
+    // 기상특보가 걸려 있던 날을 우선한다. R3가 보여주려는 '대기가 어제를 배신하는
+    // 날'이 곧 특보가 나가는 날이고, 그래야 배지가 죽은 기능이 되지 않는다.
+    // 특보 자료가 없거나 후보가 모자라면 아래 조건들로 조용히 내려간다.
+    (c) => Math.abs(c.features.tmaxDelta) >= 4 && !!getPastForecast(daily[c.index].date)?.advisory,
     (c) => Math.abs(c.features.tmaxDelta) >= 5 && Math.abs(c.features.pressureTrend) >= 3,
     (c) => Math.abs(c.features.tmaxDelta) >= 4,
     (c) => Math.abs(c.features.tmaxDelta) >= 3,
@@ -174,6 +227,8 @@ export function pickCase(round: RoundNumber, usedIndexes: number[] = []): Foreca
     answer: daily[i + 1],
     bonus: BONUS_BY_ROUND[round],
     features: chosen.features,
+    kma: getPastForecast(daily[i + 1].date) ?? null,
+    todayAdvisory: getPastForecast(daily[i].date)?.advisory ?? null,
   }
 }
 
@@ -223,6 +278,27 @@ export function scoreRound(c: ForecastCase, guess: Guess): RoundScore {
     max: items.reduce((s, i) => s + i.max, 0),
     tmaxError: Math.abs(guess.tmax - c.answer.tmax),
     lesson: lessonOf(c),
+    kma: compareWithKma(c, guess),
+  }
+}
+
+/** 3라운드 종합 — 당신 vs 기상청 평균 오차. 비교 가능한 라운드만 센다. */
+export function kmaSeasonSummary(rounds: RoundScore[]): {
+  rounds: number
+  userMae: number
+  kmaMae: number
+  wins: number
+  kmaMissedRounds: number
+} | null {
+  const usable = rounds.filter((r) => r.kma)
+  if (usable.length === 0) return null
+  const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length
+  return {
+    rounds: usable.length,
+    userMae: mean(usable.map((r) => r.tmaxError)),
+    kmaMae: mean(usable.map((r) => r.kma!.error)),
+    wins: usable.filter((r) => r.kma!.userWins).length,
+    kmaMissedRounds: usable.filter((r) => r.kma!.kmaMissed).length,
   }
 }
 

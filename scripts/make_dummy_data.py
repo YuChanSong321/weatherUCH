@@ -25,10 +25,15 @@ from datetime import date, timedelta
 from common import (
     DAILY_UNITS,
     DATA_DIR,
+    PRECIP_ORDER,
     SCHEMA_VERSION,
     STATION,
+    advisory_for,
     baseline_from_yearly,
+    blossom_payload,
+    forecast_payload,
     monthly_from_daily,
+    precip_class_of,
     ssp_scenarios,
     verify,
     wind_dir_label,
@@ -232,6 +237,138 @@ def generate_yearly(daily_years: dict[int, dict]) -> list[dict]:
     return out
 
 
+def generate_past_forecast(daily: list[dict]) -> list[dict]:
+    """기상청이 '전날 05시'에 냈을 법한 다음날 예보 — 더미.
+
+    ⚠️ 합성 데이터다. 실제 예보값이 아니다. 실데이터는 scripts/fetch_forecast.py
+    (기상청 API허브 단기예보 과거자료)가 같은 스키마로 덮어쓴다.
+
+    그럴듯함의 조건은 "관측값 근처"만이 아니다. S1이 가르치려는 것은 '전문가도
+    틀린다'이므로, 예보가 틀리는 방식까지 실제와 닮아야 한다.
+
+      · 조용한 날은 잘 맞는다        — 오차 1 ℃ 안팎
+      · 큰 변화는 과소예측한다        — 예보는 언제나 변화폭을 덜 잡는다
+                                       (평균으로의 회귀. 실제 예보의 고질적 성질)
+      · 그래도 지속성보다는 낫다      — 안 그러면 기상청을 세울 이유가 없다
+
+    이 세 성질을 아래 한 줄이 만든다:
+        예보 = 실제 − DAMPING × (실제 − 어제) + 잡음
+    """
+    rng = random.Random(20260807)
+    DAMPING = 0.30          # 변화폭을 30% 덜 잡는다
+    NOISE = 0.85            # °C, 조용한 날의 잔여 오차
+
+    out: list[dict] = []
+    for prev, today in zip(daily, daily[1:]):
+        delta = today["tmax"] - prev["tmax"]
+        tmax = today["tmax"] - DAMPING * delta + rng.gauss(0, NOISE)
+        tmin = today["tmin"] - DAMPING * (today["tmin"] - prev["tmin"]) + rng.gauss(0, NOISE)
+
+        actual_class = precip_class_of(today["precip"])
+        # 강수 등급은 4번 중 3번 맞고, 틀리면 한 칸 옆으로 빗나간다
+        idx = PRECIP_ORDER.index(actual_class)
+        if rng.random() < 0.26:
+            idx = max(0, min(len(PRECIP_ORDER) - 1, idx + rng.choice([-1, 1])))
+        forecast_class = PRECIP_ORDER[idx]
+
+        # 강수확률은 예보 등급과 같은 방향을 보되 폭이 넓다
+        prob_band = {"none": (0, 20), "light": (30, 60), "rain": (55, 80), "heavy": (70, 95)}[forecast_class]
+        precip_prob = int(round(rng.uniform(*prob_band) / 10) * 10)
+
+        record = {
+            "date": today["date"],
+            "baseDate": prev["date"],
+            "baseTime": "0500",
+            "tmax": round(tmax, 1),
+            "tmin": round(tmin, 1),
+            "precipClass": forecast_class,
+            "precipProb": precip_prob,
+            "_source": "dummy",
+        }
+        advisory = advisory_for(today)
+        if advisory:  # 선택 필드 — 특보가 없던 날에는 키 자체가 없다
+            record["advisory"] = advisory
+        out.append(record)
+    return out
+
+
+def generate_blossom(yearly: list[dict]) -> list[dict]:
+    """부산 벚꽃(왕벚나무) 개화일 — 더미.
+
+    ⚠️ 합성 데이터다. 실데이터는 scripts/fetch_blossom.py (기상청 계절관측)가
+    같은 스키마로 덮어쓴다.
+
+    실제 관측 경향을 두 가지 넣었다.
+      · 수십 년에 걸쳐 며칠씩 앞당겨진다 (여기서는 약 2.8일/10년)
+      · 따뜻한 해에는 더 일찍 핀다 — 그래서 S3의 기온 곡선과 나란히 놓을 값이 된다
+
+    두 번째가 이 레이어의 존재 이유다. 개화일을 연평균 기온 편차에 묶어두지 않으면
+    "0.0몇 ℃가 이만큼의 날짜"라는 카피가 데이터와 어긋난다.
+    """
+    rng = random.Random(19850325)
+    BASE_DOY = 92.0                 # 1985년 무렵 개화일 ≈ 4월 2일
+    TREND_PER_YEAR = -0.28          # 10년에 2.8일씩 앞당겨진다
+    DAYS_PER_DEGREE = -2.4          # 연평균 +1 ℃ 당 2.4일 일찍
+
+    tavgs = [r["tavg"] for r in yearly]
+    mean_tavg = sum(tavgs) / len(tavgs)
+
+    out = []
+    for r in yearly:
+        year = r["year"]
+        trend = BASE_DOY + (year - yearly[0]["year"]) * TREND_PER_YEAR
+        # 추세는 이미 온난화를 담고 있으므로, 기온 편차는 '추세로부터의 편차'만 쓴다
+        expected_tavg = mean_tavg + (year - (yearly[0]["year"] + yearly[-1]["year"]) / 2) * (
+            (tavgs[-1] - tavgs[0]) / max(1, yearly[-1]["year"] - yearly[0]["year"])
+        )
+        doy = trend + DAYS_PER_DEGREE * (r["tavg"] - expected_tavg) + rng.gauss(0, 2.6)
+        doy = int(round(max(60, min(115, doy))))
+        out.append({
+            "year": year,
+            "doy": doy,
+            "date": (date(year, 1, 1) + timedelta(days=doy - 1)).isoformat(),
+        })
+    return out
+
+
+def verify_extras(daily: list[dict], forecasts: list[dict], blossom: list[dict]) -> None:
+    """추가 두 파일도 "가르치려는 관계"를 실제로 담고 있는지 확인한다."""
+    by_date = {r["date"]: r for r in daily}
+    prev_by_date = {b["date"]: a for a, b in zip(daily, daily[1:])}
+
+    errs, persist_errs, beat = [], [], 0
+    hits = 0
+    for f in forecasts:
+        actual = by_date[f["date"]]
+        prev = prev_by_date[f["date"]]
+        e = abs(f["tmax"] - actual["tmax"])
+        p = abs(prev["tmax"] - actual["tmax"])
+        errs.append(e)
+        persist_errs.append(p)
+        beat += e < p
+        hits += f["precipClass"] == precip_class_of(actual["precip"])
+
+    n = len(forecasts)
+    big = [
+        abs(f["tmax"] - by_date[f["date"]]["tmax"])
+        for f in forecasts
+        if abs(by_date[f["date"]]["tmax"] - prev_by_date[f["date"]]["tmax"]) >= 4
+    ]
+    advisories = sum(1 for f in forecasts if "advisory" in f)
+
+    print("\n[자체 검증 · 추가 레이어]")
+    print(f"  기상청 예보 MAE(최고기온)  : {sum(errs)/n:.2f} °C  (지속성 {sum(persist_errs)/n:.2f} °C)")
+    print(f"  변동 큰 날(≥4℃) 예보 MAE  : {sum(big)/max(1,len(big)):.2f} °C  (전문가도 틀린다)")
+    print(f"  지속성보다 나은 날 비율    : {beat/n*100:.0f} %")
+    print(f"  강수 등급 적중률           : {hits/n*100:.0f} %")
+    print(f"  기상특보 발효일            : {advisories}일 / {n}일")
+    if len(blossom) >= 2:
+        span = blossom[-1]["year"] - blossom[0]["year"]
+        head = sum(b["doy"] for b in blossom[:5]) / 5
+        tail = sum(b["doy"] for b in blossom[-5:]) / 5
+        print(f"  벚꽃 개화일 변화           : {tail - head:+.1f}일 / {span}년  (앞당겨지면 음수)")
+
+
 def main() -> None:
     print("부산 더미 데이터 생성 중...")
     daily = generate_daily()
@@ -300,8 +437,15 @@ def main() -> None:
         "scenarios": ssp_scenarios(ssp_baseline),
     })
 
+    forecasts = generate_past_forecast(daily)
+    write_json(DATA_DIR / "busan_past_forecast.json", forecast_payload(forecasts, SOURCE_TAG))
+
+    blossom = generate_blossom(yearly)
+    write_json(DATA_DIR / "busan_blossom.json", blossom_payload(blossom, SOURCE_TAG))
+
     # 생성 결과가 "가르치려는 규칙"을 실제로 만족하는지 자체 검증
     verify(daily, yearly)
+    verify_extras(daily, forecasts, blossom)
     print("완료.")
 
 

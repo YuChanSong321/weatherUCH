@@ -1,5 +1,5 @@
 /** S1 마무리 — 3라운드 총점과 "그럼 2주 뒤는?" 질문으로 S2로 넘긴다. */
-import { verdictOfTotal, type RoundScore } from '../../lib/forecast'
+import { kmaSeasonSummary, verdictOfTotal, type RoundScore } from '../../lib/forecast'
 import { S1_MAX } from '../../state/journey'
 
 const ROUND_TITLE: Record<number, string> = {
@@ -57,6 +57,8 @@ export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: ()
         </p>
       </div>
 
+      <KmaScoreboard rounds={rounds} />
+
       <div className="panel px-5 py-4 text-center">
         <p className="text-[14px] leading-relaxed">
           그렇다면 <span className="font-semibold text-act-1">2주 뒤</span>는 어떨까?
@@ -69,6 +71,92 @@ export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: ()
           그 벽 너머로 가보기
         </button>
       </div>
+    </div>
+  )
+}
+
+/**
+ * 당신 vs 기상청, 3라운드 평균 오차.
+ *
+ * 지는 게 정상이다 — 상대는 관측망 전체와 수치모델을 쓴다. 그래서 이 표의 요점은
+ * 승패가 아니라 "그 격차조차 며칠짜리"라는 것이고, 문구도 그쪽을 향한다.
+ */
+function KmaScoreboard({ rounds }: { rounds: RoundScore[] }) {
+  const s = kmaSeasonSummary(rounds)
+  if (!s) return null
+
+  const gap = s.userMae - s.kmaMae
+  const scale = Math.max(s.userMae, s.kmaMae, 1) * 1.15
+
+  return (
+    <div className="panel flex flex-col gap-3 p-5">
+      <div className="flex items-baseline justify-between">
+        <span className="text-[12.5px] text-ink-2">당신 vs 기상청 · 최고기온 평균 오차</span>
+        <span className="text-[11px] text-ink-3">
+          비교 가능한 {s.rounds}개 라운드{s.rounds < rounds.length && ' (예보 자료가 있는 날만)'}
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <MaeBar label="당신" value={s.userMae} scale={scale} color="var(--color-act-1)" />
+        <MaeBar label="기상청" value={s.kmaMae} scale={scale} color="var(--color-act-2)" />
+      </div>
+
+      <p className="border-t border-white/8 pt-3 text-[12px] leading-relaxed text-ink-2">
+        {s.wins > 0 ? (
+          <>
+            <span className="font-semibold" style={{ color: 'var(--color-good)' }}>
+              {s.wins}개 라운드에서 당신이 기상청을 이겼다.
+            </span>{' '}
+          </>
+        ) : null}
+        {gap <= 0.3 ? (
+          <>
+            관측망 전체와 슈퍼컴퓨터를 쓰는 쪽과 <span className="text-ink-1">거의 나란히 섰다.</span> 며칠 규모에는
+            사람이 읽어낼 수 있는 신호가 그만큼 많이 남아 있다는 뜻이다.
+          </>
+        ) : (
+          <>
+            평균 <span className="tnum">{gap.toFixed(1)}℃</span> 차이. 관측망 전체와 수치모델을 가진 쪽이 앞서는 것이
+            정상이다.
+          </>
+        )}
+        {s.kmaMissedRounds > 0 && (
+          <>
+            {' '}
+            그런데 <span className="text-ink-1">기상청도 {s.kmaMissedRounds}개 라운드에서 어긋났다.</span> 이 격차는
+            실력의 문제가 아니라 대기의 성질이고, 며칠만 더 밀면 양쪽 다 무너진다.
+          </>
+        )}
+      </p>
+    </div>
+  )
+}
+
+function MaeBar({
+  label,
+  value,
+  scale,
+  color,
+}: {
+  label: string
+  value: number
+  scale: number
+  color: string
+}) {
+  return (
+    <div className="grid grid-cols-[4.5rem_1fr_4.5rem] items-center gap-3">
+      <span className="flex items-center gap-1.5 text-[11.5px] text-ink-2">
+        <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
+        {label}
+      </span>
+      <div className="h-2.5 overflow-hidden rounded-full bg-white/8">
+        <div
+          className="h-full rounded-full transition-[width] duration-700"
+          style={{ width: `${Math.min(100, (value / scale) * 100)}%`, background: color }}
+        />
+      </div>
+      <span className="tnum text-right text-[11.5px] text-ink-1">{value.toFixed(2)}℃</span>
     </div>
   )
 }
