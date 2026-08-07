@@ -29,7 +29,7 @@ export function RoundResult({
   return (
     <section className="panel rise flex flex-col gap-3 p-4">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-[15px] font-semibold tracking-tight">내일이 도착했다</h2>
+        <h2 className="text-[15px] font-semibold tracking-tight">내일이 도착했습니다</h2>
         <span className="tnum text-[12px]">
           <span className="font-semibold">{score.earned}</span>
           <span className="text-ink-3"> / {score.max}점</span>

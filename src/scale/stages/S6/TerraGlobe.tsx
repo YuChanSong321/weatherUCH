@@ -119,7 +119,7 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
           style={{ opacity: arrived ? 0 : 1 }}
         >
           <span className="rounded-full bg-black/50 px-3 py-1.5 text-ink-2 backdrop-blur-sm">
-            지상을 벗어난다 — 여기서부터는 대기가 아니라 <span className="text-ink-1">궤도</span>가 기후를 정한다
+            지상을 벗어납니다 — 여기서부터는 대기가 아니라 <span className="text-ink-1">궤도</span>가 기후를 정합니다
           </span>
         </div>
       )}

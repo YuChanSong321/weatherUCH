@@ -173,12 +173,12 @@ function Outcome({ kma }: { kma: NonNullable<RoundScore['kma']> }) {
     return (
       <Banner
         color="var(--color-good)"
-        title={wide ? '당신이 기상청을 이겼다' : '당신이 기상청보다 정확했다'}
+        title={wide ? '기상청을 이기셨습니다' : '기상청보다 정확하셨습니다'}
         body={
           <>
             기상청보다 <span className="tnum font-semibold">{Math.abs(kma.margin).toFixed(1)}℃</span> 가깝게
-            찍었다. {kma.kmaMissed ? '이날은 예보 자체가 어려운 날이었다 — ' : ''}
-            며칠 규모에서는 사람이 읽어낼 수 있는 신호가 실제로 남아 있다.
+            찍으셨어요. {kma.kmaMissed ? '이날은 예보 자체가 어려운 날이었습니다 — ' : ''}
+            며칠 규모에서는 사람이 읽어낼 수 있는 신호가 실제로 남아 있습니다.
           </>
         }
       />
@@ -188,19 +188,19 @@ function Outcome({ kma }: { kma: NonNullable<RoundScore['kma']> }) {
     return (
       <Banner
         color="var(--color-act-3)"
-        title="전문가도 틀린다"
+        title="전문가도 틀립니다"
         body={
           <>
             수백 개의 관측소와 슈퍼컴퓨터를 쓰는 기상청도 이날은{' '}
             {kma.error >= 2 ? (
               <>
-                <span className="tnum font-semibold">{kma.error.toFixed(1)}℃</span> 어긋났다
+                <span className="tnum font-semibold">{kma.error.toFixed(1)}℃</span> 어긋났습니다
               </>
             ) : (
-              '강수 등급을 빗나갔다'
+              '강수 등급을 빗나갔고요'
             )}
-            . 실력이 모자라서가 아니라 <span className="text-ink-1">대기가 혼돈이기 때문</span>이다 — 초기 상태의
-            아주 작은 오차가 며칠마다 두 배로 자란다.
+            . 실력이 모자라서가 아니라 <span className="text-ink-1">대기가 혼돈이기 때문</span>입니다 — 초기 상태의
+            아주 작은 오차가 며칠마다 두 배로 자라거든요.
           </>
         }
       />
@@ -208,8 +208,8 @@ function Outcome({ kma }: { kma: NonNullable<RoundScore['kma']> }) {
   }
   return (
     <p className="text-[11.5px] leading-relaxed text-ink-3">
-      이날은 기상청이 <span className="tnum">{Math.abs(kma.margin).toFixed(1)}℃</span> 더 정확했다. 관측망 전체와
-      수치모델을 가진 쪽이 유리한 것이 정상이다 — 그런데도 그 격차는 며칠 뒤면 사라진다.
+      이날은 기상청이 <span className="tnum">{Math.abs(kma.margin).toFixed(1)}℃</span> 더 정확했습니다. 관측망 전체와
+      수치모델을 가진 쪽이 유리한 게 당연하고요 — 그런데도 그 격차는 며칠 뒤면 사라집니다.
     </p>
   )
 }

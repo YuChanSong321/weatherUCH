@@ -53,7 +53,7 @@ export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: ()
           ))}
         </div>
         <p className="text-[11.5px] leading-relaxed text-ink-3">
-          같은 실력으로도 어떤 날은 맞고 어떤 날은 어긋난다. 어긋난 날은 당신의 실수가 아니라 대기의 성질이었다.
+          같은 실력으로도 어떤 날은 맞고 어떤 날은 어긋납니다. 어긋난 날은 당신의 실수가 아니라 대기의 성질이었어요.
         </p>
       </div>
 
@@ -61,10 +61,10 @@ export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: ()
 
       <div className="panel px-5 py-4 text-center">
         <p className="text-[14px] leading-relaxed">
-          그렇다면 <span className="font-semibold text-act-1">2주 뒤</span>는 어떨까?
+          그렇다면 <span className="font-semibold text-act-1">2주 뒤</span>는 어떨까요?
           <br />
           <span className="text-ink-2">
-            같은 방법으로 14일을 밀고 나가면, 오차는 며칠마다 두 배로 자란다. 예측은 그 지점에서 무너진다.
+            같은 방법으로 14일을 밀고 나가면, 오차는 며칠마다 두 배로 자랍니다. 예측은 그 지점에서 무너져요.
           </span>
         </p>
         <button type="button" className="btn btn-primary mt-4" onClick={onNext}>
@@ -106,26 +106,26 @@ function KmaScoreboard({ rounds }: { rounds: RoundScore[] }) {
         {s.wins > 0 ? (
           <>
             <span className="font-semibold" style={{ color: 'var(--color-good)' }}>
-              {s.wins}개 라운드에서 당신이 기상청을 이겼다.
+              {s.wins}개 라운드에서 기상청을 이기셨습니다.
             </span>{' '}
           </>
         ) : null}
         {gap <= 0.3 ? (
           <>
-            관측망 전체와 슈퍼컴퓨터를 쓰는 쪽과 <span className="text-ink-1">거의 나란히 섰다.</span> 며칠 규모에는
-            사람이 읽어낼 수 있는 신호가 그만큼 많이 남아 있다는 뜻이다.
+            관측망 전체와 슈퍼컴퓨터를 쓰는 쪽과 <span className="text-ink-1">거의 나란히 서셨습니다.</span> 며칠 규모에는
+            사람이 읽어낼 수 있는 신호가 그만큼 많이 남아 있다는 뜻이에요.
           </>
         ) : (
           <>
-            평균 <span className="tnum">{gap.toFixed(1)}℃</span> 차이. 관측망 전체와 수치모델을 가진 쪽이 앞서는 것이
-            정상이다.
+            평균 <span className="tnum">{gap.toFixed(1)}℃</span> 차이입니다. 관측망 전체와 수치모델을 가진 쪽이 앞서는 게
+            당연하고요.
           </>
         )}
         {s.kmaMissedRounds > 0 && (
           <>
             {' '}
-            그런데 <span className="text-ink-1">기상청도 {s.kmaMissedRounds}개 라운드에서 어긋났다.</span> 이 격차는
-            실력의 문제가 아니라 대기의 성질이고, 며칠만 더 밀면 양쪽 다 무너진다.
+            그런데 <span className="text-ink-1">기상청도 {s.kmaMissedRounds}개 라운드에서 어긋났습니다.</span> 이 격차는
+            실력의 문제가 아니라 대기의 성질이고, 며칠만 더 밀면 양쪽 다 무너져요.
           </>
         )}
       </p>

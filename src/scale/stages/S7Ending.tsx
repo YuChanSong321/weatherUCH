@@ -45,19 +45,19 @@ const CARDS = [
   {
     n: '①',
     title: '날씨는 며칠',
-    body: '오늘의 대기는 내일과 닮아 있다. 그 닮음이 예보의 재료다. 하지만 작은 오차가 며칠마다 두 배로 자라 2주 앞에서 예측을 삼킨다.',
+    body: '오늘의 대기는 내일과 닮아 있습니다. 그 닮음이 예보의 재료예요. 하지만 작은 오차가 며칠마다 두 배로 자라 2주 앞에서 예측을 삼킵니다.',
     color: 'var(--color-act-1)',
   },
   {
     n: '②',
     title: '기후는 수십 년',
-    body: '개별 연도는 여전히 못 맞힌다. 그런데 40년을 평균하면 방향이 남는다. 그래서 2100년의 기후는 다음 주 날씨보다 오히려 더 잘 보인다.',
+    body: '개별 연도는 여전히 못 맞힙니다. 그런데 40년을 평균하면 방향이 남아요. 그래서 2100년의 기후는 다음 주 날씨보다 오히려 더 잘 보입니다.',
     color: 'var(--color-act-2)',
   },
   {
     n: '③',
     title: '그 기후를 움직이는 것은 지구의 궤도',
-    body: '이심률·자전축 기울기·세차는 천체역학이 정한다. 시계처럼 계산되기에, 수만 년 규모의 기후는 가장 예측 가능한 영역이 된다.',
+    body: '이심률·자전축 기울기·세차는 천체역학이 정합니다. 시계처럼 계산되기에, 수만 년 규모의 기후는 가장 예측 가능한 영역이 됩니다.',
     color: 'var(--color-act-3)',
   },
 ]
@@ -126,11 +126,11 @@ export function S7Ending() {
         <div>
           <div className="text-[11px] font-medium tracking-[0.14em] text-act-3">여정의 끝 · 처음의 질문</div>
           <h1 className="mt-1 text-[26px] leading-tight font-semibold tracking-tight">
-            “당신은 며칠 앞을 맞힐 수 있을까?”
+            “당신은 며칠 앞을 맞힐 수 있을까요?”
           </h1>
           <p className="mt-1.5 max-w-3xl text-[13.5px] leading-relaxed text-ink-2">
-            답: <span className="text-ink-1">며칠은 맞힐 수 있고, 2주는 아무도 못 맞히며, 수십 년과 수만 년은 다시 맞힐 수 있다.</span>{' '}
-            예측 가능성은 시간이 갈수록 나빠지는 직선이 아니라 — U자를 그린다.
+            답: <span className="text-ink-1">며칠은 맞힐 수 있고, 2주는 아무도 못 맞히며, 수십 년과 수만 년은 다시 맞힐 수 있습니다.</span>{' '}
+            예측 가능성은 시간이 갈수록 나빠지는 직선이 아니라 — U자를 그립니다.
           </p>
         </div>
         <div className="shrink-0 text-right">
@@ -252,11 +252,11 @@ export function S7Ending() {
         <p className="text-[12px] leading-relaxed text-ink-3">
           {dragged2100 !== null && (
             <>
-              당신은 2100년을 <span className="tnum text-ink-2">{dragged2100.toFixed(2)}℃</span>로 그렸다. 그 갈래는
-              아직 정해지지 않았다 —{' '}
+              2100년을 <span className="tnum text-ink-2">{dragged2100.toFixed(2)}℃</span>로 그리셨습니다. 그 갈래는
+              아직 정해지지 않았어요 —{' '}
             </>
           )}
-          기후를 움직이는 다이얼 중 하나는, 지금 인간이 잡고 있다.
+          기후를 움직이는 다이얼 중 하나는, 지금 인간이 잡고 있습니다.
         </p>
         <button type="button" className="btn btn-primary shrink-0" onClick={restart}>
           다시 도전하기

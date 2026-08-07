@@ -70,7 +70,7 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
             {blossomVisible
               ? '숫자로는 0.0몇 ℃, 벚꽃으로는 며칠'
               : trendVisible
-                ? '개별 연도는 튀지만, 방향은 흔들리지 않는다'
+                ? '개별 연도는 튀지만, 방향은 흔들리지 않습니다'
                 : '한 해에 한 점씩'}
           </h1>
         </div>
@@ -162,8 +162,8 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
         {/* 두 축을 한 그림에 놓았으므로, 기울기를 직접 비교하면 안 된다는 것을 적어둔다 */}
         {blossomVisible && (
           <p className="mt-1.5 text-[10.5px] text-ink-3">
-            왼쪽 눈금은 기온(℃), 오른쪽 눈금은 {blossomSpecies} 개화일. 두 축의 눈금은 서로 독립이므로 기울기를
-            맞대어 읽지 말 것 — 같은 x축(연도) 위에 놓인 별개의 두 사실이다.
+            왼쪽 눈금은 기온(℃), 오른쪽 눈금은 {blossomSpecies} 개화일입니다. 두 축의 눈금은 서로 독립이라 기울기를
+            맞대어 읽으면 안 됩니다 — 같은 x축(연도) 위에 놓인 별개의 두 사실이에요.
           </p>
         )}
       </div>
@@ -172,29 +172,29 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
         <p className="max-w-3xl text-[13.5px] leading-relaxed text-ink-2">
           {blossomVisible && blossomShift ? (
             <>
-              40년 동안 연평균 기온은 <span className="tnum text-ink-1">{(last - first).toFixed(2)}℃</span> 올랐다 —
-              소수점 아래 숫자라 잘 와닿지 않는다. 같은 기간 부산의 벚꽃은{' '}
+              40년 동안 연평균 기온은 <span className="tnum text-ink-1">{(last - first).toFixed(2)}℃</span> 올랐습니다 —
+              소수점 아래 숫자라 잘 와닿지 않죠. 같은 기간 부산의 벚꽃은{' '}
               <span className="tnum font-semibold" style={{ color: 'var(--color-blossom)' }}>
                 {blossomShift.days.toFixed(0)}일
               </span>{' '}
-              일찍 핀다 ({doyLabel(Math.round(blossomShift.head))} → {doyLabel(Math.round(blossomShift.tail))}).{' '}
-              <span className="text-ink-1">0.0몇 ℃는 달력 위에서 이만큼이다.</span>
+              일찍 핍니다 ({doyLabel(Math.round(blossomShift.head))} → {doyLabel(Math.round(blossomShift.tail))}).{' '}
+              <span className="text-ink-1">0.0몇 ℃는 달력 위에서 이만큼입니다.</span>
             </>
           ) : trendVisible ? (
             <>
-              한 해만 보면 위아래로 튄다 — 방금 당신을 이겼던 그 혼돈이다. 그런데 40년을 늘어놓으면 개별 연도의
+              한 해만 보면 위아래로 튑니다 — 방금 당신을 이겼던 그 혼돈이죠. 그런데 40년을 늘어놓으면 개별 연도의
               튐은 잡음이 되고, 처음 5년 평균 {first.toFixed(2)}℃ → 마지막 5년 평균 {last.toFixed(2)}℃ 의 방향만
-              남는다. <span className="text-ink-1">날씨는 예측이 안 되는데 기후는 예측이 된다</span>는 말의 뜻이 여기 있다.
+              남습니다. <span className="text-ink-1">날씨는 예측이 안 되는데 기후는 예측이 된다</span>는 말의 뜻이 여기 있어요.
             </>
           ) : (
             <>
-              방금 하루를 맞히려 애썼던 곳에서 카메라를 뒤로 뺀다. 점 하나가 1년 — 365일의 날씨를 눌러 만든 숫자다.
+              방금 하루를 맞히려 애썼던 곳에서 카메라를 뒤로 뺍니다. 점 하나가 1년 — 365일의 날씨를 눌러 만든 숫자예요.
             </>
           )}
         </p>
         {trendVisible ? (
           <button type="button" className="btn btn-primary shrink-0 rise" onClick={handleNext}>
-            그럼 빈 해를 맞혀보자
+            그럼 빈 해를 맞혀볼까요
           </button>
         ) : (
           <button

@@ -45,7 +45,7 @@ export function S1Forecast({ cases }: { cases: ForecastCase[] }) {
         <div>
           <div className="text-[11px] font-medium tracking-[0.14em] text-act-1">1단계 · 며칠 앞</div>
           <h1 className="mt-0.5 text-[22px] leading-tight font-semibold tracking-tight">
-            관측만 보고 내일을 찍어보자
+            관측만 보고 내일을 찍어봅시다
           </h1>
         </div>
         <RoundDots count={cases.length} current={roundIndex} done={rounds.map((r) => r.round)} />

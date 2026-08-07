@@ -313,14 +313,14 @@ function scoreTmax(c: ForecastCase, guess: number): ItemScore {
     verdict === 'hit'
       ? `적중 — 실제 ${actual.toFixed(1)}℃, 오차 ${error.toFixed(1)}℃`
       : verdict === 'near'
-        ? `거의 맞혔다 — 실제 ${actual.toFixed(1)}℃, ${error.toFixed(1)}℃ ${highOrLow} 찍었다`
-        : `어긋났다 — 실제 ${actual.toFixed(1)}℃, ${error.toFixed(1)}℃ ${highOrLow} 찍었다`
+        ? `거의 맞혔습니다 — 실제 ${actual.toFixed(1)}℃, ${error.toFixed(1)}℃ ${highOrLow} 찍으셨어요`
+        : `어긋났습니다 — 실제 ${actual.toFixed(1)}℃, ${error.toFixed(1)}℃ ${highOrLow} 찍으셨어요`
 
-  const persistence = `어제와 비슷하게 찍는 것(지속성)만으로도 ${Math.abs(delta).toFixed(1)}℃ 오차였을 날이다.`
+  const persistence = `어제와 비슷하게 찍는 것(지속성)만으로도 ${Math.abs(delta).toFixed(1)}℃ 오차였을 날입니다.`
   const cause = causeOfTempChange(c)
   const why =
     Math.abs(delta) < 1.5
-      ? `${persistence} 대기가 조용한 날은 어제가 곧 내일의 답이다.`
+      ? `${persistence} 대기가 조용한 날은 어제가 곧 내일의 답입니다.`
       : `${persistence} ${cause}`
 
   return { label: '최고기온', earned: tmaxScore(error), max: TMAX_MAX, verdict, headline, why }
@@ -331,18 +331,18 @@ function causeOfTempChange(c: ForecastCase): string {
   const { answer, features } = c
   const parts: string[] = []
   if (features.tmaxDelta <= -1.5) {
-    if (answer.windFamily === 'N') parts.push(`다음날 ${answer.windDir}풍(${answer.windSpeed} m/s)이 들어오며 찬 공기가 남하했다`)
-    if (features.pressureTrend > 1.5) parts.push(`기압이 ${features.pressureTrend > 0 ? '+' : ''}${features.pressureTrend} hPa 올라 고기압이 확장했다`)
-    if (answer.precip >= 1) parts.push(`비(${answer.precip} mm)가 낮 기온을 눌렀다`)
-    return `기온이 ${Math.abs(features.tmaxDelta).toFixed(1)}℃ 내려간 이유: ${parts.join(', ') || '한기가 유입됐다'}.`
+    if (answer.windFamily === 'N') parts.push(`다음날 ${answer.windDir}풍(${answer.windSpeed} m/s)이 들어오며 찬 공기가 남하했습니다`)
+    if (features.pressureTrend > 1.5) parts.push(`기압이 ${features.pressureTrend > 0 ? '+' : ''}${features.pressureTrend} hPa 올라 고기압이 확장했습니다`)
+    if (answer.precip >= 1) parts.push(`비(${answer.precip} mm)가 낮 기온을 눌렀습니다`)
+    return `기온이 ${Math.abs(features.tmaxDelta).toFixed(1)}℃ 내려간 이유: ${parts.join(', ') || '한기가 유입됐습니다'}.`
   }
   if (features.tmaxDelta >= 1.5) {
-    if (answer.windFamily === 'S') parts.push(`${answer.windDir}풍으로 따뜻한 공기가 밀려 올라왔다`)
-    if (features.pressureTrend < -1.5) parts.push(`기압이 ${features.pressureTrend} hPa 내려가 저기압이 접근했다`)
-    if (answer.cloud <= 3) parts.push('맑은 하늘에서 햇빛이 그대로 들어왔다')
-    return `기온이 ${features.tmaxDelta.toFixed(1)}℃ 올라간 이유: ${parts.join(', ') || '남풍이 유입됐다'}.`
+    if (answer.windFamily === 'S') parts.push(`${answer.windDir}풍으로 따뜻한 공기가 밀려 올라왔습니다`)
+    if (features.pressureTrend < -1.5) parts.push(`기압이 ${features.pressureTrend} hPa 내려가 저기압이 접근했습니다`)
+    if (answer.cloud <= 3) parts.push('맑은 하늘에서 햇빛이 그대로 들어왔습니다')
+    return `기온이 ${features.tmaxDelta.toFixed(1)}℃ 올라간 이유: ${parts.join(', ') || '남풍이 유입됐습니다'}.`
   }
-  return '기온을 밀어올리거나 끌어내릴 만한 신호가 약했던 날이다.'
+  return '기온을 밀어올리거나 끌어내릴 만한 신호가 약했던 날입니다.'
 }
 
 function scorePrecip(c: ForecastCase, guess: PrecipClass): ItemScore {
@@ -353,10 +353,10 @@ function scorePrecip(c: ForecastCase, guess: PrecipClass): ItemScore {
 
   const signal =
     pressureTrend < -1 && humidityTrend > 2
-      ? `기압 ${pressureTrend} hPa 하강 + 습도 ${humidityTrend > 0 ? '+' : ''}${humidityTrend}%p 상승 — 저기압이 다가오는 전형적인 강수 신호였다.`
+      ? `기압 ${pressureTrend} hPa 하강 + 습도 ${humidityTrend > 0 ? '+' : ''}${humidityTrend}%p 상승 — 저기압이 다가오는 전형적인 강수 신호였습니다.`
       : pressureTrend > 1 && humidityTrend < 0
-        ? `기압 +${pressureTrend} hPa 상승 + 습도 ${humidityTrend}%p 하강 — 고기압권에서 비가 오기 어려운 상태였다.`
-        : `기압 ${pressureTrend > 0 ? '+' : ''}${pressureTrend} hPa, 습도 ${humidityTrend > 0 ? '+' : ''}${humidityTrend}%p — 신호가 뚜렷하지 않은 애매한 날이었다.`
+        ? `기압 +${pressureTrend} hPa 상승 + 습도 ${humidityTrend}%p 하강 — 고기압권에서 비가 오기 어려운 상태였습니다.`
+        : `기압 ${pressureTrend > 0 ? '+' : ''}${pressureTrend} hPa, 습도 ${humidityTrend > 0 ? '+' : ''}${humidityTrend}%p — 신호가 뚜렷하지 않은 애매한 날이었습니다.`
 
   const headline =
     distance === 0
@@ -381,10 +381,10 @@ function scoreDtr(c: ForecastCase, guess: DtrClass): ItemScore {
 
   const why =
     dtr > 10
-      ? `다음날 운량은 ${c.answer.cloud}/10 — 하늘이 열려 있어 낮에는 햇빛이 그대로 들어오고 밤에는 열이 우주로 빠져나갔다. 구름 이불이 없으면 하루의 기온 폭이 벌어진다.`
+      ? `다음날 운량은 ${c.answer.cloud}/10 — 하늘이 열려 있어 낮에는 햇빛이 그대로 들어오고 밤에는 열이 우주로 빠져나갔습니다. 구름 이불이 없으면 하루의 기온 폭이 벌어집니다.`
       : dtr < 5
-        ? `다음날 운량은 ${c.answer.cloud}/10 — 구름이 이불처럼 덮여 낮에는 햇빛을 막고 밤에는 열을 붙잡았다. 그래서 하루의 기온 폭이 좁아졌다.`
-        : `다음날 운량은 ${c.answer.cloud}/10 — 구름 이불이 반쯤 걷힌 상태였다.`
+        ? `다음날 운량은 ${c.answer.cloud}/10 — 구름이 이불처럼 덮여 낮에는 햇빛을 막고 밤에는 열을 붙잡았습니다. 그래서 하루의 기온 폭이 좁아졌습니다.`
+        : `다음날 운량은 ${c.answer.cloud}/10 — 구름 이불이 반쯤 걷힌 상태였습니다.`
 
   return {
     label: '일교차',
@@ -395,7 +395,7 @@ function scoreDtr(c: ForecastCase, guess: DtrClass): ItemScore {
       distance === 0
         ? `적중 — 실제 ${labelOfDtr(actualClass)} (${dtr.toFixed(1)}℃)`
         : `실제로는 ${labelOfDtr(actualClass)} (${dtr.toFixed(1)}℃)`,
-    why: `${why} 하루의 기온 폭을 정하는 건 구름이지만, 1년의 기온 폭(연교차)을 정하는 건 전혀 다른 것이다 — 3단계에서 만난다.`,
+    why: `${why} 하루의 기온 폭을 정하는 건 구름이지만, 1년의 기온 폭(연교차)을 정하는 건 전혀 다른 것입니다 — 3단계에서 만나요.`,
   }
 }
 
@@ -407,10 +407,10 @@ function scoreWind(c: ForecastCase, guess: WindFamily): ItemScore {
 
   const why =
     actual === 'N'
-      ? `실제 풍향 ${c.answer.windDir}(${c.answer.windDeg}°). 북풍 계열은 찬 공기를 실어 오는 컨베이어 벨트다 — 그래서 기온이 ${Math.abs(delta).toFixed(1)}℃ 내려갔다. 기압이 오르기 시작하면 북풍을 의심하라.`
+      ? `실제 풍향 ${c.answer.windDir}(${c.answer.windDeg}°). 북풍 계열은 찬 공기를 실어 오는 컨베이어 벨트입니다 — 그래서 기온이 ${Math.abs(delta).toFixed(1)}℃ 내려갔어요. 기압이 오르기 시작하면 북풍을 의심해보세요.`
       : actual === 'S'
-        ? `실제 풍향 ${c.answer.windDir}(${c.answer.windDeg}°). 남풍 계열은 따뜻하고 습한 공기를 밀어 올린다 — 그래서 기온이 ${delta.toFixed(1)}℃ 올라갔다. 기압이 내려가면 남풍을 의심하라.`
-        : `실제 풍향 ${c.answer.windDir}(${c.answer.windDeg}°). 기압계의 회전이 만드는 방향이다.`
+        ? `실제 풍향 ${c.answer.windDir}(${c.answer.windDeg}°). 남풍 계열은 따뜻하고 습한 공기를 밀어 올립니다 — 그래서 기온이 ${delta.toFixed(1)}℃ 올라갔어요. 기압이 내려가면 남풍을 의심해보세요.`
+        : `실제 풍향 ${c.answer.windDir}(${c.answer.windDeg}°). 기압계의 회전이 만드는 방향입니다.`
 
   return {
     label: '풍향',
@@ -426,13 +426,13 @@ function scoreWind(c: ForecastCase, guess: WindFamily): ItemScore {
 function lessonOf(c: ForecastCase): string {
   switch (c.round) {
     case 1:
-      return '규칙 1 · 지속성 — 하루 뒤의 대기는 오늘의 대기와 대체로 닮아 있다. 그래서 며칠은 맞힐 수 있다.'
+      return '규칙 1 · 지속성 — 하루 뒤의 대기는 오늘의 대기와 대체로 닮아 있습니다. 그래서 며칠은 맞힐 수 있어요.'
     case 2:
-      return '규칙 2 · 기압과 바람은 한 몸 — 기압이 내려가면 남풍과 비, 올라가면 북풍과 한기. 지도를 읽으면 예측이 된다.'
+      return '규칙 2 · 기압과 바람은 한 몸 — 기압이 내려가면 남풍과 비, 올라가면 북풍과 한기. 지도를 읽으면 예측이 됩니다.'
     case 3:
       return Math.abs(c.features.tmaxDelta) >= 4
-        ? '규칙 3 · 그런데 대기는 가끔 어제를 배신한다 — 전선이 지나간 날, 지속성은 무너진다. 이 배신이 며칠만 지나면 예측 전체를 삼킨다.'
-        : '규칙 3 · 대기는 언제 어제를 배신할지 알려주지 않는다 — 이 불확실성이 시간이 갈수록 커진다.'
+        ? '규칙 3 · 그런데 대기는 가끔 어제를 배신합니다 — 전선이 지나간 날, 지속성은 무너져요. 이 배신이 며칠만 지나면 예측 전체를 삼킵니다.'
+        : '규칙 3 · 대기는 언제 어제를 배신할지 알려주지 않습니다 — 이 불확실성이 시간이 갈수록 커져요.'
   }
 }
 
@@ -441,16 +441,16 @@ export function verdictOfTotal(earned: number, max: number): { title: string; bo
   const ratio = max === 0 ? 0 : earned / max
   if (ratio >= 0.8)
     return {
-      title: '당신은 며칠 앞을 읽어냈다',
-      body: '축하한다 — 그리고 이건 우연이 아니다. 며칠 규모의 대기는 실제로 예측 가능하다. 그럼 이 실력으로 2주 뒤를 맞힐 수 있을까?',
+      title: '며칠 앞을 읽어내셨습니다',
+      body: '축하합니다 — 그리고 이건 우연이 아닙니다. 며칠 규모의 대기는 실제로 예측 가능하거든요. 그럼 이 실력으로 2주 뒤도 맞힐 수 있을까요?',
     }
   if (ratio >= 0.5)
     return {
-      title: '절반은 읽어냈다',
-      body: '어긋난 쪽이 더 흥미롭다. 기압과 습도, 바람은 서로를 붙잡고 움직인다 — 그 사슬을 읽는 만큼 며칠은 맞힐 수 있다.',
+      title: '절반은 읽어내셨습니다',
+      body: '어긋난 쪽이 더 흥미롭습니다. 기압과 습도, 바람은 서로를 붙잡고 움직여요 — 그 사슬을 읽는 만큼 며칠은 맞힐 수 있습니다.',
     }
   return {
-    title: '어긋났다면, 제대로 발견한 것이다',
-    body: '세계 최고의 슈퍼컴퓨터도 며칠 뒤부터는 손을 든다. 지금 느낀 그 어긋남이 바로 다음 단계의 주제다.',
+    title: '어긋났다면, 제대로 발견하신 겁니다',
+    body: '세계 최고의 슈퍼컴퓨터도 며칠 뒤부터는 손을 듭니다. 지금 느끼신 그 어긋남이 바로 다음 단계의 주제예요.',
   }
 }

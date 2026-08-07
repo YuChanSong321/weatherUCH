@@ -71,7 +71,7 @@ export function ObservationCard({ forecastCase }: { forecastCase: ForecastCase }
       </div>
 
       <p className="text-[11.5px] leading-relaxed text-ink-3">
-        읽을 수 있는 건 여기까지다. 내일의 대기는 아직 아무도 보지 못했다.
+        읽을 수 있는 건 여기까지입니다. 내일의 대기는 아직 아무도 보지 못했어요.
       </p>
     </section>
   )

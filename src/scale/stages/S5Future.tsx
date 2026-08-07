@@ -83,7 +83,7 @@ export function S5Future({ onNext }: { onNext: () => void }) {
         <div>
           <div className="text-[11px] font-medium tracking-[0.14em] text-act-2">2단계-B · 미래</div>
           <h1 className="mt-0.5 text-[22px] leading-tight font-semibold tracking-tight">
-            {revealed ? '미래는 하나의 선이 아니다' : '이 곡선을 2100년까지 끌어보라'}
+            {revealed ? '미래는 하나의 선이 아닙니다' : '이 곡선을 2100년까지 끌어보세요'}
           </h1>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-[11px] text-ink-3">
@@ -297,8 +297,8 @@ export function S5Future({ onNext }: { onNext: () => void }) {
 
       {!revealed ? (
         <p className="max-w-4xl text-[13.5px] leading-relaxed text-ink-2">
-          관측 추세를 그대로 밀면 2100년은 {naiveExtension.toFixed(1)}℃다. 하지만 그건 지난 40년의 속도가 그대로
-          유지된다는 가정이다. 당신은 어디에 점을 놓겠는가? 끌었다가 손을 떼면 과학이 계산한 답이 펼쳐진다.
+          관측 추세를 그대로 밀면 2100년은 {naiveExtension.toFixed(1)}℃입니다. 하지만 그건 지난 40년의 속도가 그대로
+          유지된다는 가정이에요. 어디에 점을 놓으시겠어요? 끌었다가 손을 떼면 과학이 계산한 답이 펼쳐집니다.
         </p>
       ) : (
         <div className="panel flex items-start justify-between gap-6 px-5 py-4 rise">
@@ -308,17 +308,17 @@ export function S5Future({ onNext }: { onNext: () => void }) {
               <span style={{ color: nearest.scenario.color }} className="font-semibold">
                 {nearest.scenario.label}
               </span>{' '}
-              경로와 가장 가깝다 ({nearest.scenario.description}).
+              경로와 가장 가깝습니다 ({nearest.scenario.description}).
               <br />
-              미래는 하나의 선이 아니라 <span className="text-ink-1">갈라지는 부채</span>다. 세 갈래는 물리가 아니라
-              배출량 선택이 만든다 — <span className="text-ink-1">어느 갈래인지는 인간의 선택</span>이다.
+              미래는 하나의 선이 아니라 <span className="text-ink-1">갈라지는 부채</span>입니다. 세 갈래는 물리가 아니라
+              배출량 선택이 만들어요 — <span className="text-ink-1">어느 갈래인지는 인간의 선택</span>입니다.
             </p>
             <p className="text-[11px] text-ink-3">
               {sspRegion} 시나리오 · 기준 {sspBaseline.period} 평균 {sspBaseline.tavg}℃ · 음영은 불확실성 범위
             </p>
           </div>
           <button type="button" className="btn btn-primary shrink-0" onClick={onNext}>
-            그런데 이 기후를 움직이는 건 무엇일까
+            그런데 이 기후를 움직이는 건 무엇일까요
           </button>
         </div>
       )}

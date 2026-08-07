@@ -88,7 +88,7 @@ export function S4YearGuess({ onNext }: { onNext: () => void }) {
         <div>
           <div className="text-[11px] font-medium tracking-[0.14em] text-act-2">2단계-A · 빈 해</div>
           <h1 className="mt-0.5 text-[22px] leading-tight font-semibold tracking-tight">
-            {revealed ? `${hiddenYear}년의 실제 값이 도착했다` : `${hiddenYear}년이 지워졌다 — 값을 찍어보라`}
+            {revealed ? `${hiddenYear}년의 실제 값이 도착했습니다` : `${hiddenYear}년이 지워졌습니다 — 값을 찍어보세요`}
           </h1>
         </div>
         <div className="flex items-center gap-4 text-[11px] text-ink-3">
@@ -233,8 +233,8 @@ export function S4YearGuess({ onNext }: { onNext: () => void }) {
       {!revealed ? (
         <div className="flex items-start justify-between gap-6">
           <p className="max-w-3xl text-[13.5px] leading-relaxed text-ink-2">
-            차트를 클릭하거나 위아래로 끌어 {hiddenYear}년의 연평균기온을 놓아보라. 그 해의 날씨는 아무도 모른다 —
-            하지만 앞뒤 39개의 점이 이미 말을 하고 있다.
+            차트를 클릭하거나 위아래로 끌어 {hiddenYear}년의 연평균기온을 놓아보세요. 그 해의 날씨는 아무도 모릅니다 —
+            하지만 앞뒤 39개의 점이 이미 말을 하고 있어요.
           </p>
           <button type="button" className="btn btn-primary shrink-0" disabled={!touched} onClick={submit}>
             {touched ? '이 값으로 확정' : '값을 먼저 놓아보세요'}
@@ -260,12 +260,12 @@ export function S4YearGuess({ onNext }: { onNext: () => void }) {
             <p className="max-w-3xl text-[13px] leading-relaxed text-ink-2">
               {dailyMeanError !== null && (
                 <>
-                  1단계에서 하루 뒤 기온을 찍었을 때 당신의 평균 오차는 {dailyMeanError.toFixed(1)}℃였다. 지금은{' '}
-                  {errorVsActual.toFixed(2)}℃다.{' '}
+                  1단계에서 하루 뒤 기온을 찍었을 때 평균 오차는 {dailyMeanError.toFixed(1)}℃였습니다. 지금은{' '}
+                  {errorVsActual.toFixed(2)}℃고요.{' '}
                 </>
               )}
-              개별 연도의 날씨는 여전히 예측 불가지만, 40년의 추세가 값의 범위를 미리 좁혀두었기 때문이다.{' '}
-              <span className="text-ink-1">평균은 예측 가능하다</span> — 이것이 기후 예측의 정체다.
+              개별 연도의 날씨는 여전히 예측 불가지만, 40년의 추세가 값의 범위를 미리 좁혀두었기 때문입니다.{' '}
+              <span className="text-ink-1">평균은 예측 가능합니다</span> — 이것이 기후 예측의 정체예요.
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">

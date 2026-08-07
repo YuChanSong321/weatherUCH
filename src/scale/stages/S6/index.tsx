@@ -188,7 +188,7 @@ export function S6Orbital({ onNext }: { onNext: () => void }) {
           <div className="flex flex-col gap-3 border-t border-white/8 pt-3">
             <Slider
               label="자전축 기울기"
-              note="연교차의 진폭을 정한다"
+              note="연교차의 진폭을 정합니다"
               cycle={RANGES.obliquity.cycle}
               value={params.obliquity}
               min={RANGES.obliquity.min}
@@ -216,7 +216,7 @@ export function S6Orbital({ onNext }: { onNext: () => void }) {
             />
             <Slider
               label="궤도 이심률"
-              note="세차의 효과를 증폭한다"
+              note="세차의 효과를 증폭합니다"
               cycle={RANGES.eccentricity.cycle}
               value={params.eccentricity}
               min={RANGES.eccentricity.min}
@@ -235,7 +235,7 @@ export function S6Orbital({ onNext }: { onNext: () => void }) {
             <span className="tnum font-semibold">{amplitude.toFixed(0)} W/m²</span>
             <span className="text-ink-3"> (현재 {annualAmplitude(PRESENT).toFixed(0)})</span>
             <br />
-            1단계에서 하루의 기온 폭을 정한 건 구름이었다. 1년의 기온 폭을 정하는 건 자전축의 기울기다.
+            1단계에서 하루의 기온 폭을 정한 건 구름이었죠. 1년의 기온 폭을 정하는 건 자전축의 기울기입니다.
           </div>
         </section>
 
@@ -258,14 +258,14 @@ export function S6Orbital({ onNext }: { onNext: () => void }) {
             <h3 className="text-[13px] font-semibold text-ink-1">시계로서의 지구</h3>
             <p>
               세 값은 지구가 정하는 것이 아니라 다른 행성들의 중력이 만드는{' '}
-              <span className="text-ink-1">천체역학의 결과</span>다.
+              <span className="text-ink-1">천체역학의 결과</span>입니다.
             </p>
             <p className="text-ink-3">
-              궤도 위의 <span style={{ color: '#ffb454' }}>큰 고리</span>가 북반구 하지다. 세차를 돌리면 그 고리가
-              궤도를 미끄러진다 — 여름이 태양과 가까워지거나 멀어진다.
+              궤도 위의 <span style={{ color: '#ffb454' }}>큰 고리</span>가 북반구 하지입니다. 세차를 돌리면 그 고리가
+              궤도를 미끄러져요 — 여름이 태양과 가까워지거나 멀어집니다.
             </p>
             <p>
-              내일의 비는 못 맞히지만, <span className="text-ink-1">10만 년 뒤 여름의 햇빛 양은 맞힐 수 있다.</span>
+              내일의 비는 못 맞히지만, <span className="text-ink-1">10만 년 뒤 여름의 햇빛 양은 맞힐 수 있습니다.</span>
             </p>
           </div>
         </div>
@@ -277,9 +277,9 @@ export function S6Orbital({ onNext }: { onNext: () => void }) {
           <p className="text-[12px] leading-relaxed text-ink-2">
             {/* 처음부터 답을 주지 않는다 — 절반쯤 지나면 힌트를 연다 */}
             {!started
-              ? '슬라이더를 움직이면 제한 시간이 시작된다. 세 다이얼이 여름 햇빛의 양을 어떻게 바꾸는지는 직접 만져보며 찾아라. 빈 곳을 끌면 시점이 돌아간다.'
+              ? '슬라이더를 움직이면 제한 시간이 시작됩니다. 세 다이얼이 여름 햇빛의 양을 어떻게 바꾸는지는 직접 만져보며 찾아보세요. 빈 곳을 끌면 시점이 돌아갑니다.'
               : remaining > TIME_LIMIT * 0.55
-                ? '각 슬라이더 옆에 목표에 가까워지는지 멀어지는지가 표시된다.'
+                ? '각 슬라이더 옆에 목표에 가까워지는지 멀어지는지가 표시됩니다.'
                 : mission.hint}
           </p>
           <span className="shrink-0 text-[11px] text-ink-3">
@@ -413,17 +413,17 @@ function ResultBar({
           className="text-[14px] font-semibold"
           style={{ color: success ? 'var(--color-good)' : 'var(--color-warn)' }}
         >
-          {success ? '미션 성공' : '시간 종료 — 실패도 발견이다'}
+          {success ? '미션 성공' : '시간 종료 — 실패도 발견입니다'}
         </div>
         <p className="mt-1 max-w-4xl text-[12.5px] leading-relaxed text-ink-2">
           {message}{' '}
           {success ? (
             <span className="text-ink-1">
-              지구가 수만 년에 걸쳐 실제로 하는 일이고, 시계처럼 계산 가능하다.
+              지구가 수만 년에 걸쳐 실제로 하는 일이고, 시계처럼 계산 가능합니다.
             </span>
           ) : (
             <span className="text-ink-1">
-              세차를 바꾸지 않으면 이심률은 거의 아무 일도 하지 않는다 — 그 결합이 밀란코비치 이론의 핵심이다.
+              세차를 바꾸지 않으면 이심률은 거의 아무 일도 하지 않습니다 — 그 결합이 밀란코비치 이론의 핵심이에요.
             </span>
           )}
         </p>
