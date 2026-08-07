@@ -47,7 +47,10 @@ Node 20.19+ / 22.13+ 필요 (Vite 8). 데스크톱 1280px 이상 기준으로 �
 ## ⚠️ 절대 조건: 브라우저에서 외부 API를 호출하지 않는다
 
 - 모든 데이터는 `/data` 의 JSON을 **빌드 시점에 번들**로 읽는다. 런타임 `fetch` 없음.
-- 폰트도 로컬 시스템 폰트만 쓴다 (외부 CDN 요청 0건). 발표 현장 네트워크가 죽어도 돌아간다.
+- 폰트도 로컬 시스템 폰트만 쓴다. JS 라이브러리(three.js 포함)도 전부 `node_modules` 번들이다.
+- **예외 한 곳** — S6 지구본의 텍스처 6장은 원격에서 받는다(아래 '궤도 시뮬레이터' 참고).
+  네트워크가 죽으면 절차적 폴백으로 내려가 화면이 깨지지는 않지만 화질이 떨어진다.
+  발표 전에 `public/textures/` 로 받아두는 것을 권한다.
 - API 키는 코드·커밋·예시파일 어디에도 두지 않는다. 수집 스크립트만 환경변수로 받는다.
   (`.gitignore` 에 `scripts/.env`, `scripts/raw/` 등록)
 
@@ -83,7 +86,7 @@ Node 20.19+ / 22.13+ 필요 (Vite 8). 데스크톱 1280px 이상 기준으로 �
 
 ## 데이터
 
-`/data` 의 JSON 4종. 현재는 스키마 검증용 **합성 데이터**이며, 대회 전에 실측으로 교체한다.
+`/data` 의 JSON 6종. 현재는 스키마 검증용 **합성 데이터**이며, 대회 전에 실측으로 교체한다.
 
 | 파일 | 내용 | 쓰임 |
 | --- | --- | --- |
@@ -155,7 +158,7 @@ SSP 시나리오는 공개 API가 없다. 기후변화정보포털(CCIC)에서 �
 ## 구조
 
 ```
-data/                        번들되는 JSON 4종 (런타임 fetch 없음)
+data/                        번들되는 JSON 6종 (런타임 fetch 없음)
 scripts/
   common.py                  스키마·집계·검증 + 키/HTTP (더미·수집기 3종 공용)
   make_dummy_data.py         합성 데이터 생성기
@@ -214,9 +217,14 @@ three.js 는 CDN import map 이 아니라 `node_modules` 에서 번들된다(외
 엔진이 패치하는 셰이더 청크 이름(`map_fragment`, `emissivemap_fragment`, `opaque_fragment`,
 `lights_phong_pars_fragment`)은 버전에 민감하므로, three 를 올릴 때는 콘솔 경고를 확인할 것.
 
-텍스처는 세 모드다. standalone 은 `'remote'`(사진 플레이트, 실패 시 절차적 폴백),
-S6는 `'procedural'`(외부 요청 0건). `public/textures/` 에 `day.jpg` `bump.jpg` `water.png`
-`clouds.png` `night.jpg` `sky.png` 를 두면 `'local'` 로 네트워크 없이 사진 플레이트를 쓸 수 있다.
+텍스처는 세 모드다. **standalone 과 S6 모두 `'remote'`** 를 쓴다 — 실제 4K 플레이트
+(Blue Marble·구름·야간 도시불빛)가 이 지구본의 핵심이라, 화질을 낮춰가며 지킬 규칙이
+아니라고 판단했다. 원격이 막히면 엔진이 절차적 폴백으로 내려가므로 오프라인에서도
+깨지지는 않는다(원본 동작 그대로). 다만 그때는 fBm 합성 지구가 그려진다.
+
+**화질과 오프라인을 둘 다 지키려면** `public/textures/` 에 `day.jpg` `bump.jpg`
+`water.png` `clouds.png` `night.jpg` `sky.png` 를 받아두고 `textureMode: 'local'` 로
+바꾼다. 저장소가 약 10 MB 늘어난다.
 
 ---
 
