@@ -10,8 +10,14 @@ import { blossom, blossomSpecies, yearly, yearlyTrend } from '../data/loader'
 const W = 960
 const H = 380
 
-/** 추세가 드러나고 나서 개화일 레이어가 얹히기까지 */
-const BLOSSOM_DELAY = 1600
+/**
+  * 추세가 드러나고 나서 개화일 레이어가 얹히기까지.
+  *
+  * ⚠️ 이 값과 '다음' 버튼이 뜨는 조건은 한 몸이다. 전에는 버튼이 추세선과 함께 뜨고
+  * 개화일이 1.6초 뒤에 왔는데, 그 사이에 넘어가버리면 이 단계의 핵심 장면을 통째로
+  * 못 본다. 지금은 개화일이 얹힌 뒤에야 버튼이 나온다 (아래 canLeave).
+  */
+const BLOSSOM_DELAY = 900
 /** 레이어가 걷히는 시간 — S4로 넘어가기 전에 이만큼 기다린다 */
 const BLOSSOM_FADE = 480
 
@@ -46,6 +52,12 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
     setBlossomVisible(false)
     window.setTimeout(onNext, BLOSSOM_FADE)
   }, [blossomVisible, onNext])
+
+  /**
+   * 다음으로 넘어갈 수 있는 시점 — 개화일까지 다 보여준 뒤다.
+   * 개화일 데이터가 없을 때는 추세선만으로 넘어간다 (흐름이 막히면 안 된다).
+   */
+  const canLeave = blossom.length > 0 ? blossomVisible : trendVisible
 
   const blossomShift = useMemo(() => {
     if (blossom.length < 10) return null
@@ -192,7 +204,7 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
             </>
           )}
         </p>
-        {trendVisible ? (
+        {canLeave ? (
           <button type="button" className="btn btn-primary shrink-0 rise" onClick={handleNext}>
             그럼 빈 해를 맞혀볼까요
           </button>
@@ -201,8 +213,10 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
             type="button"
             className="btn btn-ghost shrink-0"
             onClick={() => {
+              // 끝까지 건너뛴다 — 추세선만 켜고 멈추면 개화일을 또 기다려야 한다
               setRevealed(yearly.length)
               setTrendVisible(true)
+              setBlossomVisible(blossom.length > 0)
             }}
           >
             건너뛰기
