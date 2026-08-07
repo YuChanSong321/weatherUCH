@@ -2,10 +2,13 @@
  * S6 · 3단계 — 밀란코비치 미션. 사용자 권한이 '조종자'로 올라간다.
  * 궤도 3요소를 직접 돌려 목표 기후 조건(빙하기 유발/해제)을 시간제한 안에 만든다.
  * 데이터 파일이 아니라 물리식으로 실시간 계산한다 (lib/milankovitch.ts).
+ *
+ * 궤도·지구의 시각화는 기존 TERRA 시뮬레이터(src/sim/terra-engine.js)를 그대로 쓴다.
+ * 이 파일이 맡는 것은 미션 로직(시간제한·목표 판정·점수)과 조종석 UI 뿐이다.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { InsolationChart } from './InsolationChart'
-import { OrbitDiagram } from './OrbitDiagram'
+import { TerraGlobe } from './TerraGlobe'
 import {
   MISSIONS,
   PRESENT,
@@ -232,22 +235,21 @@ export function S6Orbital({ onNext }: { onNext: () => void }) {
 
         {/* 계기판 */}
         <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-[292px_minmax(0,1fr)] items-start gap-3">
-            <OrbitDiagram params={params} />
-            <div className="panel flex h-full flex-col justify-between gap-2 p-4 text-[12px] leading-relaxed text-ink-2">
+          <div className="grid h-[264px] grid-cols-[minmax(0,1fr)_232px] items-stretch gap-3">
+            <TerraGlobe params={params} />
+            <div className="panel flex h-full flex-col justify-between gap-2 overflow-hidden p-4 text-[11.5px] leading-relaxed text-ink-2">
               <div>
                 <h3 className="text-[13px] font-semibold text-ink-1">시계로서의 지구</h3>
                 <p className="mt-1.5">
-                  이 세 값은 지구가 마음대로 정하는 것이 아니다. 다른 행성들의 중력이 만드는{' '}
-                  <span className="text-ink-1">천체역학의 결과</span>다. 그래서 10만 년 뒤의 궤도는 계산할 수 있다.
+                  세 값은 지구가 정하는 것이 아니라 다른 행성들의 중력이 만드는{' '}
+                  <span className="text-ink-1">천체역학의 결과</span>다.
                 </p>
               </div>
-              <ul className="flex flex-col gap-1 text-[11.5px] text-ink-3">
-                <li>· 이심률 — {RANGES.eccentricity.cycle} 주기</li>
-                <li>· 자전축 기울기 — {RANGES.obliquity.cycle} 주기</li>
-                <li>· 세차 — {RANGES.precession.cycle} 주기</li>
-              </ul>
-              <p className="text-[11.5px]">
+              <p className="text-ink-3">
+                궤도 위의 <span style={{ color: '#ffb454' }}>큰 고리</span>가 북반구 하지다. 세차를 돌리면 그 고리가
+                궤도를 미끄러진다 — 여름이 태양과 가까워지거나 멀어진다.
+              </p>
+              <p>
                 내일의 비는 못 맞히지만, <span className="text-ink-1">10만 년 뒤 여름의 햇빛 양은 맞힐 수 있다.</span>
               </p>
             </div>

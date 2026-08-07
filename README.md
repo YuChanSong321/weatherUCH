@@ -35,7 +35,10 @@ Node 20.19+ / 22.13+ 필요 (Vite 8). 데스크톱 1280px 이상 기준으로 �
 | --- | --- |
 | `/` | **예측의 스케일** (출품 콘텐츠) |
 | `/legacy.html` | 기존 TERRA React 앱 |
-| `/terra-orbital-sim.html` | 기존 standalone 궤도 시뮬레이터 |
+| `/terra-orbital-sim.html` | TERRA 궤도 시뮬레이터 (전체 HUD 버전) |
+
+`/` 의 S6와 `/terra-orbital-sim.html` 은 **같은 렌더링 엔진**([src/sim/terra-engine.js](src/sim/terra-engine.js))을
+쓴다. 궤도·지구·조명 코드는 한 곳에만 있고, 두 화면은 각자의 UI만 얹는다.
 
 발표용 딥링크: 주소 끝에 `#s4` 처럼 붙이면 그 단계에서 바로 시작한다 (`#s0` ~ `#s7`).
 
@@ -63,7 +66,7 @@ Node 20.19+ / 22.13+ 필요 (Vite 8). 데스크톱 1280px 이상 기준으로 �
 | **S3** | 40년 연평균 점 누적 + 추세선 | 개별 연도는 튀지만 방향은 남는다 |
 | **S4** | 빈 해 예측 (랜덤, 100점) | 평균은 예측 가능하다 |
 | **S5** | 곡선을 2100년까지 끌기 → SSP 부채꼴 | 미래는 갈라지는 부채 — 인간의 선택 |
-| **S6** | 밀란코비치 미션 (시간제한, 120점) | 천체역학은 시계다 |
+| **S6** | 밀란코비치 미션 (시간제한, 120점) — 기존 궤도 시뮬레이터 위에서 | 천체역학은 시계다 |
 | **S7** | 처음의 질문 회수 + U자 곡선 + 학습 카드 3장 | 예측 가능성의 U자 |
 
 만점 500점 (S1 280 + S4 100 + S6 120).
@@ -131,6 +134,8 @@ scripts/
   common.py                  스키마·집계·검증 (더미/실데이터 공용)
   make_dummy_data.py         합성 데이터 생성기
   fetch_asos.py              실데이터 수집기 (--selftest / --dry-run)
+src/sim/
+  terra-engine.js            궤도 시뮬레이터 엔진 (standalone 과 S6 가 공유)
 src/scale/
   App.tsx                    S0→S7 단계 전환
   state/journey.tsx          여정 상태 (점수·단계·딥링크)
@@ -151,6 +156,30 @@ S6는 데이터 파일이 아니라 Berger(1978) 표준식으로 일사량을 �
 현재 지구 값으로 북위 65° 하지 일사량 **478 W/m²** 가 나오며, 이는 문헌값(약 480 W/m²)과
 일치한다. 세차각은 기후학 관례(ω+180° = 근일점의 태양황경)를 따른다 — 이 180°를 빼먹으면
 "6월에 태양과 가장 가깝다"는 반대 결론이 나온다.
+
+일사량 계산([lib/milankovitch.ts](src/scale/lib/milankovitch.ts))은 렌더링과 완전히 분리된
+순수 함수다. 3D 씬은 그 값을 쓰지 않고 자기 궤도 상태에서 따로 계산한다 — 미션 판정은
+물리식 쪽만 본다.
+
+### 궤도 시뮬레이터 (src/sim/terra-engine.js)
+
+기존 standalone 시뮬레이터의 렌더링·궤도·기후 코드를 그대로 옮긴 모듈이다. 케플러 해
+(`M = E − e·sinE`, Newton-Raphson), 극형식 타원, 0차원 에너지 수지, 주야 경계·도시 불빛·
+대기 산란 셰이더가 여기 있다. 옮기면서 더한 것은 두 가지뿐이다.
+
+- **자전축 기울기 · 세차** — 원래는 이심률 하나뿐이었고 기울기는 23.5° 상수였다.
+  기존 노드 계층(`earthPivot → tiltGroup → earth`)을 갈아엎지 않고 `precessGroup` 한 겹을
+  끼워 넣었다. 씬 각도와 기후학 세차각의 관계는 **ψ = ω + 90°** 로, 유도 과정은 엔진
+  상단 주석에 있다. 검산: 현재 지구 ω=102.9° → 근일점이 북반구 한겨울 근처(실제로 1월 초).
+- **계절 마커** — 궤도 위 사계절 위치. 세차를 돌리면 하지 고리가 궤도를 미끄러진다.
+
+three.js 는 CDN import map 이 아니라 `node_modules` 에서 번들된다(외부 요청 0건 규칙).
+엔진이 패치하는 셰이더 청크 이름(`map_fragment`, `emissivemap_fragment`, `opaque_fragment`,
+`lights_phong_pars_fragment`)은 버전에 민감하므로, three 를 올릴 때는 콘솔 경고를 확인할 것.
+
+텍스처는 세 모드다. standalone 은 `'remote'`(사진 플레이트, 실패 시 절차적 폴백),
+S6는 `'procedural'`(외부 요청 0건). `public/textures/` 에 `day.jpg` `bump.jpg` `water.png`
+`clouds.png` `night.jpg` `sky.png` 를 두면 `'local'` 로 네트워크 없이 사진 플레이트를 쓸 수 있다.
 
 ---
 
