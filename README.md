@@ -117,27 +117,47 @@ python3 scripts/make_dummy_data.py
 
 ### 실데이터로 교체 (대회 전 1회)
 
+기상청 API허브는 **로그인 없이 자료를 주지 않는다** — 데이터 엔드포인트는 키 없이
+호출하면 전부 `401 유효한 인증키가 아닙니다` 이고, 웹 화면의 다운로드도 같은 로그인을
+쓴다. 그래서 길이 둘이다. 출력 스키마는 같으므로 데이터셋마다 섞어 써도 된다.
+
+**길 A — API 키로 자동 수집**
+
 ```bash
-export KMA_APIHUB_KEY="발급받은키"        # 기상청 API허브. 또는 DATA_GO_KR_KEY
-
-# 관측 4종 (일별·월별·연별·SSP)
-python3 scripts/fetch_asos.py --selftest  # 키 없이 파서만 점검
-python3 scripts/fetch_asos.py --dry-run   # 호출 없이 URL/키 인식 확인
+# 프로젝트 루트에 .env 파일: KMA_API_KEY=발급받은키   (.gitignore 등록되어 있음)
+python3 scripts/fetch_asos.py --selftest    # 키 없이 파서만 점검
+python3 scripts/fetch_asos.py --dry-run     # 호출 없이 URL/키 인식 확인
 python3 scripts/fetch_asos.py --years 2019 2023 --normals 1991 2020
-
-# 기상청 과거 예보 + 기상특보 (S1 3자 대결)
-python3 scripts/fetch_forecast.py --selftest
-python3 scripts/fetch_forecast.py --dry-run
-python3 scripts/fetch_forecast.py          # busan_daily.json 의 날짜 전부
-
-# 벚꽃 개화일 (S3 보조 레이어)
-python3 scripts/fetch_blossom.py --selftest
-python3 scripts/fetch_blossom.py           # scripts/raw/busan_blossom.csv 있으면 그걸 읽는다
+python3 scripts/fetch_forecast.py           # 과거 예보 + 기상특보
+python3 scripts/fetch_blossom.py            # 계절관측 벚꽃 개화일
 ```
 
+**길 B — 웹에서 직접 받아 반입**
+
+apihub 에 로그인해 자료를 받아 `scripts/raw/` 에 정해진 이름으로 넣는다
+(`asos_daily.*` `yearly.*` `normals.*` `forecast.*` `warning.*` `blossom.*` `ssp.*`).
+API허브 응답을 그대로 저장해도 되고 포털 CSV 도 된다 — **컬럼 이름으로 값을 찾으므로
+열 순서가 달라도 견딘다.** 일부만 넣어도 있는 것만 교체한다.
+
+```bash
+python3 scripts/ingest_raw.py --dry-run     # 무엇이 바뀔지만 확인
+python3 scripts/ingest_raw.py               # 교체
+```
+
+**어느 길이든 마지막에**
+
+```bash
+python3 scripts/sanity_check.py             # 값이 부산의 실제 기후로서 말이 되는가
+```
+
+상식 검증은 범위·최저≤평균≤최고·날짜 연속성·계절 방향·최난월/최한월·date↔doy 정합·
+예보 커버리지와 MAE·SSP 대소 순서·출처 메타 완비를 본다. 컬럼 매핑을 잘못 잡으면
+(화씨/섭씨, 현지기압/해면기압, 지점번호 오기) 앱은 아무 오류 없이 그럴듯하게 동작하면서
+다른 도시의 값을 보여주므로, 이 검증을 건너뛰지 말 것.
+
 각 스크립트 맨 위 주석에 **어떤 API 활용신청 항목이 필요한지** 이름으로 적혀 있다.
-셋 다 `--selftest`(키 없이 파서 점검)와 `--dry-run`(호출 없이 URL 확인)을 지원하고,
-키는 환경변수로만 받으며 화면에는 길이만 찍는다.
+키는 환경변수로만 받고 화면에는 길이만 찍으며, 로그·에러의 URL 은 `authKey=***` 로
+마스킹된다.
 
 `fetch_forecast.py` 는 응답을 **컬럼 위치가 아니라 컬럼명으로** 읽는다. 문서 개정으로
 열 순서가 바뀌어도 견디고, 이름이 사라지면 어느 이름이 없는지 찍고 멈춘다.
@@ -165,6 +185,8 @@ scripts/
   fetch_asos.py              ASOS 관측 → JSON 4종        (--selftest / --dry-run)
   fetch_forecast.py          단기예보 과거자료 + 기상특보 (--selftest / --dry-run)
   fetch_blossom.py           계절관측 벚꽃 개화일         (--selftest / --dry-run)
+  ingest_raw.py              직접 받은 파일 → JSON 교체   (--dry-run)
+  sanity_check.py            값이 실제 기후로서 말이 되는가
 src/sim/
   terra-engine.js            궤도 시뮬레이터 엔진 (standalone 과 S6 가 공유)
 src/scale/

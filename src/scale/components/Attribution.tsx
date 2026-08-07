@@ -14,6 +14,8 @@ import { datasetCredits, isDummyData } from '../data/loader'
 
 export function Attribution() {
   const [open, setOpen] = useState(false)
+  const someSynthetic = datasetCredits.some((d) => d.synthetic)
+  const allSynthetic = datasetCredits.every((d) => d.synthetic)
 
   useEffect(() => {
     if (!open) return
@@ -31,7 +33,8 @@ export function Attribution() {
         aria-haspopup="dialog"
       >
         <span aria-hidden>ⓘ</span>
-        자료 출처: 기상청
+        {/* 전부 합성인 동안에는 상단 한 줄도 '기상청'이라고 단정하지 않는다 */}
+        {allSynthetic ? '자료 출처' : '자료 출처: 기상청'}
         {isDummyData && (
           <span
             className="rounded-full px-1.5 py-px text-[9.5px] font-semibold"
@@ -60,8 +63,24 @@ export function Attribution() {
             <div className="flex items-start justify-between gap-6">
               <div>
                 <h2 className="text-[16px] font-semibold tracking-tight">자료 출처</h2>
+                {/* 문장이 표와 어긋나면 안 된다. 전부 합성인데 "기상청에서 받았습니다"라고
+                    적어두면 그 자체가 허위 표기다 — 실제 상태에 따라 문장을 바꾼다. */}
                 <p className="mt-1 text-[12px] leading-relaxed text-ink-2">
-                  이 콘텐츠의 모든 관측·예보 자료는 <span className="text-ink-1">기상청</span>에서 받았습니다.
+                  {allSynthetic ? (
+                    <>
+                      아래 자료는 <span className="text-ink-1">아직 실제 관측이 아닙니다.</span> 화면 구조를
+                      검증하기 위해 생성한 합성 데이터이며, 기상청 실측으로 교체할 예정입니다.
+                    </>
+                  ) : someSynthetic ? (
+                    <>
+                      관측·예보 자료는 <span className="text-ink-1">기상청</span>에서 받았습니다. 다만 아래 표에서
+                      "합성 데이터"로 표시된 항목은 아직 실측이 아닙니다.
+                    </>
+                  ) : (
+                    <>
+                      이 콘텐츠의 모든 관측·예보 자료는 <span className="text-ink-1">기상청</span>에서 받았습니다.
+                    </>
+                  )}{' '}
                   브라우저는 API를 호출하지 않고, 수집 시점에 내려받아 번들한 JSON만 읽습니다.
                 </p>
               </div>
