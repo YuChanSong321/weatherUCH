@@ -47,7 +47,18 @@ function Journey() {
       <StarField act={act} />
       <ScaleRail stage={stage} score={totals} />
 
-      <main className="flex flex-1 items-center justify-center overflow-y-auto px-8 py-5">
+      {/*
+        z-10 — S6 는 궤도 시뮬레이터 캔버스를 body 에 fixed 로 깔기 때문에,
+        무대가 그 위에 있다고 명시해두지 않으면 지구본이 UI 를 덮는다.
+        pointer-events — S6 에서만 무대를 통과시켜, 패널이 없는 빈 곳을 끌면
+        시점이 돌아가게 한다 (패널은 각자 pointer-events-auto 로 되살린다).
+        다른 단계는 그대로 둔다.
+      */}
+      <main
+        className={`relative z-10 flex flex-1 items-center justify-center overflow-y-auto px-8 py-5 ${
+          stage === 's6' ? 'pointer-events-none' : ''
+        }`}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={stage}

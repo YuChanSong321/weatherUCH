@@ -14,6 +14,7 @@
  * 그 이질감 자체를 "지상을 벗어났다"는 신호로 쓴다.
  */
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { createTerraSim } from '../../../sim/terra-engine.js'
 import type { OrbitParams } from '../../lib/milankovitch'
 
@@ -68,11 +69,16 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
 
     const onResize = () => simRef.current?.resize()
     window.addEventListener('resize', onResize)
+    // 첫 레이아웃이 잡히기 전에 엔진이 만들어지면 캔버스가 0px 로 시작한다.
+    // 크기가 정해지는 순간 다시 맞춘다.
+    const ro = new ResizeObserver(onResize)
+    ro.observe(host)
 
     return () => {
       cancelled = true
       window.clearTimeout(pullOut)
       window.removeEventListener('resize', onResize)
+      ro.disconnect()
       simRef.current?.dispose()
       simRef.current = null
     }
@@ -86,8 +92,19 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
 
   return (
     <>
-      {/* 우주. 뷰포트 전체를 덮고, HUD 는 이 위에 뜬다. */}
-      <div ref={hostRef} className="fixed inset-0 z-0" />
+      {/*
+        우주. 원본 시뮬레이터에서 #scene 이 body 직속이었던 것처럼 여기서도 body 로
+        올려 붙인다. 두 가지 이유가 있고 둘 다 실제로 겪은 문제다.
+
+          · 페인팅 순서 — position:fixed 는 '위치 지정 요소'라, 위치 지정이 없는
+            HUD 패널보다 무조건 위에 그려진다. 캔버스를 HUD 트리 안에 두면
+            지구본이 슬라이더를 덮어버린다. body 로 빼고 z-0 을 주면 z-10 인
+            무대 전체(App 의 main)가 항상 위로 온다.
+          · fixed 의 기준 — 조상에 transform 이 걸리면 fixed 는 뷰포트가 아니라
+            그 조상을 기준으로 잡힌다. 단계 전환 애니메이션(framer-motion)이
+            바로 그 transform 을 건다.
+      */}
+      {createPortal(<div ref={hostRef} className="fixed inset-0 z-0" />, document.body)}
 
       {!ready && (
         <div className="absolute inset-0 grid place-items-center text-[11.5px] tracking-[0.14em] text-ink-3">
