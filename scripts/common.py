@@ -10,10 +10,19 @@ from __future__ import annotations
 
 import json
 import math
+import os
+import sys
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
+RAW_DIR = ROOT / "scripts" / "raw"
+
+REQUEST_PAUSE = 0.4  # 초 — 호출 간 간격 (쿼터 보호)
+MAX_RETRY = 3
 
 SCHEMA_VERSION = 1
 STATION = {"name": "부산", "stnId": 159, "lat": 35.1047, "lon": 129.0320}
@@ -163,6 +172,58 @@ def ssp_scenarios(baseline: float) -> list[dict]:
             })
         scenarios.append({"id": sid, "label": label, "description": desc, "color": color, "points": points})
     return scenarios
+
+
+# ─────────────────────────────────────────────── 키 처리 · HTTP
+#
+# 수집 스크립트 세 개(fetch_asos / fetch_forecast / fetch_blossom)가 공유한다.
+# ⚠️ 키는 환경변수로만 받고, 값은 어떤 경로로도 화면·로그에 남기지 않는다.
+
+
+def load_key(required: bool = True) -> tuple[str, str]:
+    """(provider, key). 키 값은 절대 로그로 출력하지 않는다."""
+    # 편의를 위해 scripts/.env 도 읽는다 (gitignore 대상)
+    env_file = ROOT / "scripts" / ".env"
+    if env_file.exists():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+
+    if os.environ.get("KMA_APIHUB_KEY"):
+        return "apihub", os.environ["KMA_APIHUB_KEY"]
+    if os.environ.get("DATA_GO_KR_KEY"):
+        return "data.go.kr", os.environ["DATA_GO_KR_KEY"]
+
+    if not required:
+        return "none", ""
+    sys.exit(
+        "API 키가 없다. 아래 중 하나를 환경변수로 설정할 것 (커밋 금지):\n"
+        "  export KMA_APIHUB_KEY=...   # 기상청 API허브\n"
+        "  export DATA_GO_KR_KEY=...   # 공공데이터포털"
+    )
+
+
+def masked(key: str) -> str:
+    """키 자체는 절대 화면에 남기지 않는다 (화면 공유/스크린샷 사고 방지)."""
+    return f"확인됨 (길이 {len(key)})"
+
+
+def fetch(url: str) -> str:
+    """GET with 재시도. 실패 응답 본문에 키가 들어갈 수 있어 그대로 찍지 않는다."""
+    last_err: Exception | None = None
+    for attempt in range(1, MAX_RETRY + 1):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "prediction-scale/1.0"})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return resp.read().decode("utf-8", errors="replace")
+        except (urllib.error.URLError, TimeoutError) as e:
+            last_err = e
+            wait = attempt * 2
+            print(f"    재시도 {attempt}/{MAX_RETRY} ({type(e).__name__}) — {wait}s 대기")
+            time.sleep(wait)
+    raise RuntimeError(f"요청 실패: {type(last_err).__name__}")
 
 
 # ─────────────────────────────────────────────── 강수 등급

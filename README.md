@@ -116,10 +116,31 @@ python3 scripts/make_dummy_data.py
 
 ```bash
 export KMA_APIHUB_KEY="발급받은키"        # 기상청 API허브. 또는 DATA_GO_KR_KEY
+
+# 관측 4종 (일별·월별·연별·SSP)
 python3 scripts/fetch_asos.py --selftest  # 키 없이 파서만 점검
 python3 scripts/fetch_asos.py --dry-run   # 호출 없이 URL/키 인식 확인
 python3 scripts/fetch_asos.py --years 2019 2023 --normals 1991 2020
+
+# 기상청 과거 예보 + 기상특보 (S1 3자 대결)
+python3 scripts/fetch_forecast.py --selftest
+python3 scripts/fetch_forecast.py --dry-run
+python3 scripts/fetch_forecast.py          # busan_daily.json 의 날짜 전부
+
+# 벚꽃 개화일 (S3 보조 레이어)
+python3 scripts/fetch_blossom.py --selftest
+python3 scripts/fetch_blossom.py           # scripts/raw/busan_blossom.csv 있으면 그걸 읽는다
 ```
+
+각 스크립트 맨 위 주석에 **어떤 API 활용신청 항목이 필요한지** 이름으로 적혀 있다.
+셋 다 `--selftest`(키 없이 파서 점검)와 `--dry-run`(호출 없이 URL 확인)을 지원하고,
+키는 환경변수로만 받으며 화면에는 길이만 찍는다.
+
+`fetch_forecast.py` 는 응답을 **컬럼 위치가 아니라 컬럼명으로** 읽는다. 문서 개정으로
+열 순서가 바뀌어도 견디고, 이름이 사라지면 어느 이름이 없는지 찍고 멈춘다.
+자체 점검이 잡아낸 실제 함정 하나: `PRE` 는 강수'량'이 아니라 강수'형태' 코드다
+(0 없음 / 1 비 / 2 비·눈 / 3 눈 / 4 소나기). mm 로 읽으면 모든 비 예보가 "약한 비 1mm"가
+되어 3자 대결이 조용히 거짓말을 한다.
 
 출력 스키마가 더미와 완전히 동일하므로 `/data` 를 덮어쓰면 앱 코드는 그대로다.
 같은 검증 리포트가 실데이터에도 돌아가므로, 컬럼 매핑을 잘못 잡으면 (예: 현지기압/해면기압
@@ -136,9 +157,11 @@ SSP 시나리오는 공개 API가 없다. 기후변화정보포털(CCIC)에서 �
 ```
 data/                        번들되는 JSON 4종 (런타임 fetch 없음)
 scripts/
-  common.py                  스키마·집계·검증 (더미/실데이터 공용)
+  common.py                  스키마·집계·검증 + 키/HTTP (더미·수집기 3종 공용)
   make_dummy_data.py         합성 데이터 생성기
-  fetch_asos.py              실데이터 수집기 (--selftest / --dry-run)
+  fetch_asos.py              ASOS 관측 → JSON 4종        (--selftest / --dry-run)
+  fetch_forecast.py          단기예보 과거자료 + 기상특보 (--selftest / --dry-run)
+  fetch_blossom.py           계절관측 벚꽃 개화일         (--selftest / --dry-run)
 src/sim/
   terra-engine.js            궤도 시뮬레이터 엔진 (standalone 과 S6 가 공유)
 src/scale/

@@ -37,21 +37,23 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import os
 import sys
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from datetime import date, timedelta
 
 from common import (  # noqa: E402
     DAILY_UNITS,
     DATA_DIR,
+    RAW_DIR,
+    REQUEST_PAUSE,
     ROOT,
     SCHEMA_VERSION,
     STATION,
     baseline_from_yearly,
+    fetch,
+    load_key,
+    masked,
     monthly_from_daily,
     normals_from_daily,
     ssp_scenarios,
@@ -62,61 +64,10 @@ from common import (  # noqa: E402
     yearly_from_daily,
 )
 
-RAW_DIR = ROOT / "scripts" / "raw"
 SSP_CSV = RAW_DIR / "ssp_gyeongsang.csv"
 
 APIHUB_URL = "https://apihub.kma.go.kr/api/typ01/url/kma_sfcdd3.php"
 DATA_GO_KR_URL = "https://apis.data.go.kr/1360000/AsosDalyInfoService/getWthrDataList"
-
-REQUEST_PAUSE = 0.4  # 초 — 호출 간 간격 (쿼터 보호)
-MAX_RETRY = 3
-
-
-# ────────────────────────────────────────────────────────── 키 처리
-
-
-def load_key() -> tuple[str, str]:
-    """(provider, key). 키 값은 절대 로그로 출력하지 않는다."""
-    # 편의를 위해 scripts/.env 도 읽는다 (gitignore 대상)
-    env_file = ROOT / "scripts" / ".env"
-    if env_file.exists():
-        for line in env_file.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip().strip("'\""))
-
-    if os.environ.get("KMA_APIHUB_KEY"):
-        return "apihub", os.environ["KMA_APIHUB_KEY"]
-    if os.environ.get("DATA_GO_KR_KEY"):
-        return "data.go.kr", os.environ["DATA_GO_KR_KEY"]
-
-    sys.exit(
-        "API 키가 없다. 아래 중 하나를 환경변수로 설정할 것 (커밋 금지):\n"
-        "  export KMA_APIHUB_KEY=...   # 기상청 API허브\n"
-        "  export DATA_GO_KR_KEY=...   # 공공데이터포털"
-    )
-
-
-def masked(key: str) -> str:
-    """키 자체는 절대 화면에 남기지 않는다 (화면 공유/스크린샷 사고 방지)."""
-    return f"확인됨 (길이 {len(key)})"
-
-
-def fetch(url: str) -> str:
-    """GET with 재시도. 실패 응답 본문에 키가 들어갈 수 있어 그대로 찍지 않는다."""
-    last_err: Exception | None = None
-    for attempt in range(1, MAX_RETRY + 1):
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "prediction-scale/1.0"})
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                return resp.read().decode("utf-8", errors="replace")
-        except (urllib.error.URLError, TimeoutError) as e:
-            last_err = e
-            wait = attempt * 2
-            print(f"    재시도 {attempt}/{MAX_RETRY} ({type(e).__name__}) — {wait}s 대기")
-            time.sleep(wait)
-    raise RuntimeError(f"요청 실패: {type(last_err).__name__}")
 
 
 # ────────────────────────────────────────────────────────── 파서
