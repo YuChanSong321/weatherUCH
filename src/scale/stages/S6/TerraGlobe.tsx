@@ -9,8 +9,8 @@
  * 뷰포트를 통째로 덮고, 미션 UI 는 그 위에 떠 있는 패널들이다. 캔버스가 UI 뒤에 있으니
  * 패널이 없는 자리에서는 드래그·줌이 그대로 지구에 닿는다 (원본의 pointer-events 규칙).
  *
- * 연출: S5(지상의 기온 곡선)에서 넘어오자마자 지구 근접 뷰로 시작해 궤도 전체 뷰로
- * 카메라를 뺀다. 시뮬레이터의 우주 톤이 다른 화면과 이질적인 것은 감추지 않고,
+ * 연출: S5(지상의 기온 곡선)에서 넘어오면 궤도 전체를 먼저 보여주고, 거기서 지구로
+ * 들어가 멈춘다. 시뮬레이터의 우주 톤이 다른 화면과 이질적인 것은 감추지 않고,
  * 그 이질감 자체를 "지상을 벗어났다"는 신호로 쓴다.
  */
 import { useEffect, useRef, useState } from 'react'
@@ -21,20 +21,21 @@ import type { OrbitParams } from '../../lib/milankovitch'
 type Sim = Awaited<ReturnType<typeof createTerraSim>>
 
 /**
- * 진입 연출은 **한 방향으로만** 움직인다: 지구 근접에서 시작해 궤도 전체로 빠진다.
+ * 진입 연출: **궤도 전체에서 시작해 지구로 들어가고 끝난다.** 이동은 하나뿐이다.
  *
- * 엔진에는 자체 시네마틱(멀리서 지구로 3초간 날아 들어가는 연출)이 있는데, 그걸 켠 채
- * 여기서 줌아웃까지 걸면 카메라가 지구로 가다 말고 되돌아 나온다 — 연출이 아니라
- * 버그로 읽힌다. 그래서 intro 는 끄고(=지구 근접에 바로 놓고) 후퇴만 남긴다.
+ * 엔진에도 자체 시네마틱(멀리서 지구로 날아 들어가는 연출)이 있지만 끈다. 켜두면
+ * 아래 이동과 겹쳐 카메라가 가다 말고 되돌아 나오고, 그건 연출이 아니라 오작동으로
+ * 읽힌다. 시작 지점만 궤도로 잡아두고 들어가는 이동 하나만 남긴다.
  */
-const HOLD_MS = 1500
-const PULL_OUT_SEC = 2.6
+/** 궤도 전체를 보여주는 시간. 이 뒤에 지구로 들어간다. */
+const HOLD_MS = 1600
+const DIVE_SEC = 2.6
 
 export function TerraGlobe({ params }: { params: OrbitParams }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const simRef = useRef<Sim | null>(null)
   const [ready, setReady] = useState(false)
-  const [view, setView] = useState<'earth' | 'system'>('earth')
+  const [view, setView] = useState<'earth' | 'system'>('system')
   const [arrived, setArrived] = useState(false)
 
   // 엔진 생성은 비동기라, 만들어지는 동안 바뀐 값도 놓치지 않도록 ref 로 들고 있는다.
@@ -46,7 +47,7 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
     const host = hostRef.current
     if (!host) return
     let cancelled = false
-    let pullOut = 0
+    let dive = 0
     let arrive = 0
 
     createTerraSim(host, {
@@ -56,8 +57,9 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
       textureMode: 'remote',
       params: paramsRef.current,
       motion: { speed: 1, spin: 1, exposure: 1.05 },
-      view: 'earth',
-      // 엔진 시네마틱은 끈다 — 아래 줌아웃과 방향이 반대라 서로 덮어쓴다 (위 주석)
+      // 궤도 전체에서 시작한다
+      view: 'system',
+      // 엔진 시네마틱은 끈다 — 아래 이동과 겹치면 서로 덮어쓴다 (위 주석)
       intro: false,
       onViewChange: setView,
     }).then((sim) => {
@@ -68,12 +70,11 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
       simRef.current = sim
       sim.setParams(paramsRef.current) // 로딩 중에 슬라이더가 움직였을 수 있다
       setReady(true)
-      // 줌아웃: 지구 근접 → 궤도 전체
-      pullOut = window.setTimeout(() => {
-        sim.setView('system', true, PULL_OUT_SEC)
-        // 자막은 후퇴가 끝난 뒤에 걷는다. 시작과 동시에 지우면 정작 "지상을 벗어나는"
-        // 장면에서는 자막이 없다.
-        arrive = window.setTimeout(() => setArrived(true), PULL_OUT_SEC * 1000)
+      // 궤도 전체 → 지구로 쏙
+      dive = window.setTimeout(() => {
+        sim.setView('earth', true, DIVE_SEC)
+        // 자막은 도착한 뒤에 걷는다 — 들어가는 동안 계속 읽혀야 한다
+        arrive = window.setTimeout(() => setArrived(true), DIVE_SEC * 1000)
       }, HOLD_MS)
     })
 
@@ -86,7 +87,7 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
 
     return () => {
       cancelled = true
-      window.clearTimeout(pullOut)
+      window.clearTimeout(dive)
       window.clearTimeout(arrive)
       window.removeEventListener('resize', onResize)
       ro.disconnect()
@@ -123,14 +124,14 @@ export function TerraGlobe({ params }: { params: OrbitParams }) {
         </div>
       )}
 
-      {/* 도착 자막. 궤도 전체가 잡히면 사라진다. */}
+      {/* 자막. 지구에 도착하면 걷힌다. */}
       {ready && (
         <div
           className="pointer-events-none absolute inset-x-0 top-1 flex justify-center text-[12px] transition-opacity duration-700"
           style={{ opacity: arrived ? 0 : 1 }}
         >
           <span className="rounded-full bg-black/50 px-3 py-1.5 text-ink-2 backdrop-blur-sm">
-            지상을 벗어납니다 — 여기서부터는 대기가 아니라 <span className="text-ink-1">궤도</span>가 기후를 정합니다
+            지구의 궤도입니다 — 여기서부터는 대기가 아니라 <span className="text-ink-1">궤도</span>가 기후를 정합니다
           </span>
         </div>
       )}
