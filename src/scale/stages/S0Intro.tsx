@@ -2,7 +2,7 @@
  * S0 · 도전장. 설명 화면 없음 — 10초 안에 첫 조작으로 들어간다.
  * 여기서 던지는 질문은 S7에서 그대로 회수된다.
  */
-import { CITY, isDummyData } from '../data/loader'
+import { CITY, isAllSynthetic, isDummyData, syntheticLabels } from '../data/loader'
 import type { ForecastCase } from '../lib/forecast'
 
 const monthOf = (iso: string) => `${iso.slice(0, 4)}년 ${Number(iso.slice(5, 7))}월`
@@ -41,7 +41,9 @@ export function S0Intro({ firstCase, onStart }: { firstCase: ForecastCase; onSta
 
       {isDummyData && (
         <div className="mt-8 text-[10.5px] text-ink-3/80">
-          현재 표시되는 값은 스키마 검증용 합성 데이터입니다 (실측 ASOS 자료로 교체 예정)
+          {isAllSynthetic
+            ? '현재 표시되는 값은 스키마 검증용 합성 데이터입니다 (실측 자료로 교체 예정)'
+            : `관측 자료는 기상청 실측입니다 — ${syntheticLabels.join(' · ')}만 아직 실측이 아닙니다`}
         </div>
       )}
     </div>

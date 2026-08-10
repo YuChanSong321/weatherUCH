@@ -10,12 +10,12 @@
  * 반드시 따라 바뀌어야 한다.
  */
 import { useEffect, useState } from 'react'
-import { datasetCredits, isDummyData } from '../data/loader'
+import { datasetCredits, isAllSynthetic, isDummyData } from '../data/loader'
 
 export function Attribution() {
   const [open, setOpen] = useState(false)
-  const someSynthetic = datasetCredits.some((d) => d.synthetic)
-  const allSynthetic = datasetCredits.every((d) => d.synthetic)
+  const someSynthetic = isDummyData
+  const allSynthetic = isAllSynthetic
 
   useEffect(() => {
     if (!open) return

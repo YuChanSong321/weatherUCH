@@ -144,6 +144,15 @@ export const datasetCredits: DatasetCredit[] = [
   creditOf('future_ssp.json', 'SSP 시나리오', sspFile.meta, '기후변화 시나리오'),
 ]
 
+/**
+ * 아직 실측이 아닌 데이터셋의 이름.
+ *
+ * 화면 문구를 손으로 적어두면 파일이 실측으로 바뀐 뒤에도 "전부 합성입니다" 같은
+ * 낡은 경고가 남는다 — 그것도 허위 표기다. 문구에 들어갈 목록까지 meta 에서 만든다.
+ */
+export const syntheticLabels: string[] = datasetCredits.filter((d) => d.synthetic).map((d) => d.label)
+export const isAllSynthetic = syntheticLabels.length === datasetCredits.length
+
 const byDate = new Map(daily.map((r) => [r.date, r]))
 export const getDay = (date: string): DailyRecord | undefined => byDate.get(date)
 
