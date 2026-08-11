@@ -212,13 +212,12 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
   }, [place, ready])
 
   /*
-   * 단계 → 카메라.
+   * 단계 → 카메라. **단계가 바뀔 때만** 돈다.
    *
-   * 자전은 언제나 돈다. 대신 **지역을 고르는 동안에만** 카메라가 자전에 동행해
-   * 지표가 화면에 멈춰 보이게 한다. 예전에는 여기서 두 가지를 잘못했다.
-   *   · S0 에서 drift(카메라 자동 회전)와 자전이 동시에 돌아 찍으려는 자리가
-   *     두 겹으로 도망갔다.
-   *   · 지역을 고른 뒤에는 자전을 아예 0 으로 멈춰버려 지구가 죽은 것처럼 보였다.
+   * place 를 의존성에 넣으면 안 된다. 지역을 찍는 순간 이 effect 가 통째로 다시
+   * 돌면서 setView 가 카메라를 기준 자세로 끌어당기는데, 그때 카메라는 자전 동행으로
+   * 이미 돌아가 있는 상태다 — 방금 찍은 자리가 눈앞에서 끌려가 버린다. 실제로
+   * 그랬다. 카메라 정책은 단계의 것이고, 지역 선택은 단계를 바꾸지 않는다.
    */
   useEffect(() => {
     const sim = simRef.current
@@ -229,8 +228,27 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
     sim.setView(VIEW_BY_STAGE[stage], true, MOVE_SEC)
     sim.setSpin(1)
     sim.setToggle('drift', false)
-    sim.setCameraFollowSpin(stage === 's0' && !place)
-  }, [stage, ready, place])
+  }, [stage, ready])
+
+  /*
+   * 자전 동행 — S0 이 끝날 때까지 유지한다.
+   *
+   * 자전은 언제나 돈다. 대신 지역을 고르는 화면에서는 카메라가 자전에 동행해 지표가
+   * 화면에 멈춰 보이게 한다. 예전에는 여기서 세 가지를 잘못했다.
+   *   · S0 에서 drift(카메라 자동 회전)와 자전이 동시에 돌아 찍으려는 자리가
+   *     두 겹으로 도망갔다.
+   *   · 지역을 고른 뒤에는 자전을 아예 0 으로 멈춰버려 지구가 죽은 것처럼 보였다.
+   *   · 지역을 찍는 **순간** 동행을 풀어버려, "이 지역으로 예보 시작하기" 를 누르기
+   *     전에 방금 찍은 자리가 화면에서 흘러가 버렸다. 게다가 동행을 끄면 엔진이
+   *     camera.up 을 즉시 원위치시키므로(롤 되돌리기) 그 순간 화면이 튄다.
+   *
+   * 그래서 조건은 place 가 아니라 stage 다. 버튼을 눌러 S1 으로 넘어가면 자동으로
+   * 풀리고, 그때는 단계 전환 자체가 카메라를 다시 잡으므로 튀는 것으로 보이지 않는다.
+   */
+  useEffect(() => {
+    if (!ready) return
+    simRef.current?.setCameraFollowSpin(stage === 's0')
+  }, [stage, ready])
 
   const setView = useCallback((v: View, animate = true, seconds = MOVE_SEC) => {
     simRef.current?.setView(v, animate, seconds)

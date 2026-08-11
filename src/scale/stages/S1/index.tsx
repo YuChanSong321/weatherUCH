@@ -5,12 +5,11 @@
  * 세 라운드가 **같은 상황**을 본다 (기획안 §3 S1). 라운드마다 묻는 것만 달라진다:
  *   R1 내일 최고기온 50 · R2 내일 강수 30 · R3 3일 뒤 최고기온 20
  */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { GuessPanel } from './GuessPanel'
 import { ObservationCard } from './ObservationCard'
 import { RoundResult } from './RoundResult'
 import { S1Summary } from './S1Summary'
-import { useGlobe } from '../../components/GlobeLayer'
 import {
   caseOf,
   scoreRound,
@@ -29,7 +28,6 @@ const ROUNDS: RoundNumber[] = [1, 2, 3]
 export function S1Forecast({ situation }: { situation: Situation }) {
   const { rounds, pushRound, next } = useJourney()
   const { place } = usePlace()
-  const { setView } = useGlobe()
   const [roundIndex, setRoundIndex] = useState(0)
   const [phase, setPhase] = useState<Phase>({ kind: 'guess' })
   const [done, setDone] = useState(false)
@@ -39,13 +37,18 @@ export function S1Forecast({ situation }: { situation: Situation }) {
   const isLastRound = roundIndex === ROUNDS.length - 1
 
   /*
-   * 기획안: "라운드마다 지구본 카메라가 해당 지역으로 줌인한다."
-   * 지역을 향한 정렬은 GlobeLayer 가 이미 맡고 있으므로, 여기서는 라운드가 넘어갈
-   * 때마다 지구 뷰를 다시 잡아 그 움직임이 눈에 보이게 한다.
+   * 라운드가 넘어갈 때 지구 뷰를 다시 잡지 않는다.
+   *
+   * 예전에는 여기서 라운드마다 setView('earth') 를 다시 걸어 "움직임이 눈에 보이게"
+   * 하려 했는데, 화면에는 움찔거림으로만 나타났다. 엔진의 setView 는 이미 그 뷰에
+   * 있는지 보지 않고 현재 카메라 자세에서 기준 자세로 가는 전환을 새로 만들고,
+   * 그동안 controls 를 끈다. 기준 자세는 궤도를 따라 움직이는 earthPivot 기준이고
+   * 지구는 자전 중이라 카메라가 기준 자세에 정확히 앉아 있는 순간이 없다 — 그래서
+   * 매 라운드가 카메라를 되돌려 잡는 것으로 보였다.
+   *
+   * 단계 단위의 카메라 정책은 GlobeLayer 가 이미 갖고 있다 (VIEW_BY_STAGE.s1 =
+   * 'earth'). 지역을 향한 정렬도 그쪽 몫이다. 여기서 할 일이 없다.
    */
-  useEffect(() => {
-    setView('earth', true, 1.4)
-  }, [roundIndex, setView])
 
   const handleSubmit = (guess: Guess) => {
     const score = scoreRound(forecastCase, guess)

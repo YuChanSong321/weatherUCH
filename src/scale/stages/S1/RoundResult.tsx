@@ -29,6 +29,14 @@ export function RoundResult({
   const actualPrecipLabel = PRECIP_CLASSES.find((p) => p.id === actualClass)!.label
   const userTemp = forecastCase.kind === 'tmax3' ? guess.tmax3 : guess.tmax
 
+  /*
+   * R1 과 R2 는 같은 날(내일)을 묻는다 — R1 은 기온, R2 는 강수. 그래서 R1 결과에서
+   * 내일의 강수를 열어버리면 다음 라운드의 4지선다 답을 그대로 알려주는 셈이 된다.
+   * 하늘 상태도 같다 ('흐림'이면 비, '맑음'이면 비 없음). 아직 묻지 않은 것은 봉인한다
+   * — KmaCompare 와 상단 기상특보 배지가 이미 쓰고 있는 규칙 그대로다.
+   */
+  const precipSealed = forecastCase.kind === 'tmax'
+
   return (
     <section className="panel rise flex flex-col gap-3 p-4">
       <div className="flex items-baseline justify-between">
@@ -48,8 +56,16 @@ export function RoundResult({
           value={`${answer.tmax.toFixed(1)}℃`}
           sub={userTemp === undefined ? '이 라운드는 강수' : `당신 ${userTemp.toFixed(1)}℃`}
         />
-        <Fact label="강수" value={answer.precip > 0 ? `${answer.precip} mm` : '없음'} sub={actualPrecipLabel} />
-        <Fact label="일교차" value={`${dtrOf(answer).toFixed(1)}℃`} sub={`하늘 ${skyOf(answer.cloud)}`} />
+        {precipSealed ? (
+          <Fact label="강수" value="?" sub="다음 라운드 문제" sealed />
+        ) : (
+          <Fact label="강수" value={answer.precip > 0 ? `${answer.precip} mm` : '없음'} sub={actualPrecipLabel} />
+        )}
+        <Fact
+          label="일교차"
+          value={`${dtrOf(answer).toFixed(1)}℃`}
+          sub={precipSealed ? `최저 ${answer.tmin.toFixed(1)}℃` : `하늘 ${skyOf(answer.cloud)}`}
+        />
         <Fact label="바람" value={`${answer.windDir} ${answer.windSpeed.toFixed(1)}`} sub={`${answer.windDeg}°`} />
       </div>
 
@@ -107,11 +123,22 @@ export function RoundResult({
   )
 }
 
-function Fact({ label, value, sub }: { label: string; value: string; sub: string }) {
+function Fact({
+  label,
+  value,
+  sub,
+  sealed,
+}: {
+  label: string
+  value: string
+  sub: string
+  /** 아직 묻지 않은 항목. 비어 보이는 대신 '아직 열지 않았다'로 읽히게 흐린다. */
+  sealed?: boolean
+}) {
   return (
     <div>
       <div className="text-[10.5px] text-ink-3">{label}</div>
-      <div className="tnum text-[15px] font-semibold">{value}</div>
+      <div className={`tnum text-[15px] font-semibold ${sealed ? 'text-ink-3' : ''}`}>{value}</div>
       <div className="tnum text-[10.5px] text-ink-3">{sub}</div>
     </div>
   )

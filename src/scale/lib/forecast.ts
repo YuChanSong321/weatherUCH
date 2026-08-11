@@ -130,7 +130,12 @@ function compareWithKma(c: ForecastCase, guess: Guess): KmaCompare | null {
     precipClass: c.kma.precipClass,
     precipHit,
     precipProb: c.kma.precipProb ?? null,
-    kmaMissed: error >= 2 || !precipHit,
+    /*
+     * 강수 적중 여부는 강수를 물은 라운드에서만 판정에 넣는다. R1 (기온)에서 이걸
+     * 섞으면 "기상청도 강수 등급을 빗나갔다"는 배너가 떠서, R2 에 표시되는 기상청
+     * 예보 등급이 오답이라는 사실을 미리 알려주게 된다 — 4지선다가 3지선다가 된다.
+     */
+    kmaMissed: error >= 2 || (c.kind === 'precip' && !precipHit),
   }
 }
 
@@ -369,20 +374,25 @@ function scoreTmax3(c: ForecastCase, guess: number): ItemScore {
   }
 }
 
-/** 기온이 왜 움직였는지를 실제 관측 숫자로 설명 */
+/**
+ * 기온이 왜 움직였는지를 실제 관측 숫자로 설명.
+ *
+ * R1 (기온 라운드)에서만 불린다. 그래서 여기서는 **내일의 강수와 하늘을 근거로 쓸 수
+ * 없다** — 바로 다음 라운드가 내일의 강수를 묻기 때문에, '비 12 mm 가 기온을 눌렀다'
+ * 나 '맑은 하늘이었다'는 한 줄이 4지선다의 답을 그대로 넘겨준다. 기압과 바람만으로
+ * 설명하고, 비가 기온을 눌렀다는 연결은 강수가 공개되는 R2 로 넘긴다 (scorePrecip).
+ */
 function causeOfTempChange(c: ForecastCase): string {
   const { answer, features } = c
   const parts: string[] = []
   if (features.tmaxDelta <= -1.5) {
     if (answer.windFamily === 'N') parts.push(`다음날 ${answer.windDir}풍(${answer.windSpeed} m/s)이 들어오며 찬 공기가 남하했습니다`)
     if (features.pressureTrend > 1.5) parts.push(`기압이 ${features.pressureTrend > 0 ? '+' : ''}${features.pressureTrend} hPa 올라 고기압이 확장했습니다`)
-    if (answer.precip >= 1) parts.push(`비(${answer.precip} mm)가 낮 기온을 눌렀습니다`)
     return `기온이 ${Math.abs(features.tmaxDelta).toFixed(1)}℃ 내려간 이유: ${parts.join(', ') || '한기가 유입됐습니다'}.`
   }
   if (features.tmaxDelta >= 1.5) {
     if (answer.windFamily === 'S') parts.push(`${answer.windDir}풍으로 따뜻한 공기가 밀려 올라왔습니다`)
     if (features.pressureTrend < -1.5) parts.push(`기압이 ${features.pressureTrend} hPa 내려가 저기압이 접근했습니다`)
-    if (answer.cloud <= 3) parts.push('맑은 하늘에서 햇빛이 그대로 들어왔습니다')
     return `기온이 ${features.tmaxDelta.toFixed(1)}℃ 올라간 이유: ${parts.join(', ') || '남풍이 유입됐습니다'}.`
   }
   return '기온을 밀어올리거나 끌어내릴 만한 신호가 약했던 날입니다.'
@@ -406,13 +416,22 @@ function scorePrecip(c: ForecastCase, guess: PrecipClass): ItemScore {
       ? `적중 — 실제 ${labelOfPrecip(actualClass)} (${c.answer.precip} mm)`
       : `실제로는 ${labelOfPrecip(actualClass)} (${c.answer.precip} mm)`
 
+  /*
+   * R1 에서 뺀 설명을 여기서 회수한다. 비가 낮 기온을 눌렀다는 연결은 R1 에 쓰면
+   * 강수 답을 넘겨주지만, 강수가 공개된 지금은 두 라운드를 잇는 설명이 된다.
+   */
+  const tempLink =
+    c.answer.precip >= 1 && c.features.tmaxDelta <= -1.5
+      ? ` 그리고 이 비가 앞 라운드에서 보신 ${Math.abs(c.features.tmaxDelta).toFixed(1)}℃ 기온 하락을 만든 원인이기도 합니다.`
+      : ''
+
   return {
     label: '강수',
     earned: stepScore(PRECIP_MAX, distance),
     max: PRECIP_MAX,
     verdict,
     headline,
-    why: signal,
+    why: signal + tempLink,
   }
 }
 
