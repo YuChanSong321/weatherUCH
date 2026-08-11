@@ -4,7 +4,7 @@
  */
 import { ChartFrame } from '../components/ChartFrame'
 import { linearScale, smoothPath } from '../lib/scales'
-import { S1_MAX, S4_MAX, S6_MAX, useJourney } from '../state/journey'
+import { S1_MAX, S4_MAX, ORBIT_MISSION_MAX, useJourney } from '../state/journey'
 
 const W = 960
 const H = 292
@@ -56,8 +56,8 @@ const CARDS = [
   },
   {
     n: '③',
-    title: '그 기후를 움직이는 것은 지구의 궤도',
-    body: '이심률·자전축 기울기·세차는 천체역학이 정합니다. 시계처럼 계산되기에, 수만 년 규모의 기후는 가장 예측 가능한 영역이 됩니다.',
+    title: '그 시계를, 200년이 뒤집었습니다',
+    body: '궤도가 정하는 수만 년의 자연 곡선은 어느 쪽으로 돌려도 냉각을 가리켰습니다. 그런데 지구는 더워지고 있어요. 방향이 반대인 것보다 속도가 수백 배 빠른 것이 문제입니다.',
     color: 'var(--color-act-3)',
   },
 ]
@@ -105,8 +105,8 @@ export function S7Ending() {
     },
     orbitResult && {
       lx: Math.log10(365 * 20000),
-      label: '3단계 · 2만 년 규모',
-      detail: `${orbitResult.success ? '미션 성공' : '미션 미완'} · ${orbitResult.earned}/${S6_MAX}점`,
+      label: '3단계 · 임계점 복구',
+      detail: `${orbitResult.success ? '복구 성공' : '복구 실패'} · ${orbitResult.earned}/${ORBIT_MISSION_MAX}점`,
       color: 'var(--color-act-3)',
       anchor: 'end' as const,
       place: 'below' as const,

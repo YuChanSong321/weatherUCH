@@ -259,6 +259,8 @@ export async function createTerraSim(container, opts = {}){
     onProgress = () => {},
     onTelemetry = null,
     onViewChange = null,
+    /** 지구 표면을 클릭했을 때 ({lat, lon}) — 끌어서 회전한 경우는 부르지 않는다 */
+    onPick = null,
   } = opts;
 
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -511,6 +513,8 @@ export async function createTerraSim(container, opts = {}){
     uIce:       { value: 0.0 },   // 0..1 how far the caps have grown
     uIceEdge:   { value: 0.86 },  // |sin(lat)| where ice begins
     uWarm:      { value: 0.0 },   // 0..1 heat-stress browning of land
+    uSeaDry:    { value: 0.0 },   // 0..1 바다가 물러나 해저가 드러난 정도
+    uMelt:      { value: 0.0 },   // 0..1 지각이 녹아 스스로 빛나는 정도
     uRim:       { value: 0.34 },
     uTermSoft:  { value: 0.18 },  // terminator wrap, in cosine units (~10°)
     uAtmoTint:  { value: new THREE.Color(0x5b9dff) }
@@ -577,6 +581,8 @@ export async function createTerraSim(container, opts = {}){
         uniform float uIce;
         uniform float uIceEdge;
         uniform float uWarm;
+        uniform float uSeaDry;
+        uniform float uMelt;
         uniform float uRim;
         uniform float uTermSoft;
         uniform vec3  uAtmoTint;
@@ -596,6 +602,19 @@ export async function createTerraSim(container, opts = {}){
         // warming: land dries out toward a scorched tan, oceans stay put
         vec3 scorched = mix( diffuseColor.rgb, vec3( 0.46, 0.31, 0.17 ), 0.6 );
         diffuseColor.rgb = mix( diffuseColor.rgb, scorched, clamp( uWarm, 0.0, 1.0 ) * land );
+
+        // 바다가 물러난 자리 — 해저 퇴적물 색. 자기권을 잃은 행성이 수분을 잃는
+        // 과정(화성형)을 나타내는 레이어이며, 계절·궤도 변동으로 일어나는 일이 아니다.
+        vec3 seabed = vec3( 0.35, 0.29, 0.22 );
+        diffuseColor.rgb = mix( diffuseColor.rgb, seabed, clamp( uSeaDry, 0.0, 1.0 ) * water );
+
+        // 용융: 지형도 해안선도 의미를 잃는다. 반사광은 죽고 스스로 빛나기 시작한다.
+        diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.10, 0.075, 0.065 ), clamp( uMelt, 0.0, 1.0 ) );
+      `)
+      /* ---- 바다가 마르면 물의 반사광도 함께 사라진다 --------------------- */
+      .replace('#include <specularmap_fragment>', `
+        #include <specularmap_fragment>
+        specularStrength *= ( 1.0 - clamp( uSeaDry, 0.0, 1.0 ) * 0.92 );
       `)
       /* ---- city lights, only where the sun has set ---------------------- */
       .replace('#include <emissivemap_fragment>', `
@@ -607,7 +626,23 @@ export async function createTerraSim(container, opts = {}){
         vec3  lamps = texture2D( uNightMap, vUvX ).rgb;
         // part linear, part squared: keeps the bright metros punchy without
         // crushing the dim ones out of existence the way a pure square does
-        totalEmissiveRadiance += lamps * ( 0.35 + 0.65 * lamps ) * uNightGain * night;
+        totalEmissiveRadiance += lamps * ( 0.35 + 0.65 * lamps ) * uNightGain * night * ( 1.0 - clamp( uMelt, 0.0, 1.0 ) );
+
+        /*
+         * 용암 자체 발광. 온도가 오를수록 붉은빛 → 노란빛으로 옮겨간다 —
+         * 흑체가 실제로 밟는 순서다(적열 → 백열). 낮/밤 구분 없이 빛나야 한다:
+         * 스스로 내는 빛이지 반사광이 아니다.
+         */
+        /*
+         * 세기는 실제 흑체가 보이는 밝기에 맞춘다. uMelt = 1 은 약 600℃ 인데,
+         * 그 온도의 암석은 **어두운 적열**이지 백열이 아니다. 처음 이 값을 2.6 으로
+         * 두었더니 지구가 통째로 흰 원반이 되어 아무것도 안 보였다.
+         */
+        float melt = clamp( uMelt, 0.0, 1.0 );
+        vec3 lava = mix( vec3( 0.85, 0.13, 0.02 ), vec3( 1.00, 0.42, 0.08 ), smoothstep( 0.5, 1.0, melt ) );
+        // 지각의 균열: 바다였던 저지대가 먼저 뚫린다
+        float crack = 0.55 + texture2D( uSpecMap, vUvX ).r * 0.75;
+        totalEmissiveRadiance += lava * pow( melt, 1.7 ) * 0.85 * crack;
       `)
       /* ---- atmospheric rim on the lit limb ------------------------------ */
       .replace('#include <opaque_fragment>', `
@@ -623,8 +658,10 @@ export async function createTerraSim(container, opts = {}){
   tiltGroup.add(earth);
 
   /* ---- clouds ------------------------------------------------------------ */
+  /** 구름의 기본 불투명도. 지표가 녹거나 바다가 마르면 여기서 깎아 내린다. */
+  const CLOUD_OPACITY = 0.92;
   const cloudMat = new THREE.MeshPhongMaterial({
-    map: tex.clouds, transparent: true, opacity: 0.92,
+    map: tex.clouds, transparent: true, opacity: CLOUD_OPACITY,
     depthWrite: false, specular: 0x111111, shininess: 4
   });
   const clouds = new THREE.Mesh(new THREE.SphereGeometry(R_EARTH * 1.006, 96, 64), cloudMat);
@@ -929,7 +966,46 @@ export async function createTerraSim(container, opts = {}){
   controls.autoRotate = !reduceMotion;
   controls.autoRotateSpeed = 0.14;
 
+  /* 자기권(S7) 상태. ⚠️ 선언이 프레임 루프(frame())보다 뒤에 있으면 첫 프레임이
+     TDZ 로 죽는다 — 실제로 그렇게 깨졌었다. 지오메트리는 아래 §18 에서 만들고,
+     루프가 읽는 값만 여기서 미리 선언한다. */
+  /**
+   * 지표 상태 목표값. 슬라이더를 튕기듯 움직여도 지구가 툭툭 바뀌면 안 되므로
+   * 목표만 여기에 두고 프레임마다 따라가게 한다 (아래 §7.5).
+   */
+  const surfaceTarget = { ice: 0, warm: 0, seaDry: 0, melt: 0 };
+  const SURFACE_EASE_SEC = 0.7;
+  /**
+   * 지표를 엔진이 계산한 표면 온도에서 직접 끌어올지 여부.
+   *
+   * 켜면 화면이 지어낸 값이 아니라 §9 에너지 균형 모델(S = S₀(a/r)², 슈테판–볼츠만,
+   * 얼음–반사율 되먹임)의 산출을 그린다. 근일점 거리가 줄면 일사량이 제곱으로
+   * 늘고, 그 결과가 그대로 지각이 녹는 그림이 된다 — 연출이 아니라 계산이다.
+   */
+  let surfaceAuto = false;
+  /**
+   * 궤도 진행만 멈춘다 (자전·구름·태양풍은 계속 돈다).
+   *
+   * 이심률이 크면 지구는 근일점을 순식간에 지나간다 — 케플러 2법칙이라 그게 맞다.
+   * 그런데 그 순간이 이 화면에서 보여줘야 할 바로 그 장면이다. 시간을 왜곡해
+   * 근일점을 느리게 만드는 대신, 사용자가 거기에 **세워 두고** 볼 수 있게 한다.
+   */
+  let orbitFrozen = false;
+
+  /** 카메라가 자전과 함께 도는가 (S0 지역 선택). 아래 루프가 읽는다. */
+  let followSpin = false;
+  /** 직전 프레임의 자전 각도 증가분 — 동행 시점이 같은 값만큼 카메라를 돌린다 */
+  let lastSpinDelta = 0;
+
+  let magnetoReady = false;
+  let magneticPct = 100;
+  let alertMix = 0;
+  const baseAtmo  = new THREE.Color(0x5b9dff);
+  const ATMO_ALERT = new THREE.Color(0xff4b3a);
+
   let viewMode = initialView;
+  /** 'crescent' (원본 연출) | 'daylight' (지역을 골라야 하는 화면) */
+  let earthFraming = 'crescent';
   let transition = null;                     // {t, dur, fromPos, toPos, fromTgt, toTgt}
   const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
@@ -945,15 +1021,30 @@ export async function createTerraSim(container, opts = {}){
     if (mode === 'system'){
       return { pos: SYSTEM_DIR.clone().multiplyScalar(fitDistance(eNow)), tgt: new THREE.Vector3(0, 0, 0) };
     }
-    // Earth view: off to one side and slightly above, a touch behind the
-    // terminator, so the crescent and the city lights are both in frame.
+    // Earth view, two framings:
+    //   crescent — off to one side and a touch BEHIND the terminator, so the
+    //              crescent and the city lights are both in frame (원본 연출).
+    //   daylight — in front of the terminator, on the lit side. 사용자가 자기
+    //              지역을 골라야 하는 화면에서는 그 자리가 보여야 한다. 초승달
+    //              연출이 아무리 예뻐도 찍을 곳이 어둠 속이면 화면이 실패한다.
     const toSun = earthPos.clone().negate().normalize();
     const up = new THREE.Vector3(0, 1, 0);
     const side = new THREE.Vector3().crossVectors(toSun, up).normalize();
-    const pos = earthPos.clone()
-      .add(side.multiplyScalar(2.9))
-      .add(up.clone().multiplyScalar(1.15))
-      .add(toSun.clone().multiplyScalar(-1.7));
+    const alongSun = earthFraming === 'daylight' ? 2.2 : -1.7;
+    const lateral = side.clone().multiplyScalar(earthFraming === 'daylight' ? 1.6 : 2.9)
+      .add(up.clone().multiplyScalar(earthFraming === 'daylight' ? 0.9 : 1.15));
+    let pos = earthPos.clone().add(lateral).add(toSun.clone().multiplyScalar(alongSun));
+
+    /*
+     * 태양 쪽 자리는 근일점이 아주 가까울 때 **태양 메시 안쪽**이 된다. 이 시뮬레이터의
+     * 태양은 실제 비율(약 109:1)이 아니라 시각적으로 부풀려 놓은 것이라, 극단적인
+     * 이심률에서는 카메라가 그 안에 들어가 화면이 통째로 하얗게 날아간다.
+     * 그럴 때는 지구 뒤쪽으로 돌아간다 — 어차피 그 상태의 지구는 스스로 빛난다.
+     */
+    if (pos.length() < R_SUN * 1.7){
+      pos = earthPos.clone().add(lateral)
+        .add(toSun.clone().multiplyScalar(-Math.abs(alongSun) - 1.4));
+    }
     return { pos, tgt: earthPos.clone() };
   }
 
@@ -983,6 +1074,8 @@ export async function createTerraSim(container, opts = {}){
 
   let speedMul = initialMotion.speed ?? 1;
   let spinMul  = initialMotion.spin  ?? 1;
+  /** 사용자가 정한 기준 노출. 태양이 가까울 때 여기서 깎아 쓴다. */
+  let exposureBase = initialMotion.exposure ?? 1;
   let paused   = false;
 
   function applyOrientation(){
@@ -1047,7 +1140,7 @@ export async function createTerraSim(container, opts = {}){
     }
 
     /* ---- 2. advance the orbit (Kepler) --------------------------------- */
-    M += dt * (Math.PI * 2 / YEAR_SEC) * speedMul;
+    M += (orbitFrozen ? 0 : dt) * (Math.PI * 2 / YEAR_SEC) * speedMul;
     const { r, nu } = solveKepler(M, eNow);
     earthPivot.position.set(r * Math.cos(nu), 0, r * Math.sin(nu));
 
@@ -1060,7 +1153,8 @@ export async function createTerraSim(container, opts = {}){
     lastPhase = phase;
 
     /* ---- 3. spin + cloud drift ----------------------------------------- */
-    earth.rotation.y  += dt * 0.62 * spinMul;     // visual rate, not to scale
+    lastSpinDelta = dt * 0.62 * spinMul;
+    earth.rotation.y  += lastSpinDelta;           // visual rate, not to scale
     clouds.rotation.y += dt * 0.74 * spinMul;     // clouds lead the surface
     sky.rotation.y    += dt * 0.0015;
 
@@ -1068,6 +1162,38 @@ export async function createTerraSim(container, opts = {}){
     const sunDir = earthPivot.position.clone().negate().normalize();  // surface -> sun
     earthU.uSunDirW.value.copy(sunDir);
     atmoU.uSunDir.value.copy(sunDir);
+
+    /* ---- 4.5 자기권 · 태양풍 (S7) --------------------------------------- */
+    if (magnetoReady){
+      // 경고색은 급격한 컷이 아니라 0.5초 보간 (기획안 §4)
+      const target = magneticPct <= 20 ? 1 : 0;
+      alertMix += (target - alertMix) * Math.min(1, dtRaw / 0.5);
+      earthU.uAtmoTint.value.copy(baseAtmo).lerp(ATMO_ALERT, alertMix);
+
+      if (solarWind.visible){
+        // 태양 방향을 축으로 하는 직교 기저
+        const u = new THREE.Vector3(0, 1, 0).cross(sunDir).normalize();
+        const v = new THREE.Vector3().crossVectors(sunDir, u);
+        const shieldR = 1.15 + 1.5 * (magneticPct / 100);
+        for (let i = 0; i < WIND_COUNT; i++){
+          let prog = windSeed[i * 3 + 2] + dtRaw * 0.22;
+          if (prog > 1) prog -= 1;
+          windSeed[i * 3 + 2] = prog;
+          const along = 6 - 12 * prog;
+          const ang = windSeed[i * 3 + 1];
+          let r = 0.35 + Math.abs(windSeed[i * 3]) * 2.6;
+          // 지구 근처에서만 자기권이 입자를 밀어낸다. 자기장이 무너지면 shieldR 이
+          // 지표에 붙어 입자가 그대로 대기를 관통한다.
+          const near = Math.max(0, 1 - Math.abs(along) / 2.4);
+          r = Math.max(r, shieldR * near);
+          const p = sunDir.clone().multiplyScalar(along)
+            .addScaledVector(u, r * Math.cos(ang))
+            .addScaledVector(v, r * Math.sin(ang));
+          windPos[i * 3] = p.x; windPos[i * 3 + 1] = p.y; windPos[i * 3 + 2] = p.z;
+        }
+        windGeo.attributes.position.needsUpdate = true;
+      }
+    }
     sunLight.position.set(0, 0, 0);
     sunLight.target.position.copy(earthPivot.position);
     sunLight.target.updateMatrixWorld();
@@ -1076,6 +1202,18 @@ export async function createTerraSim(container, opts = {}){
     // exponent is below 2 and the result is clamped: perihelion reads brighter
     // while the surface keeps its detail.
     sunLight.intensity = 2.6 * clamp((A_ORBIT / r) ** 0.9, 0.55, 1.45);
+
+    /*
+     * 극단적인 이심률에서 근일점을 보려면 태양의 '그려지는 크기'를 줄여야 한다.
+     *
+     * 이 시뮬레이터의 태양은 이미 실제 비율(약 109:1)이 아니라 시각적으로 부풀려
+     * 놓은 것이다. 그 크기 그대로 두면 e = 0.9 의 근일점에서 지구가 태양 코로나
+     * 스프라이트에 통째로 잠겨 화면이 하얗게 날아간다 — 실제로 그랬다.
+     * 거리에 맞춰 줄여 지구가 보이게 하고, 노출도 함께 낮춘다.
+     */
+    const sunFit = clamp(r / (R_SUN * 3.2), 0.12, 1);
+    sunGroup.scale.setScalar(sunFit);
+    renderer.toneMappingExposure = exposureBase * clamp(sunFit * 1.25, 0.35, 1);
     // keep the shadow frustum tight around the Earth wherever it is
     sunLight.shadow.camera.near = Math.max(0.1, r - R_EARTH * 3);
     sunLight.shadow.camera.far  = r + R_EARTH * 3;
@@ -1090,7 +1228,8 @@ export async function createTerraSim(container, opts = {}){
     const tau = 0.13 * YEAR_SEC / Math.max(speedMul, 0.05);
     Tdisp += (Teq - Tdisp) * (1 - Math.exp(-dt / tau));
 
-    earthU.uIce.value     = clamp(smoothstep(14, -3, Tdisp), 0, 1);
+    // (uIce 는 여기서 쓰지 않는다 — 지표 상태는 아래 §6.5 한 곳에서만 정한다.
+    //  두 곳에서 같은 유니폼을 쓰면 프레임마다 서로를 덮어쓴다.)
     // |sin(lat)| where the ice line sits: 0.86 ~ 59 deg (today), 0.62 ~ 38 deg
     earthU.uIceEdge.value = THREE.MathUtils.lerp(0.86, 0.62, earthU.uIce.value);
     earthU.uWarm.value    = clamp(smoothstep(18, 34, Tdisp), 0, 1);
@@ -1120,6 +1259,44 @@ export async function createTerraSim(container, opts = {}){
     radiusVec.geometry.computeBoundingSphere();
     streak.material.rotation += dtRaw * 0.008;   // barely-there flare drift
 
+    /* ---- 6.5 지표 상태 --------------------------------------------------- */
+    if (surfaceAuto){
+      /*
+       * 문턱은 물질의 실제 상태 변화에서 가져왔다.
+       *   −10℃ 이하  눈이 여름을 버티기 시작 → 빙상
+       *    30℃ 이상  광범위한 열 스트레스·건조화
+       *   100℃ 이상  물이 끓는다 → 바다가 사라진다
+       *   600℃ 이상  암석이 가시광으로 붉게 달아오른다(적열)
+       */
+      /*
+       * 지연된 Tdisp 가 아니라 **순간 평형 온도** Teq 를 쓴다. 이심률이 크면 지구는
+       * 근일점을 순식간에 지나가는데(케플러 2법칙), 열관성으로 눌린 값을 쓰면 그
+       * 통과가 화면에서 사라진다. 근일점에서 달아올랐다가 원일점에서 식는 그
+       * 왕복이 이 화면의 전부다.
+       */
+      const T = Teq;
+      surfaceTarget.ice    = clamp((-10 - T) / 40, 0, 1);
+      surfaceTarget.warm   = clamp((T - 30) / 50, 0, 1);
+      surfaceTarget.seaDry = clamp((T - 100) / 120, 0, 1);
+      surfaceTarget.melt   = clamp((T - 260) / 340, 0, 1);
+    }
+    {
+      const k = Math.min(1, dtRaw / SURFACE_EASE_SEC);
+      earthU.uIce.value    += (surfaceTarget.ice    - earthU.uIce.value)    * k;
+      /*
+       * 빙상은 두꺼워지는 게 아니라 **내려온다.** 경계를 |sin(lat)| 0.95(극점 부근)
+       * 에서 0.62(북위 약 38°)까지 끌어내린다 — 마지막 빙기 최성기의 로렌타이드
+       * 빙상이 실제로 닿았던 위도가 그쯤이다. 경계가 고정이면 아무리 추워도 극점에
+       * 흰 점만 생기고, "빙하기로 들어간다"가 화면에 보이지 않는다.
+       */
+      earthU.uIceEdge.value = 0.95 - 0.33 * earthU.uIce.value;
+      earthU.uWarm.value   += (surfaceTarget.warm   - earthU.uWarm.value)   * k;
+      earthU.uSeaDry.value += (surfaceTarget.seaDry - earthU.uSeaDry.value) * k;
+      earthU.uMelt.value   += (surfaceTarget.melt   - earthU.uMelt.value)   * k;
+      // 녹는 행성에 구름이 남아 있으면 안 된다 — 바다가 없으니 구름도 없다
+      cloudMat.opacity = CLOUD_OPACITY * (1 - earthU.uMelt.value) * (1 - earthU.uSeaDry.value * 0.7);
+    }
+
     /* ---- 7. camera ----------------------------------------------------- */
     if (transition){
       transition.t += dtRaw;
@@ -1134,6 +1311,24 @@ export async function createTerraSim(container, opts = {}){
       // framing holds still while the planet travels
       camera.position.add(earthPivot.position.clone().sub(prevEarth));
       controls.target.copy(earthPivot.position);
+
+      /*
+       * 자전 동행 시점 (S0 지역 선택용).
+       *
+       * 지구가 돌고 있는데 카메라가 가만히 있으면 찍으려던 자리가 계속 도망간다.
+       * 자전을 멈춰버리면 "살아 있는 지구"가 사라지고. 그래서 카메라를 자전축
+       * 둘레로 지구와 **같은 각속도**로 돌린다 — 지표는 화면에 멈춰 있고, 태양과
+       * 별은 흘러간다. 자전은 계속되지만 클릭할 수 있다.
+       */
+      if (followSpin && lastSpinDelta !== 0){
+        camera.position.sub(earthPivot.position)
+          .applyAxisAngle(NORTH_AXIS, lastSpinDelta)
+          .add(earthPivot.position);
+        // up 도 같이 돌려야 한다. 위치만 돌리면 시야가 축을 따라 감기면서(롤)
+        // 화면 가장자리의 지표가 중심 둘레로 미끄러진다 — 가운데만 멈추고 나머지는
+        // 여전히 도망가는, 고친 것처럼 보이지만 안 고쳐진 상태가 된다.
+        camera.up.applyAxisAngle(NORTH_AXIS, lastSpinDelta).normalize();
+      }
     } else if (viewMode === 'system' && morphing){
       // dolly out (or in) while the ellipse is actually changing shape, so the
       // money shot stays framed. Idle zoom is left to the user.
@@ -1168,6 +1363,8 @@ export async function createTerraSim(container, opts = {}){
       // season from the angle between the (fixed) north axis and the sun
       const decl = NORTH_AXIS.dot(sunDir);
       onTelemetry({
+        // Teq 순간 평형 · Tperi 근일점에 놓였을 때의 평형 (거리만으로 정해진다)
+        Teq, Tperi: surfaceTemp(rPeri, albedo).T,
         T: Tdisp, Tbase: T_BASE, albedo,
         S, meanS,
         au: r / A_ORBIT, auPeri: rPeri / A_ORBIT, auApo: rApo / A_ORBIT,
@@ -1224,10 +1421,215 @@ export async function createTerraSim(container, opts = {}){
         m.dispose();
       }
     });
+    renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+    renderer.domElement.removeEventListener('pointerup', onPointerUp);
     for (const t of Object.values(tex)) t?.dispose?.();
     renderer.dispose();
     renderer.domElement.remove();
   }
+
+  /* ==========================================================================
+     17 · SURFACE PICKING  (S0 "당신이 사는 곳을 찍어라")
+     --------------------------------------------------------------------------
+     지구 표면을 클릭해 위경도를 얻는다. 좌표계 주의:
+
+       · raycaster 가 주는 교점은 월드 좌표다. earth.worldToLocal() 로 지구 자신의
+         회전 프레임(= 텍스처가 붙어 있는 프레임)까지 되돌려야 지리 좌표가 나온다.
+         earth.rotation.y 는 매 프레임 증가하므로, 월드 좌표를 그대로 쓰면 같은 곳을
+         찍어도 시각마다 다른 경도가 나온다.
+       · 경도식은 three.js SphereGeometry 의 UV 규약(적도 기준 u=0 이 경도 -180°)에
+         맞춘 것이다. 지오메트리의 phiStart 를 바꾸면 여기도 같이 바꿔야 한다.
+
+     마커는 earth 의 자식으로 붙인다. 그래야 지구가 자전해도 찍은 자리에 붙어 있는다.
+     ========================================================================== */
+  const raycaster = new THREE.Raycaster();
+
+  /**
+   * 경도를 −180…180 으로 접는다.
+   *
+   * ⚠️ `x % 360 - 180` 으로 접으면 안 된다. 그건 0…360 으로 접은 뒤 180 을 빼는
+   * 것이라 결과가 **정확히 180° 돌아간다** — 부산(129°E)이 대서양(−51°)으로 나오고,
+   * 그럴듯한 좌표라 눈으로는 틀린 줄 모른다. 실제로 그렇게 틀렸었다.
+   */
+  const wrapLon = deg => ((deg + 180) % 360 + 360) % 360 - 180;
+
+  /** 지구 로컬 좌표 → 위경도(도) */
+  function localToLatLon(p){
+    const v = p.clone().normalize();
+    const lat = 90 - Math.acos(THREE.MathUtils.clamp(v.y, -1, 1)) / DEG;
+    // latLonToLocal 의 theta = lon − 270 을 그대로 되돌린다
+    const lon = wrapLon(270 + Math.atan2(v.x, v.z) / DEG);
+    return { lat, lon };
+  }
+
+  /** 위경도(도) → 지구 로컬 좌표 (반지름 r) */
+  function latLonToLocal(lat, lon, r = R_EARTH){
+    const phi = (90 - lat) * DEG;
+    const theta = (lon - 270) * DEG;     // localToLatLon 의 역
+    return new THREE.Vector3(
+      r * Math.sin(phi) * Math.sin(theta),
+      r * Math.cos(phi),
+      r * Math.sin(phi) * Math.cos(theta),
+    );
+  }
+
+  /* ==========================================================================
+     18 · MAGNETOSPHERE  (S7 임계점 샌드박스)
+     --------------------------------------------------------------------------
+     쌍극자 자력선을 베지에로 그린다. 기존 TERRA 앱(src/components/EarthSystem.jsx)의
+     형태를 그대로 옮겼다 — 두 겹의 고리가 극과 극을 잇고, 세기에 따라 투명도와
+     색(녹색 ↔ 네온 시안)이 변한다.
+
+     ⚠️ tiltGroup 에 붙인다. earth 에 붙이면 자전과 함께 돌아가는데, 자기장은
+     자전축을 따라 서 있는 구조물이지 지표에 박힌 물건이 아니다.
+     ========================================================================== */
+  const magnetoGroup = new THREE.Group();
+  tiltGroup.add(magnetoGroup);
+  const magnetoLines = [];
+  {
+    const LOOPS = 8;
+    for (let i = 0; i < LOOPS; i++){
+      const a = (i / LOOPS) * Math.PI * 2;
+      for (const [bulge, lift, seg] of [[1.7, 1.4, 40], [3.0, 1.8, 45]]){
+        const curve = new THREE.CubicBezierCurve3(
+          new THREE.Vector3(0,  R_EARTH, 0),
+          new THREE.Vector3(bulge * Math.cos(a),  R_EARTH * lift, bulge * Math.sin(a)),
+          new THREE.Vector3(bulge * Math.cos(a), -R_EARTH * lift, bulge * Math.sin(a)),
+          new THREE.Vector3(0, -R_EARTH, 0),
+        );
+        const line = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(curve.getPoints(seg)),
+          new THREE.LineBasicMaterial({ color: 0x00f2fe, transparent: true, opacity: 0.6, depthWrite: false }),
+        );
+        magnetoGroup.add(line);
+        magnetoLines.push(line);
+      }
+    }
+  }
+
+  /* 태양풍 — 태양 쪽에서 날아오는 입자. 자기장이 세면 지구를 비껴 흐르고,
+     무너지면 대기를 그대로 관통한다. */
+  const WIND_COUNT = 420;
+  const windPos = new Float32Array(WIND_COUNT * 3);
+  const windSeed = new Float32Array(WIND_COUNT * 3); // [수직오프셋, 각도, 진행도]
+  for (let i = 0; i < WIND_COUNT; i++){
+    windSeed[i * 3]     = (Math.random() - 0.5) * 2;   // -1..1
+    windSeed[i * 3 + 1] = Math.random() * Math.PI * 2;
+    windSeed[i * 3 + 2] = Math.random();
+  }
+  const windGeo = new THREE.BufferGeometry();
+  windGeo.setAttribute('position', new THREE.BufferAttribute(windPos, 3));
+  const windMat = new THREE.PointsMaterial({
+    color: 0xffd08a, size: 0.035, transparent: true, opacity: 0, depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const solarWind = new THREE.Points(windGeo, windMat);
+  solarWind.frustumCulled = false;
+  earthPivot.add(solarWind);   // 지구를 따라다니되 자전·기울기와는 무관하다
+  // 자기권은 S7 에서만 켠다 — 다른 단계에 떠 있으면 그 화면이 하지 않은 말을 한다
+  magnetoGroup.visible = false;
+  solarWind.visible = false;
+
+  const FIELD_COLD  = new THREE.Color(0x10b981);
+  const FIELD_NEON  = new THREE.Color(0x00f2fe);
+
+  magnetoReady = true;
+
+  /** 자기장 세기 (%) */
+  function setMagneticField(pct){
+    magneticPct = Math.max(0, Math.min(100, pct));
+    const ratio = magneticPct / 100;
+    const c = new THREE.Color().lerpColors(FIELD_COLD, FIELD_NEON, ratio);
+    for (const l of magnetoLines){
+      l.material.color.copy(c);
+      l.material.opacity = ratio * 0.7;
+      l.visible = magneticPct > 0.5;
+    }
+    windMat.opacity = 0.25 + (1 - ratio) * 0.6;
+  }
+
+  // 두 변환은 서로의 역이어야 한다. 어긋나도 '그럴듯한' 좌표가 나와서 눈으로는
+  // 잡히지 않으므로, 생성 시 한 번 왕복을 확인하고 어긋나면 콘솔에 남긴다.
+  for (const [lat, lon] of [[35.1, 129.03], [40.71, -74.01], [-33.87, 151.21]]){
+    const back = localToLatLon(latLonToLocal(lat, lon));
+    if (Math.abs(back.lat - lat) > 0.01 || Math.abs(wrapLon(back.lon - lon)) > 0.01){
+      console.error('terra-engine: 위경도 변환이 서로의 역이 아니다',
+                    { lat, lon, back });
+    }
+  }
+
+  /* ---- 마커 -------------------------------------------------------------- */
+  const markerGroup = new THREE.Group();
+  markerGroup.visible = false;
+  earth.add(markerGroup);
+  {
+    const pin = new THREE.Mesh(
+      new THREE.SphereGeometry(R_EARTH * 0.018, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0xffe9a8 }),
+    );
+    const halo = new THREE.Mesh(
+      new THREE.RingGeometry(R_EARTH * 0.03, R_EARTH * 0.045, 32),
+      new THREE.MeshBasicMaterial({ color: 0xffc94d, transparent: true, opacity: 0.85,
+                                    side: THREE.DoubleSide, depthWrite: false }),
+    );
+    markerGroup.add(pin, halo);
+    markerGroup.userData.halo = halo;
+  }
+
+  /** 마커를 위경도에 세운다. null 이면 감춘다. */
+  function setMarker(place){
+    if (!place){ markerGroup.visible = false; return; }
+    const p = latLonToLocal(place.lat, place.lon, R_EARTH * 1.01);
+    markerGroup.position.copy(p);
+    // 링이 지표면에 눕도록 +Z 를 바깥 법선에 맞춘다.
+    // lookAt 은 월드 좌표를 받으므로 여기서는 쓸 수 없다 — 마커는 earth 의 자식이다.
+    markerGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), p.clone().normalize());
+    markerGroup.visible = true;
+  }
+
+  /**
+   * 찍은 지점이 카메라를 향하도록 지구를 돌린다.
+   *
+   * 자전축 기울기·세차가 위에 걸려 있으므로 earth.rotation.y 하나로 정확히 정면에
+   * 세울 수는 없다. y축 회전이 바꿀 수 있는 것은 방위각뿐이라, 방위각만 맞춘다 —
+   * 지구 뷰의 카메라는 거의 적도면에 있어 이것으로 충분하다.
+   */
+  function faceLatLon(lat, lon){
+    const local = latLonToLocal(lat, lon).normalize();
+    const parent = new THREE.Matrix4().extractRotation(earth.parent.matrixWorld);
+    const toCam = camera.position.clone().sub(earthPivot.position).normalize();
+    const wanted = toCam.applyMatrix4(new THREE.Matrix4().copy(parent).invert());
+    // Ry 는 방위각을 그대로 더한다 (Ry(θ)·(0,0,1) = (sinθ, 0, cosθ))
+    earth.rotation.y = Math.atan2(wanted.x, wanted.z) - Math.atan2(local.x, local.z);
+    clouds.rotation.y = earth.rotation.y;
+  }
+
+  /* ---- 포인터 ------------------------------------------------------------ */
+  // 끌어서 회전한 것과 콕 찍은 것을 구분한다. 이 문턱이 없으면 시점을 돌릴 때마다
+  // 지역이 바뀐다.
+  const CLICK_SLOP_PX = 5;
+  let down = null;
+
+  const onPointerDown = (e) => { down = { x: e.clientX, y: e.clientY }; };
+  const onPointerUp = (e) => {
+    const start = down;
+    down = null;
+    if (!onPick || !start) return;
+    if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > CLICK_SLOP_PX) return;
+
+    const rect = renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    raycaster.setFromCamera(ndc, camera);
+    const hit = raycaster.intersectObject(earth, false)[0];
+    if (!hit) return;
+    onPick(localToLatLon(earth.worldToLocal(hit.point.clone())));
+  };
+
+  renderer.domElement.addEventListener('pointerdown', onPointerDown);
+  renderer.domElement.addEventListener('pointerup', onPointerUp);
 
   return {
     /** 궤도 3요소. 이심률만 이징되고(원본 연출), 나머지는 즉시 반영된다. */
@@ -1240,10 +1642,83 @@ export async function createTerraSim(container, opts = {}){
     setMotion(m){
       if (m.speed    !== undefined) speedMul = m.speed;
       if (m.spin     !== undefined) spinMul = m.spin;
-      if (m.exposure !== undefined) renderer.toneMappingExposure = m.exposure;
+      if (m.exposure !== undefined) { exposureBase = m.exposure; renderer.toneMappingExposure = m.exposure; }
     },
     setToggle(name, v){ toggles[name]?.(v); },
     setView,
+    /** S0 지역 선택 — 마커를 세우고, 그 지점이 카메라를 향하도록 지구를 돌린다 */
+    setMarker,
+    faceLatLon,
+    /**
+     * 기후 색조. v ∈ [−1, 1] — 차가움 ↔ 현재 ↔ 따뜻함.
+     *
+     * ⚠️ 이건 **공간 분포를 그린 히트맵이 아니다.** 지금 화면이 말하고 있는 값 하나를
+     * 지구 전체 색으로 옮긴 상징 표현이다. 지역별 기온 지도를 그린 것처럼 읽히면
+     * 안 되므로 화면에도 그렇게 적어둔다.
+     */
+    setClimateTint(v){
+      const t = Math.max(-1, Math.min(1, v || 0));
+      const warm = Math.max(0, t), cool = Math.max(0, -t);
+      // 표면색은 곱해지는 값이라 1.0 이 '원래 색'이다. 크게 흔들면 대륙이 사라진다.
+      earthMat.color.setRGB(1 + warm * 0.10 - cool * 0.12,
+                            1 - warm * 0.06 - cool * 0.02,
+                            1 - warm * 0.16 + cool * 0.06);
+      // 대기 림은 더 크게 움직여도 된다 — 지구를 감싼 띠라 정보가 가려지지 않는다
+      baseAtmo.setRGB(0.36 + warm * 0.64, 0.62 - warm * 0.24 - cool * 0.10, 1.0 - warm * 0.64);
+      const halo = markerGroup.userData.halo;
+      if (halo) halo.material.color.setRGB(1, 0.79 - warm * 0.28, 0.30 + cool * 0.45);
+    },
+    /**
+     * 지표 상태 — 값은 전부 0…1.
+     *   ice    극지에서 자라 내려오는 빙상 (냉각의 실제 기제: 얼음–반사율 되먹임)
+     *   warm   육지의 갈변 (고온·건조화)
+     *   seaDry 바다가 물러나 해저가 드러남 (자기권 상실에 따른 수분 이탈)
+     *
+     * ⚠️ 세 값 모두 **상징 레이어**다. 지구시스템 모델의 공간 산출이 아니라,
+     * 지금 화면이 말하는 상태를 지표에 옮긴 것이다. 화면에도 그렇게 적을 것.
+     */
+    setSurface(next){
+      if (next.ice    !== undefined) surfaceTarget.ice    = Math.max(0, Math.min(1, next.ice));
+      if (next.warm   !== undefined) surfaceTarget.warm   = Math.max(0, Math.min(1, next.warm));
+      if (next.seaDry !== undefined) surfaceTarget.seaDry = Math.max(0, Math.min(1, next.seaDry));
+      if (next.melt   !== undefined) surfaceTarget.melt   = Math.max(0, Math.min(1, next.melt));
+    },
+    /** 지구를 근일점에 세운다 (궤도 진행만 멈춘다) */
+    setOrbitPark(v){
+      orbitFrozen = !!v;
+      if (v) M = 0;   // M = 0 이 근일점
+    },
+    /** 지표를 엔진의 에너지 균형 온도에서 직접 끌어온다 (S5 실험 구간용) */
+    setSurfaceAuto(v){
+      surfaceAuto = !!v;
+      if (!v) { surfaceTarget.ice = 0; surfaceTarget.warm = 0; surfaceTarget.seaDry = 0; surfaceTarget.melt = 0; }
+    },
+    /**
+     * 카메라를 지구 자전에 동행시킨다 (지구 뷰에서만 의미가 있다).
+     * 켜면 지표가 화면에 멈춰 보여 클릭할 수 있고, 자전 자체는 계속된다.
+     */
+    setCameraFollowSpin(v){
+      followSpin = !!v;
+      // 동행을 끄면 감겨 있던 롤을 원위치로. 여기서 되돌리지 않으면 이후 모든
+      // 단계에서 수평선이 비스듬히 남는다.
+      if (!followSpin) camera.up.set(0, 1, 0);
+    },
+    /** 지자기 세기 (%) — 자력선 색·투명도와 태양풍 투과가 함께 움직인다 */
+    setMagneticField,
+    /** 자기권 레이어 표시 (S7 전용) */
+    setMagnetosphereVisible(v){
+      magnetoGroup.visible = !!v;
+      solarWind.visible = !!v;
+      if (!v){ alertMix = 0; earthU.uAtmoTint.value.copy(baseAtmo); }
+    },
+    /** 지구 뷰의 구도. 지구 뷰를 보고 있는 중이면 카메라를 그 자리로 옮긴다. */
+    setEarthFraming(mode, animate = true, dur = 1.2){
+      if (mode === earthFraming) return;
+      earthFraming = mode;
+      if (viewMode === 'earth') setView('earth', animate, dur);
+    },
+    /** 지역을 고른 뒤에는 자전을 멈춰 그 자리가 화면에 남아 있게 한다 */
+    setSpin(v){ spinMul = v; },
     setPaused(v){ paused = v; },
     togglePaused(){ paused = !paused; return paused; },
     get paused(){ return paused; },

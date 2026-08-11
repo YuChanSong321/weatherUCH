@@ -1,18 +1,18 @@
-/** S1 우측 — 사용자의 예보 입력. 슬라이더 기본값이 '오늘과 같음'인 것 자체가 지속성 학습. */
+/**
+ * S1 우측 — 사용자의 예보 입력. 라운드마다 묻는 것이 하나뿐이다.
+ *
+ * 기온 슬라이더의 기본값이 '오늘과 같음'인 것 자체가 지속성 학습이다. 사용자가
+ * 아무것도 하지 않고 제출하면 그게 곧 지속성 예보이고, 결과 화면이 그 전략이
+ * 얼마나 통했는지 숫자로 알려준다.
+ */
 import { useMemo, useState } from 'react'
-import {
-  DTR_CLASSES,
-  PRECIP_CLASSES,
-  WIND_FAMILIES,
-  type ForecastCase,
-  type Guess,
-} from '../../lib/forecast'
-import type { DtrClass, PrecipClass, WindFamily } from '../../types'
+import { PRECIP_CLASSES, ROUND_MAX, type ForecastCase, type Guess } from '../../lib/forecast'
+import type { PrecipClass } from '../../types'
 
-const ROUND_HINT: Record<number, string> = {
-  1: '하루 뒤의 대기는 오늘의 대기와 대체로 닮아 있습니다. 그리고 하늘이 열려 있으면 기온이 크게 오르내려요.',
-  2: '기압이 오르기 시작하면 북쪽에서, 내려가기 시작하면 남쪽에서 공기가 밀려옵니다.',
-  3: '이번 날은 대기가 조용하지 않습니다. 오늘과 닮으리라는 가정이 통할지 직접 판단해보세요.',
+const HINT: Record<string, string> = {
+  tmax: '하루 뒤의 대기는 오늘의 대기와 대체로 닮아 있습니다 — 슬라이더를 그대로 두는 것도 하나의 전략이에요.',
+  precip: '기압이 내려가고 습도가 오르면 저기압이 다가오는 신호입니다. 왼쪽 관측 3일치를 읽어보세요.',
+  tmax3: '같은 방법으로 사흘 뒤를 찍어봅시다. 하루 뒤보다 얼마나 더 어려운지가 이 라운드의 질문입니다.',
 }
 
 export function GuessPanel({
@@ -22,74 +22,86 @@ export function GuessPanel({
   forecastCase: ForecastCase
   onSubmit: (g: Guess) => void
 }) {
-  const { today, bonus, round } = forecastCase
-  const [tmax, setTmax] = useState<number>(today.tmax)
+  const { today, kind, round } = forecastCase
+  const [temp, setTemp] = useState<number>(today.tmax)
   const [precip, setPrecip] = useState<PrecipClass | null>(null)
-  const [bonusPick, setBonusPick] = useState<DtrClass | WindFamily | null>(null)
 
   const range = useMemo(() => {
-    const lo = Math.round((today.tmax - 9) * 2) / 2
-    const hi = Math.round((today.tmax + 9) * 2) / 2
-    return { lo, hi }
-  }, [today.tmax])
+    // 3일 뒤는 하루 뒤보다 더 벌어질 수 있으니 폭을 넓힌다
+    const span = kind === 'tmax3' ? 12 : 9
+    return {
+      lo: Math.round((today.tmax - span) * 2) / 2,
+      hi: Math.round((today.tmax + span) * 2) / 2,
+    }
+  }, [today.tmax, kind])
 
   const anchorPct = ((today.tmax - range.lo) / (range.hi - range.lo)) * 100
-  const ready = precip !== null && (bonus === null || bonusPick !== null)
-  const diff = tmax - today.tmax
+  const diff = temp - today.tmax
+  const isTemp = kind !== 'precip'
+  const ready = isTemp || precip !== null
+
+  const submit = () =>
+    onSubmit(
+      kind === 'tmax'
+        ? { tmax: Number(temp.toFixed(1)) }
+        : kind === 'precip'
+          ? { precip: precip! }
+          : { tmax3: Number(temp.toFixed(1)) },
+    )
 
   return (
     <section className="panel flex flex-col gap-4 p-4">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-[15px] font-semibold tracking-tight">내일의 예보</h2>
-        <span className="text-[11px] text-ink-3">라운드 {round} / 3</span>
+        <h2 className="text-[15px] font-semibold tracking-tight">
+          {kind === 'tmax' ? '내일의 최고기온' : kind === 'precip' ? '내일의 강수' : '3일 뒤의 최고기온'}
+        </h2>
+        <span className="tnum text-[11px] text-ink-3">
+          라운드 {round} / 3 · {ROUND_MAX[round]}점
+        </span>
       </div>
 
-      {/* ── 최고기온 (50점) ── */}
-      <div>
-        <Legend title="내일 최고기온" points={50} />
-        <div className="mt-1 flex items-end gap-3">
-          <div className="tnum text-[34px] leading-none font-semibold tracking-tight">
-            {tmax.toFixed(1)}
-            <span className="text-[18px] text-ink-2">℃</span>
-          </div>
-          <div className="tnum pb-1 text-[12px] text-ink-3">
-            오늘 대비 {diff > 0 ? '+' : ''}
-            {diff.toFixed(1)}℃
-          </div>
-        </div>
-
-        <div className="relative mt-1">
-          <input
-            className="slider"
-            type="range"
-            min={range.lo}
-            max={range.hi}
-            step={0.1}
-            value={tmax}
-            onChange={(e) => setTmax(Number(e.target.value))}
-            aria-label="내일 최고기온 예측"
-          />
-          {/* 오늘 값 앵커 — 지속성의 시각적 기준선 */}
-          <div
-            className="pointer-events-none absolute top-[13px] -translate-x-1/2"
-            style={{ left: `calc(${anchorPct}% )` }}
-          >
-            <div className="h-3.5 w-px bg-white/45" />
-            <div className="-translate-x-1/2 pt-0.5 text-[10px] whitespace-nowrap text-ink-3">
-              오늘 {today.tmax.toFixed(1)}℃
+      {isTemp ? (
+        <div>
+          <div className="flex items-end gap-3">
+            <div className="tnum text-[36px] leading-none font-semibold tracking-tight">
+              {temp.toFixed(1)}
+              <span className="text-[18px] text-ink-2">℃</span>
+            </div>
+            <div className="tnum pb-1 text-[12px] text-ink-3">
+              오늘 대비 {diff > 0 ? '+' : ''}
+              {diff.toFixed(1)}℃
             </div>
           </div>
-          <div className="tnum mt-4 flex justify-between text-[10px] text-ink-3">
-            <span>{range.lo.toFixed(1)}℃</span>
-            <span>{range.hi.toFixed(1)}℃</span>
+
+          <div className="relative mt-1">
+            <input
+              className="slider"
+              type="range"
+              min={range.lo}
+              max={range.hi}
+              step={0.1}
+              value={temp}
+              onChange={(e) => setTemp(Number(e.target.value))}
+              aria-label={kind === 'tmax' ? '내일 최고기온 예측' : '3일 뒤 최고기온 예측'}
+            />
+            {/* 오늘 값 앵커 — 지속성의 시각적 기준선 */}
+            <div
+              className="pointer-events-none absolute top-[13px] -translate-x-1/2"
+              style={{ left: `${anchorPct}%` }}
+            >
+              <div className="h-3.5 w-px bg-white/45" />
+              <div className="-translate-x-1/2 pt-0.5 text-[10px] whitespace-nowrap text-ink-3">
+                오늘 {today.tmax.toFixed(1)}℃
+              </div>
+            </div>
+            <div className="tnum mt-4 flex justify-between text-[10px] text-ink-3">
+              <span>{range.lo.toFixed(1)}℃</span>
+              <span>{range.hi.toFixed(1)}℃</span>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* ── 강수 등급 (30점) ── */}
-      <div>
-        <Legend title="내일 강수" points={30} />
-        <div className="mt-2 grid grid-cols-2 gap-2">
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
           {PRECIP_CLASSES.map((c) => (
             <button
               key={c.id}
@@ -103,74 +115,16 @@ export function GuessPanel({
             </button>
           ))}
         </div>
-      </div>
-
-      {/* ── 보너스 (20점) ── */}
-      {bonus === 'dtr' && (
-        <div>
-          <Legend title="내일 일교차" points={20} badge="보너스" />
-          <div className="mt-2 grid grid-cols-3 gap-2">
-            {DTR_CLASSES.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                className="choice"
-                data-selected={bonusPick === c.id}
-                onClick={() => setBonusPick(c.id)}
-              >
-                <span className="text-[13px] font-medium">{c.label}</span>
-                <span className="tnum text-[10.5px] text-ink-3">{c.range}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {bonus === 'wind' && (
-        <div>
-          <Legend title="내일 풍향" points={20} badge="보너스" />
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {WIND_FAMILIES.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                className="choice"
-                data-selected={bonusPick === c.id}
-                onClick={() => setBonusPick(c.id)}
-              >
-                <span className="text-[13px] font-medium">{c.label}</span>
-                <span className="text-[10.5px] text-ink-3">{c.hint}</span>
-              </button>
-            ))}
-          </div>
-        </div>
       )}
 
       <p className="text-[11.5px] leading-relaxed text-ink-3">
         <span className="text-ink-2">힌트 · </span>
-        {ROUND_HINT[round]}
+        {HINT[kind]}
       </p>
 
-      <button
-        type="button"
-        className="btn btn-primary w-full"
-        disabled={!ready}
-        onClick={() => onSubmit({ tmax: Number(tmax.toFixed(1)), precip: precip!, bonus: bonusPick })}
-      >
-        {ready ? '예보 제출하고 내일을 열어보기' : '모든 항목을 선택해 주세요'}
+      <button type="button" className="btn btn-primary w-full" disabled={!ready} onClick={submit}>
+        {ready ? '예보 제출하기' : '하나를 골라 주세요'}
       </button>
     </section>
-  )
-}
-
-function Legend({ title, points, badge }: { title: string; points: number; badge?: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <h3 className="text-[13px] font-medium text-ink-1">{title}</h3>
-      {badge && (
-        <span className="rounded-full bg-act-1/18 px-1.5 py-px text-[10px] font-medium text-act-1">{badge}</span>
-      )}
-      <span className="tnum text-[11px] text-ink-3">{points}점</span>
-    </div>
   )
 }

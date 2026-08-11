@@ -6,23 +6,40 @@
  *    골라낸다. 아무 날이나 뽑으면 해설이 데이터와 어긋나 교육 효과가 무너진다.
  *  - 채점 문구는 감점이 아니라 발견 프레임. 틀린 이유를 데이터의 실제 숫자로 말한다.
  */
-import { daily, getPastForecast } from '../data/loader'
-import type { Advisory, DailyRecord, DtrClass, PastForecast, PrecipClass, WindFamily } from '../types'
+import { getPastForecast } from '../data/loader'
+import type { Advisory, DailyRecord, PastForecast, PrecipClass } from '../types'
 
 export type RoundNumber = 1 | 2 | 3
-export type BonusKind = 'dtr' | 'wind' | null
 
-export type ForecastCase = {
-  round: RoundNumber
+/**
+ * 라운드마다 묻는 것이 하나씩이다 (기획안 §3 S1).
+ *   R1 내일 최고기온 50점 / R2 내일 강수 30점 / R3 3일 뒤 최고기온 20점 = 100점
+ *
+ * 세 라운드는 **같은 상황**을 본다. 사용자가 S0 에서 찍은 지역의 자료는 2주치뿐일
+ * 수 있어(Open-Meteo) 라운드마다 다른 국면을 골라 줄 수가 없다. 대신 R3 에서
+ * '3일 뒤'를 묻는 것이 그 자리를 대신한다 — 하루 뒤와 사흘 뒤의 난이도 차이가
+ * 곧 이 콘텐츠의 주제(예측 가능성의 감소)다.
+ */
+export type RoundKind = 'tmax' | 'precip' | 'tmax3'
+
+export const ROUND_KIND: Record<RoundNumber, RoundKind> = { 1: 'tmax', 2: 'precip', 3: 'tmax3' }
+export const ROUND_MAX: Record<RoundNumber, number> = { 1: 50, 2: 30, 3: 20 }
+
+/** S1 전체 배점 — 기획안 §6 의 확정값 100점 */
+export const S1_TOTAL = ROUND_MAX[1] + ROUND_MAX[2] + ROUND_MAX[3]
+
+/** 한 판에서 세 라운드가 공유하는 기상 상황 */
+export type Situation = {
   /** 관측 3일 (마지막 원소가 '오늘' = 예보 기준일) */
   history: DailyRecord[]
   today: DailyRecord
-  /** 사용자가 맞혀야 하는 '내일' */
+  /** R1·R2 의 정답 — '내일' */
   answer: DailyRecord
-  bonus: BonusKind
+  /** R3 의 정답 — '3일 뒤' */
+  answer3: DailyRecord
   /** 종관 국면 요약 (해설 생성용) */
   features: CaseFeatures
-  /** 그날 기상청이 실제로 냈던 예보 — 세 번째 플레이어. 없는 날도 있다. */
+  /** 그날 기상청이 실제로 냈던 예보 — 세 번째 플레이어. 번들 지역에만 있다. */
   kma: PastForecast | null
   /**
    * 라운드 시작에 띄우는 기상특보 배지.
@@ -33,6 +50,14 @@ export type ForecastCase = {
   todayAdvisory: Advisory | null
 }
 
+export type ForecastCase = Situation & { round: RoundNumber; kind: RoundKind }
+
+export const caseOf = (s: Situation, round: RoundNumber): ForecastCase => ({
+  ...s,
+  round,
+  kind: ROUND_KIND[round],
+})
+
 export type CaseFeatures = {
   pressureTrend: number
   humidityTrend: number
@@ -40,10 +65,11 @@ export type CaseFeatures = {
   answerDtr: number
 }
 
+/** 라운드마다 채워지는 칸이 하나뿐이다 */
 export type Guess = {
-  tmax: number
-  precip: PrecipClass
-  bonus: DtrClass | WindFamily | null
+  tmax?: number
+  precip?: PrecipClass
+  tmax3?: number
 }
 
 export type ItemScore = {
@@ -57,6 +83,7 @@ export type ItemScore = {
 
 export type RoundScore = {
   round: RoundNumber
+  kind: RoundKind
   items: ItemScore[]
   earned: number
   max: number
@@ -89,7 +116,10 @@ function compareWithKma(c: ForecastCase, guess: Guess): KmaCompare | null {
   if (!c.kma) return null
   const actualClass = precipClassOf(c.answer.precip)
   const error = Math.abs(c.kma.tmax - c.answer.tmax)
-  const userError = Math.abs(guess.tmax - c.answer.tmax)
+  // 강수 라운드에서는 기온 대결이 성립하지 않는다. 사용자가 기온을 찍지 않았으므로
+  // '오늘과 같음'을 사용자의 암묵적 답으로 두면 이기지도 지지도 않은 값을 만든다 —
+  // 대신 오차 비교를 무효(NaN 대신 동점)로 두고 화면이 강수만 비교하게 한다.
+  const userError = guess.tmax === undefined ? error : Math.abs(guess.tmax - c.answer.tmax)
   const precipHit = c.kma.precipClass === actualClass
   return {
     tmax: c.kma.tmax,
@@ -111,24 +141,8 @@ export const PRECIP_CLASSES: { id: PrecipClass; label: string; range: string }[]
   { id: 'heavy', label: '많은 비', range: '20 mm 이상' },
 ]
 
-export const DTR_CLASSES: { id: DtrClass; label: string; range: string }[] = [
-  { id: 'small', label: '작다', range: '5℃ 미만' },
-  { id: 'mid', label: '보통', range: '5 – 10℃' },
-  { id: 'large', label: '크다', range: '10℃ 초과' },
-]
-
-export const WIND_FAMILIES: { id: WindFamily; label: string; hint: string }[] = [
-  { id: 'N', label: '북풍 계열', hint: '차가운 공기 유입' },
-  { id: 'E', label: '동풍 계열', hint: '해양성 습기' },
-  { id: 'S', label: '남풍 계열', hint: '따뜻한 공기 유입' },
-  { id: 'W', label: '서풍 계열', hint: '대륙 통과 기류' },
-]
-
 export const precipClassOf = (mm: number): PrecipClass =>
   mm < 0.1 ? 'none' : mm < 5 ? 'light' : mm < 20 ? 'rain' : 'heavy'
-
-export const dtrClassOf = (dtr: number): DtrClass =>
-  dtr < 5 ? 'small' : dtr <= 10 ? 'mid' : 'large'
 
 export const dtrOf = (r: DailyRecord): number => Number((r.tmax - r.tmin).toFixed(1))
 
@@ -136,185 +150,166 @@ export const skyOf = (cloud: number): string =>
   cloud <= 2.5 ? '맑음' : cloud <= 5.5 ? '구름 조금' : cloud <= 8 ? '구름 많음' : '흐림'
 
 const labelOfPrecip = (c: PrecipClass) => PRECIP_CLASSES.find((p) => p.id === c)!.label
-const labelOfDtr = (c: DtrClass) => DTR_CLASSES.find((p) => p.id === c)!.label
-const labelOfWind = (c: WindFamily) => WIND_FAMILIES.find((p) => p.id === c)!.label
 
 // ────────────────────────────────────────────────────────────── 출제
-
-type Candidate = { index: number; features: CaseFeatures }
 
 /** 두 날짜가 하루 차이인가 — 실측에는 결측일이 있어 배열이 연속을 보장하지 않는다 */
 const isNextDay = (a: string, b: string): boolean =>
   Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z') === 86_400_000
 
 /**
- * 3일 관측 + 다음날 정답을 뽑을 수 있는 모든 위치.
+ * 한 상황이 되려면 **연속된 여섯 날**이 필요하다.
+ *   i-2, i-1, i (관측 3일)  ·  i+1 (내일)  ·  i+2  ·  i+3 (3일 뒤)
  *
  * ⚠️ 배열 인덱스가 곧 '어제'라고 가정하면 안 된다. 실측 ASOS 에는 결측일이 있고
  * (예: 2023-05-24 는 최저기온이 -99 로 와서 통째로 빠졌다), 그 자리에서는
- * daily[i-1] 이 실제로는 이틀 전이 된다. 그러면 "어제와 비슷하게 찍으면"이라는
- * S1 의 지속성 수업이 조용히 거짓이 된다. 네 날이 실제로 연속일 때만 후보로 쓴다.
+ * records[i-1] 이 실제로는 이틀 전이 된다. 그러면 "어제와 비슷하게 찍으면"이라는
+ * S1 의 지속성 수업이 조용히 거짓이 된다. Open-Meteo 쪽도 결측일을 버리고 오므로
+ * 같은 검사가 필요하다.
  */
-const candidates: Candidate[] = (() => {
-  const out: Candidate[] = []
-  for (let i = 2; i < daily.length - 1; i++) {
-    const prev = daily[i - 1]
-    const today = daily[i]
-    const answer = daily[i + 1]
-    const contiguous =
-      isNextDay(daily[i - 2].date, prev.date) &&
-      isNextDay(prev.date, today.date) &&
-      isNextDay(today.date, answer.date)
-    if (!contiguous) continue
-    out.push({
-      index: i,
-      features: {
-        pressureTrend: Number((today.pressure - prev.pressure).toFixed(1)),
-        humidityTrend: today.humidity - prev.humidity,
-        tmaxDelta: Number((answer.tmax - today.tmax).toFixed(1)),
-        answerDtr: dtrOf(answer),
-      },
-    })
+function validWindows(records: DailyRecord[]): number[] {
+  const out: number[] = []
+  for (let i = 2; i + 3 < records.length; i++) {
+    let ok = true
+    for (let k = i - 2; k < i + 3; k++) {
+      if (!isNextDay(records[k].date, records[k + 1].date)) {
+        ok = false
+        break
+      }
+    }
+    if (ok) out.push(i)
   }
   return out
-})()
-
-/** 라운드별 조건 — 앞쪽이 이상적, 뒤로 갈수록 완화된 조건(폴백) */
-const roundFilters: Record<RoundNumber, ((c: Candidate) => boolean)[]> = {
-  // R1: 지속성이 통하는 조용한 날 + 하늘 상태가 일교차로 또렷하게 이어지는 날
-  1: [
-    (c) => {
-      const answer = daily[c.index + 1]
-      const quiet = Math.abs(c.features.tmaxDelta) <= 2.5
-      const clearAndWide = c.features.pressureTrend > 1 && answer.cloud <= 3 && c.features.answerDtr > 10
-      const cloudyAndNarrow = c.features.pressureTrend < -1 && answer.cloud >= 8 && c.features.answerDtr < 5
-      return quiet && (clearAndWide || cloudyAndNarrow)
-    },
-    (c) => Math.abs(c.features.tmaxDelta) <= 3 && (c.features.answerDtr > 9 || c.features.answerDtr < 5.5),
-    (c) => Math.abs(c.features.tmaxDelta) <= 3.5,
-  ],
-  // R2: 풍향과 기온 변화가 한 몸으로 움직이는 날 (북풍=하강 / 남풍=상승)
-  2: [
-    (c) => {
-      const answer = daily[c.index + 1]
-      const cold = answer.windFamily === 'N' && c.features.tmaxDelta <= -1.5 && c.features.pressureTrend > 0
-      const warm = answer.windFamily === 'S' && c.features.tmaxDelta >= 1.5 && c.features.pressureTrend < 0
-      return cold || warm
-    },
-    (c) => {
-      const answer = daily[c.index + 1]
-      return (
-        (answer.windFamily === 'N' && c.features.tmaxDelta <= -1) ||
-        (answer.windFamily === 'S' && c.features.tmaxDelta >= 1)
-      )
-    },
-    (c) => daily[c.index + 1].windFamily === 'N' || daily[c.index + 1].windFamily === 'S',
-  ],
-  // R3: 지속성이 깨지는 날 — 전선 통과 / 한기 남하처럼 변동이 큰 날
-  3: [
-    // 기상특보가 걸려 있던 날을 우선한다. R3가 보여주려는 '대기가 어제를 배신하는
-    // 날'이 곧 특보가 나가는 날이고, 그래야 배지가 죽은 기능이 되지 않는다.
-    // 특보 자료가 없거나 후보가 모자라면 아래 조건들로 조용히 내려간다.
-    (c) => Math.abs(c.features.tmaxDelta) >= 4 && !!getPastForecast(daily[c.index].date)?.advisory,
-    (c) => Math.abs(c.features.tmaxDelta) >= 5 && Math.abs(c.features.pressureTrend) >= 3,
-    (c) => Math.abs(c.features.tmaxDelta) >= 4,
-    (c) => Math.abs(c.features.tmaxDelta) >= 3,
-  ],
 }
 
-const BONUS_BY_ROUND: Record<RoundNumber, BonusKind> = { 1: 'dtr', 2: 'wind', 3: null }
+const featuresAt = (records: DailyRecord[], i: number): CaseFeatures => ({
+  pressureTrend: Number((records[i].pressure - records[i - 1].pressure).toFixed(1)),
+  humidityTrend: records[i].humidity - records[i - 1].humidity,
+  tmaxDelta: Number((records[i + 1].tmax - records[i].tmax).toFixed(1)),
+  answerDtr: dtrOf(records[i + 1]),
+})
 
-/** 라운드 케이스를 랜덤으로 뽑는다. usedIndexes 로 같은 판에서 중복 출제를 막는다. */
-export function pickCase(round: RoundNumber, usedIndexes: number[] = []): ForecastCase {
-  const used = new Set(usedIndexes)
-  let pool: Candidate[] = []
-  for (const filter of roundFilters[round]) {
-    pool = candidates.filter((c) => filter(c) && !used.has(c.index) && !nearAny(c.index, used))
-    if (pool.length >= 5) break
+export type SituationOptions = {
+  /**
+   * 'recent' — 가장 최근 창을 쓴다. 2주치뿐인 Open-Meteo 지역에서 "지금 내 동네"
+   *            느낌을 살리는 쪽.
+   * 'random' — 40년 번들에서 무작위로 뽑는다. 다시 하기가 의미를 갖는다.
+   */
+  strategy: 'recent' | 'random'
+  /** 그날 기상청이 냈던 예보를 붙일 수 있는가 (번들 지역만) */
+  withKma: boolean
+}
+
+/**
+ * 관측 배열에서 한 판의 상황을 만든다.
+ *
+ * 번들(부산)에서는 기상청 예보가 붙는 창을 우선한다 — 3자 대결이 이 콘텐츠의
+ * 핵심 장면이라, 예보가 없는 날을 뽑으면 그 장면이 통째로 사라진다.
+ */
+export function buildSituation(records: DailyRecord[], opts: SituationOptions): Situation | null {
+  const windows = validWindows(records)
+  if (windows.length === 0) return null
+
+  let i: number
+  if (opts.strategy === 'recent') {
+    i = windows[windows.length - 1]
+  } else {
+    const withForecast = opts.withKma
+      ? windows.filter((w) => getPastForecast(records[w + 1].date))
+      : []
+    const pool = withForecast.length > 0 ? withForecast : windows
+    i = pool[Math.floor(Math.random() * pool.length)]
   }
-  if (pool.length === 0) pool = candidates.filter((c) => !used.has(c.index))
 
-  const chosen = pool[Math.floor(Math.random() * pool.length)]
-  const i = chosen.index
   return {
-    round,
-    history: [daily[i - 2], daily[i - 1], daily[i]],
-    today: daily[i],
-    answer: daily[i + 1],
-    bonus: BONUS_BY_ROUND[round],
-    features: chosen.features,
-    kma: getPastForecast(daily[i + 1].date) ?? null,
-    todayAdvisory: getPastForecast(daily[i].date)?.advisory ?? null,
+    history: [records[i - 2], records[i - 1], records[i]],
+    today: records[i],
+    answer: records[i + 1],
+    answer3: records[i + 3],
+    features: featuresAt(records, i),
+    kma: opts.withKma ? (getPastForecast(records[i + 1].date) ?? null) : null,
+    todayAdvisory: opts.withKma ? (getPastForecast(records[i].date)?.advisory ?? null) : null,
   }
 }
-
-/** 이미 출제한 날과 붙어 있는 날은 피한다 (같은 기압골을 두 번 보여주지 않기) */
-const nearAny = (index: number, used: Set<number>): boolean => {
-  for (const u of used) if (Math.abs(u - index) <= 4) return true
-  return false
-}
-
-export const caseIndexOf = (c: ForecastCase): number => daily.indexOf(c.today)
 
 // ────────────────────────────────────────────────────────────── 채점
 
-const TMAX_MAX = 50
-const PRECIP_MAX = 30
-const BONUS_MAX = 20
+const TMAX_MAX = ROUND_MAX[1]
+const PRECIP_MAX = ROUND_MAX[2]
+const TMAX3_MAX = ROUND_MAX[3]
 
-const tmaxScore = (error: number): number => {
-  if (error <= 0.7) return TMAX_MAX
+/** 오차에 반비례하는 배점. 만점 폭(0.7℃)은 관측 반올림 오차보다 넉넉하게 잡았다. */
+const tmaxScore = (error: number, max: number): number => {
+  if (error <= 0.7) return max
   const decay = Math.min(1, ((error - 0.7) / 5) ** 1.1)
-  return Math.max(0, Math.round(TMAX_MAX * (1 - decay)))
+  return Math.max(0, Math.round(max * (1 - decay)))
 }
 
 const PRECIP_ORDER: PrecipClass[] = ['none', 'light', 'rain', 'heavy']
-const DTR_ORDER: DtrClass[] = ['small', 'mid', 'large']
 
 const stepScore = (max: number, distance: number): number =>
   distance === 0 ? max : distance === 1 ? Math.round(max * 0.4) : distance === 2 ? Math.round(max * 0.1) : 0
 
-/** 풍향은 반대편(북↔남)이면 0, 인접(북↔동)이면 부분점수 */
-const windDistance = (a: WindFamily, b: WindFamily): number => {
-  const deg: Record<WindFamily, number> = { N: 0, E: 90, S: 180, W: 270 }
-  const d = Math.abs(deg[a] - deg[b])
-  const wrapped = Math.min(d, 360 - d)
-  return wrapped === 0 ? 0 : wrapped === 90 ? 1 : 3
-}
-
+/** 라운드 하나 = 문항 하나. 그 라운드가 묻지 않은 것은 채점하지 않는다. */
 export function scoreRound(c: ForecastCase, guess: Guess): RoundScore {
-  const items: ItemScore[] = [scoreTmax(c, guess.tmax), scorePrecip(c, guess.precip)]
-  if (c.bonus === 'dtr') items.push(scoreDtr(c, guess.bonus as DtrClass))
-  if (c.bonus === 'wind') items.push(scoreWind(c, guess.bonus as WindFamily))
+  const items: ItemScore[] =
+    c.kind === 'tmax'
+      ? [scoreTmax(c, guess.tmax ?? c.today.tmax)]
+      : c.kind === 'precip'
+        ? [scorePrecip(c, guess.precip ?? 'none')]
+        : [scoreTmax3(c, guess.tmax3 ?? c.today.tmax)]
+
+  // 기상청과의 비교는 기온·강수 라운드에서만 성립한다. 기상청 단기예보 과거자료에
+  // '3일 뒤 기온'에 해당하는 항목이 없어, R3 를 비교에 넣으면 없는 값을 지어내게 된다.
+  const kma = c.kind === 'tmax3' ? null : compareWithKma(c, guess)
 
   return {
     round: c.round,
+    kind: c.kind,
     items,
     earned: items.reduce((s, i) => s + i.earned, 0),
     max: items.reduce((s, i) => s + i.max, 0),
-    tmaxError: Math.abs(guess.tmax - c.answer.tmax),
+    tmaxError:
+      c.kind === 'tmax'
+        ? Math.abs((guess.tmax ?? c.today.tmax) - c.answer.tmax)
+        : c.kind === 'tmax3'
+          ? Math.abs((guess.tmax3 ?? c.today.tmax) - c.answer3.tmax)
+          : 0,
     lesson: lessonOf(c),
-    kma: compareWithKma(c, guess),
+    kma,
   }
 }
 
-/** 3라운드 종합 — 당신 vs 기상청 평균 오차. 비교 가능한 라운드만 센다. */
+/**
+ * 당신 vs 기상청 종합.
+ *
+ * ⚠️ 기온 대결에는 **기온을 물은 라운드만** 넣는다. 강수 라운드에서는 사용자가
+ * 기온을 찍지 않았으므로 그 오차 0 을 평균에 섞으면 실제보다 정확했던 것처럼
+ * 보인다 — 채점 결과를 부풀리는 거짓말이다. 강수는 등급 적중 여부로 따로 센다.
+ */
 export function kmaSeasonSummary(rounds: RoundScore[]): {
-  rounds: number
+  tempRounds: number
   userMae: number
   kmaMae: number
   wins: number
   kmaMissedRounds: number
+  /** 강수 대결 — 비교할 라운드가 없으면 null */
+  precip: { userHit: boolean; kmaHit: boolean } | null
 } | null {
-  const usable = rounds.filter((r) => r.kma)
-  if (usable.length === 0) return null
-  const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length
+  const temp = rounds.filter((r) => r.kind === 'tmax' && r.kma)
+  const precipRound = rounds.find((r) => r.kind === 'precip' && r.kma)
+  if (temp.length === 0 && !precipRound) return null
+
+  const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / Math.max(1, xs.length)
   return {
-    rounds: usable.length,
-    userMae: mean(usable.map((r) => r.tmaxError)),
-    kmaMae: mean(usable.map((r) => r.kma!.error)),
-    wins: usable.filter((r) => r.kma!.userWins).length,
-    kmaMissedRounds: usable.filter((r) => r.kma!.kmaMissed).length,
+    tempRounds: temp.length,
+    userMae: mean(temp.map((r) => r.tmaxError)),
+    kmaMae: mean(temp.map((r) => r.kma!.error)),
+    wins: temp.filter((r) => r.kma!.userWins).length,
+    kmaMissedRounds: rounds.filter((r) => r.kma?.kmaMissed).length,
+    precip: precipRound
+      ? { userHit: precipRound.items[0].verdict === 'hit', kmaHit: precipRound.kma!.precipHit }
+      : null,
   }
 }
 
@@ -339,7 +334,39 @@ function scoreTmax(c: ForecastCase, guess: number): ItemScore {
       ? `${persistence} 대기가 조용한 날은 어제가 곧 내일의 답입니다.`
       : `${persistence} ${cause}`
 
-  return { label: '최고기온', earned: tmaxScore(error), max: TMAX_MAX, verdict, headline, why }
+  return { label: '내일 최고기온', earned: tmaxScore(error, TMAX_MAX), max: TMAX_MAX, verdict, headline, why }
+}
+
+/**
+ * R3 · 3일 뒤 최고기온 (보너스 20점).
+ *
+ * 같은 지속성 전략으로 찍어도 하루 뒤보다 사흘 뒤가 더 크게 어긋난다. 그 차이를
+ * 숫자로 보여주는 것이 이 라운드의 전부다 — S8 의 U자 곡선이 여기서 시작한다.
+ */
+function scoreTmax3(c: ForecastCase, guess: number): ItemScore {
+  const actual = c.answer3.tmax
+  const error = Math.abs(guess - actual)
+  const verdict = error <= 1 ? 'hit' : error <= 2.5 ? 'near' : 'miss'
+  const highOrLow = guess > actual ? '높게' : '낮게'
+  // 지속성 전략(오늘 값을 그대로 찍기)이 하루 뒤 / 사흘 뒤에 각각 얼마나 틀렸는가
+  const persist1 = Math.abs(c.today.tmax - c.answer.tmax)
+  const persist3 = Math.abs(c.today.tmax - actual)
+
+  return {
+    label: '3일 뒤 최고기온',
+    earned: tmaxScore(error, TMAX3_MAX),
+    max: TMAX3_MAX,
+    verdict,
+    headline:
+      verdict === 'hit'
+        ? `적중 — 실제 ${actual.toFixed(1)}℃, 오차 ${error.toFixed(1)}℃`
+        : `실제 ${actual.toFixed(1)}℃ — ${error.toFixed(1)}℃ ${highOrLow} 찍으셨어요`,
+    why:
+      `오늘 값을 그대로 찍었다면 하루 뒤는 ${persist1.toFixed(1)}℃, 사흘 뒤는 ${persist3.toFixed(1)}℃ 어긋났을 날입니다. ` +
+      (persist3 > persist1
+        ? '같은 방법인데 사흘 뒤가 더 크게 빗나갑니다 — 오차는 시간이 갈수록 자랍니다.'
+        : '이번 사흘은 조용했습니다. 하지만 조용할지 아닐지를 미리 아는 방법이 없다는 것이 문제예요.'),
+  }
 }
 
 /** 기온이 왜 움직였는지를 실제 관측 숫자로 설명 */
@@ -386,55 +413,6 @@ function scorePrecip(c: ForecastCase, guess: PrecipClass): ItemScore {
     verdict,
     headline,
     why: signal,
-  }
-}
-
-function scoreDtr(c: ForecastCase, guess: DtrClass): ItemScore {
-  const dtr = c.features.answerDtr
-  const actualClass = dtrClassOf(dtr)
-  const distance = Math.abs(DTR_ORDER.indexOf(guess) - DTR_ORDER.indexOf(actualClass))
-  const verdict = distance === 0 ? 'hit' : distance === 1 ? 'near' : 'miss'
-
-  const why =
-    dtr > 10
-      ? `다음날 운량은 ${c.answer.cloud}/10 — 하늘이 열려 있어 낮에는 햇빛이 그대로 들어오고 밤에는 열이 우주로 빠져나갔습니다. 구름 이불이 없으면 하루의 기온 폭이 벌어집니다.`
-      : dtr < 5
-        ? `다음날 운량은 ${c.answer.cloud}/10 — 구름이 이불처럼 덮여 낮에는 햇빛을 막고 밤에는 열을 붙잡았습니다. 그래서 하루의 기온 폭이 좁아졌습니다.`
-        : `다음날 운량은 ${c.answer.cloud}/10 — 구름 이불이 반쯤 걷힌 상태였습니다.`
-
-  return {
-    label: '일교차',
-    earned: stepScore(BONUS_MAX, distance),
-    max: BONUS_MAX,
-    verdict,
-    headline:
-      distance === 0
-        ? `적중 — 실제 ${labelOfDtr(actualClass)} (${dtr.toFixed(1)}℃)`
-        : `실제로는 ${labelOfDtr(actualClass)} (${dtr.toFixed(1)}℃)`,
-    why: `${why} 하루의 기온 폭을 정하는 건 구름이지만, 1년의 기온 폭(연교차)을 정하는 건 전혀 다른 것입니다 — 3단계에서 만나요.`,
-  }
-}
-
-function scoreWind(c: ForecastCase, guess: WindFamily): ItemScore {
-  const actual = c.answer.windFamily
-  const distance = windDistance(guess, actual)
-  const verdict = distance === 0 ? 'hit' : distance === 1 ? 'near' : 'miss'
-  const delta = c.features.tmaxDelta
-
-  const why =
-    actual === 'N'
-      ? `실제 풍향 ${c.answer.windDir}(${c.answer.windDeg}°). 북풍 계열은 찬 공기를 실어 오는 컨베이어 벨트입니다 — 그래서 기온이 ${Math.abs(delta).toFixed(1)}℃ 내려갔어요. 기압이 오르기 시작하면 북풍을 의심해보세요.`
-      : actual === 'S'
-        ? `실제 풍향 ${c.answer.windDir}(${c.answer.windDeg}°). 남풍 계열은 따뜻하고 습한 공기를 밀어 올립니다 — 그래서 기온이 ${delta.toFixed(1)}℃ 올라갔어요. 기압이 내려가면 남풍을 의심해보세요.`
-        : `실제 풍향 ${c.answer.windDir}(${c.answer.windDeg}°). 기압계의 회전이 만드는 방향입니다.`
-
-  return {
-    label: '풍향',
-    earned: stepScore(BONUS_MAX, distance === 3 ? 3 : distance),
-    max: BONUS_MAX,
-    verdict,
-    headline: distance === 0 ? `적중 — 실제 ${labelOfWind(actual)}` : `실제로는 ${labelOfWind(actual)}`,
-    why,
   }
 }
 

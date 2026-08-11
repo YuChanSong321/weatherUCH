@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 
+CHAGEDPLAN.md
+
 # API 키 / 원본 자료 — 절대 커밋하지 않는다
 # (수집 스크립트는 개발자 PC에서만 돌리고, 배포본은 /data JSON만 읽는다)
 .env

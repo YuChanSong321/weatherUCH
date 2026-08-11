@@ -50,7 +50,15 @@ body {
   color: var(--color-ink-1);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  overflow: hidden;
+  /* 데스크톱은 한 화면에 고정. 좁은 화면에서는 세로로 쌓이므로 스크롤을 허용한다
+     (기획안 §4: 모바일은 지구 상단 / 대시보드 하단의 세로 레이아웃). */
+  overflow-y: auto;
+}
+
+@media (min-width: 1024px) {
+  body {
+    overflow: hidden;
+  }
 }
 
 /* 숫자를 표 형태로 읽히게 (기온 값이 흔들리지 않도록) */

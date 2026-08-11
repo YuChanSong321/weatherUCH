@@ -1,22 +1,38 @@
 /** 여정 전역 상태 — 어느 단계에 있고, 각 단계에서 몇 점을 얻었는지. */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { RoundScore } from '../lib/forecast'
+import { S1_TOTAL, type RoundScore } from '../lib/forecast'
 
-export type Stage = 's0' | 's1' | 's2' | 's3' | 's4' | 's5' | 's6' | 's7'
+export type Stage = 's0' | 's1' | 's2' | 's3' | 's4' | 's5' | 's6' | 's7' | 's8'
 
-export const STAGE_ORDER: Stage[] = ['s0', 's1', 's2', 's3', 's4', 's5', 's6', 's7']
+export const STAGE_ORDER: Stage[] = ['s0', 's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8']
 
-/** 각 단계가 서 있는 시간 규모 (줌아웃 연출의 기준) */
+/**
+ * 각 단계가 서 있는 시간 규모.
+ *
+ * ⚠️ 이 목록은 **단조 증가**여야 한다. 이 콘텐츠의 전제가 "하루에서 수만 년까지
+ * 한 방향으로 물러나는 줌아웃"이고, 상단 시간 자의 마커가 그 사실을 계속 보여주기
+ * 때문이다. 기획안 §3 의 순서(수만 년 → 200년 → 2100년)를 그대로 따르면 마커가
+ * 뒤로 되돌아가면서 그 전제가 깨진다. 그래서 화면 순서를 규모 순으로 다시 놓았다:
+ *
+ *   며칠 → 한 해 → 수십 년 → 100년(SSP) → 수만 년(궤도) → 임계 → 전체 겹쳐보기
+ *
+ * 마지막 단계가 '전체'인 것은 되돌아가는 것이 아니라, 물러날 만큼 물러난 자리에서
+ * 274년과 5만 년을 한 화면에 겹쳐 보는 것이다 (로그 시간축).
+ *
+ * caption 의 `{place}` 는 사용자가 S0 에서 고른 지역 이름으로 치환된다.
+ * 여기에 '부산'을 박아두면 호놀룰루를 고른 사람에게 부산이라고 말하게 된다.
+ */
 export const STAGE_SCALE: Record<Stage, { act: 1 | 2 | 3; scaleLabel: string; caption: string }> = {
-  s0: { act: 1, scaleLabel: '며칠', caption: '부산 · 하루 뒤' },
-  s1: { act: 1, scaleLabel: '며칠', caption: '부산 · 하루 뒤' },
-  s2: { act: 1, scaleLabel: '한 해', caption: '부산 · 1년' },
-  s3: { act: 2, scaleLabel: '수십 년', caption: '부산 · 40년' },
-  s4: { act: 2, scaleLabel: '수십 년', caption: '부산 · 40년' },
-  s5: { act: 2, scaleLabel: '100년', caption: '부산 · 2100년까지' },
-  s6: { act: 3, scaleLabel: '수만 년', caption: '지구 · 20만 년' },
-  s7: { act: 3, scaleLabel: '전체', caption: '며칠 → 수만 년' },
+  s0: { act: 1, scaleLabel: '지금', caption: '지구 · 내가 사는 곳' },
+  s1: { act: 1, scaleLabel: '며칠', caption: '{place} · 하루 뒤' },
+  s2: { act: 1, scaleLabel: '한 해', caption: '{place} · 1년' },
+  s3: { act: 2, scaleLabel: '수십 년', caption: '{place} · 40년' },
+  s4: { act: 2, scaleLabel: '수십 년', caption: '{place} · 40년' },
+  s5: { act: 2, scaleLabel: '100년', caption: '{place} · 2100년까지' },
+  s6: { act: 3, scaleLabel: '수만 년', caption: '지구 · 궤도 20만 년' },
+  s7: { act: 3, scaleLabel: '임계', caption: '지구 · 자기권' },
+  s8: { act: 3, scaleLabel: '전체', caption: '274년 vs 5만 년' },
 }
 
 export type YearGuessResult = {
@@ -28,6 +44,26 @@ export type YearGuessResult = {
   errorVsTrend: number
   earned: number
   max: number
+}
+
+/**
+ * 사용자가 조작 **전에** 먼저 찍은 값들.
+ *
+ * 이걸 따로 들고 있는 이유: 조작만 있고 판정이 없는 화면은 심심하다. 레버를 당기기
+ * 전에 답을 받아두면 같은 조작이 곧 정답 공개가 되고, 그 값이 뒤 단계까지 따라가
+ * "내가 만든 것이 남는다"는 감각을 만든다.
+ */
+export type YearMeanGuess = {
+  year: number
+  guess: number
+  actual: number
+}
+
+export type TrendGuess = {
+  /** 사용자가 찍은 10년당 기온 변화 (℃) */
+  perDecade: number
+  /** 실제 관측 추세 (℃/10년) */
+  actualPerDecade: number
 }
 
 export type OrbitMissionResult = {
@@ -50,6 +86,12 @@ type JourneyValue = {
   setYearGuess: (r: YearGuessResult) => void
   orbitResult: OrbitMissionResult | null
   setOrbitResult: (r: OrbitMissionResult) => void
+  /** S2 — 레버를 당기기 전에 찍은 그 해의 연평균 */
+  yearMeanGuess: YearMeanGuess | null
+  setYearMeanGuess: (g: YearMeanGuess) => void
+  /** S3 — 스크러빙 절반에서 찍은 40년 추세. S4·S5 가 이 값을 회수한다. */
+  trendGuess: TrendGuess | null
+  setTrendGuess: (g: TrendGuess) => void
   /** 사용자가 S5에서 직접 끌어본 2100년 값 (기억해서 S7에서 회수) */
   dragged2100: number | null
   setDragged2100: (v: number) => void
@@ -59,10 +101,19 @@ type JourneyValue = {
 
 const JourneyContext = createContext<JourneyValue | null>(null)
 
-export const S1_MAX = 280 // R1 100 + R2 100 + R3 80
+/*
+ * 배점 — 기획안 §6 의 확정 체계 320점.
+ *
+ * S1 의 100 점은 [lib/forecast] 의 라운드 배점(50/30/20)에서 그대로 읽는다. 두 곳에
+ * 따로 적어두면 한쪽만 바뀌었을 때 획득 점수가 만점을 넘는다.
+ *
+ * ORBIT_MISSION_MAX 는 지금 S5 밀란코비치 미션이 쓰고 있다. Phase 5 에서 이 120점이
+ * S7 자기장 샌드박스로 넘어간다 (총점은 그대로).
+ */
+export const S1_MAX = S1_TOTAL
 export const S4_MAX = 100
-export const S6_MAX = 120
-export const TOTAL_MAX = S1_MAX + S4_MAX + S6_MAX
+export const ORBIT_MISSION_MAX = 120
+export const TOTAL_MAX = S1_MAX + S4_MAX + ORBIT_MISSION_MAX
 
 /** 발표/디버그용: 주소창의 #s5 같은 해시로 특정 단계에서 바로 시작한다. */
 function initialStage(): Stage {
@@ -75,6 +126,8 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
   const [rounds, setRounds] = useState<RoundScore[]>([])
   const [yearGuess, setYearGuessState] = useState<YearGuessResult | null>(null)
   const [orbitResult, setOrbitResultState] = useState<OrbitMissionResult | null>(null)
+  const [yearMeanGuess, setYearMeanGuessState] = useState<YearMeanGuess | null>(null)
+  const [trendGuess, setTrendGuessState] = useState<TrendGuess | null>(null)
   const [dragged2100, setDragged2100State] = useState<number | null>(null)
   const [runId, setRunId] = useState(0)
 
@@ -101,6 +154,8 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
     setRounds([])
     setYearGuessState(null)
     setOrbitResultState(null)
+    setYearMeanGuessState(null)
+    setTrendGuessState(null)
     setDragged2100State(null)
     setRunId((n) => n + 1)
     setStage('s0')
@@ -124,12 +179,16 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
       setYearGuess: setYearGuessState,
       orbitResult,
       setOrbitResult: setOrbitResultState,
+      yearMeanGuess,
+      setYearMeanGuess: setYearMeanGuessState,
+      trendGuess,
+      setTrendGuess: setTrendGuessState,
       dragged2100,
       setDragged2100: setDragged2100State,
       totals: { earned, max: TOTAL_MAX },
       restart,
     }
-  }, [stage, runId, go, next, rounds, pushRound, yearGuess, orbitResult, dragged2100, restart])
+  }, [stage, runId, go, next, rounds, pushRound, yearGuess, orbitResult, yearMeanGuess, trendGuess, dragged2100, restart])
 
   return <JourneyContext.Provider value={value}>{children}</JourneyContext.Provider>
 }

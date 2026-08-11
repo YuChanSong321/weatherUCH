@@ -10,12 +10,24 @@
  * 반드시 따라 바뀌어야 한다.
  */
 import { useEffect, useState } from 'react'
-import { datasetCredits, isAllSynthetic, isDummyData } from '../data/loader'
+import { datasetCredits, hasApprox, hasNonObserved, hasSynthetic, isAllNonObserved } from '../data/loader'
+import { usePlace } from '../state/place'
 
 export function Attribution() {
   const [open, setOpen] = useState(false)
-  const someSynthetic = isDummyData
-  const allSynthetic = isAllSynthetic
+  const { place } = usePlace()
+  const allNonObserved = isAllNonObserved
+  /*
+   * 배지 문구는 남아 있는 것이 무엇이냐에 달려 있다.
+   *   합성  아직 지어낸 더미가 남아 있다 → 교체해야 할 자료가 있다
+   *   근사  더미는 없고 근사 곡선만 남았다 → SSP 처럼 애초에 관측이 없는 자료다
+   */
+  const badge = hasSynthetic ? '합성' : hasApprox ? '근사' : null
+  /*
+   * 사용자가 부산 밖을 찍으면 그 지역의 관측은 기상청이 아니라 Open-Meteo 에서 온다.
+   * 그때도 "기상청에서 받았습니다"라고 적혀 있으면 그 자체가 허위 출처 표기다.
+   */
+  const usesOpenMeteo = place?.source === 'open-meteo'
 
   useEffect(() => {
     if (!open) return
@@ -34,8 +46,8 @@ export function Attribution() {
       >
         <span aria-hidden>ⓘ</span>
         {/* 전부 합성인 동안에는 상단 한 줄도 '기상청'이라고 단정하지 않는다 */}
-        {allSynthetic ? '자료 출처' : '자료 출처: 기상청'}
-        {isDummyData && (
+        {allNonObserved ? '자료 출처' : usesOpenMeteo ? '자료 출처: 기상청 · Open-Meteo' : '자료 출처: 기상청'}
+        {badge && (
           <span
             className="rounded-full px-1.5 py-px text-[9.5px] font-semibold"
             style={{
@@ -43,7 +55,7 @@ export function Attribution() {
               color: 'var(--color-warn)',
             }}
           >
-            합성
+            {badge}
           </span>
         )}
       </button>
@@ -66,22 +78,36 @@ export function Attribution() {
                 {/* 문장이 표와 어긋나면 안 된다. 전부 합성인데 "기상청에서 받았습니다"라고
                     적어두면 그 자체가 허위 표기다 — 실제 상태에 따라 문장을 바꾼다. */}
                 <p className="mt-1 text-[12px] leading-relaxed text-ink-2">
-                  {allSynthetic ? (
+                  {allNonObserved ? (
                     <>
                       아래 자료는 <span className="text-ink-1">아직 실제 관측이 아닙니다.</span> 화면 구조를
                       검증하기 위해 생성한 합성 데이터이며, 기상청 실측으로 교체할 예정입니다.
                     </>
-                  ) : someSynthetic ? (
+                  ) : usesOpenMeteo ? (
+                    <>
+                      지금 보고 계신 <span className="text-ink-1">{place.label}</span> 의 관측은{' '}
+                      <span className="text-ink-1">Open-Meteo</span> 에서, 기후·시나리오 자료는{' '}
+                      <span className="text-ink-1">기상청</span>에서 받았습니다.
+                      {hasSynthetic && ' 아래 표에서 "합성 데이터"로 표시된 항목은 아직 실측이 아닙니다.'}
+                    </>
+                  ) : hasSynthetic ? (
                     <>
                       관측·예보 자료는 <span className="text-ink-1">기상청</span>에서 받았습니다. 다만 아래 표에서
                       "합성 데이터"로 표시된 항목은 아직 실측이 아닙니다.
+                    </>
+                  ) : hasApprox ? (
+                    <>
+                      관측 자료는 전부 <span className="text-ink-1">기상청 실측</span>입니다. 표의{' '}
+                      <span className="text-ink-1">"근사 곡선"</span> 한 줄만 성격이 다릅니다 — 아래 설명을 보세요.
                     </>
                   ) : (
                     <>
                       이 콘텐츠의 모든 관측·예보 자료는 <span className="text-ink-1">기상청</span>에서 받았습니다.
                     </>
                   )}{' '}
-                  브라우저는 API를 호출하지 않고, 수집 시점에 내려받아 번들한 JSON만 읽습니다.
+                  {usesOpenMeteo
+                    ? '번들된 기상청 자료는 수집 시점에 내려받은 JSON을 읽습니다. 부산 밖의 지역을 고르면 그 지역의 관측만 Open-Meteo를 실시간으로 호출해 가져옵니다.'
+                    : '브라우저는 API를 호출하지 않고, 수집 시점에 내려받아 번들한 JSON만 읽습니다.'}
                 </p>
               </div>
               <button
@@ -98,6 +124,18 @@ export function Attribution() {
               <div className="text-[10.5px] text-ink-3">출처 · 데이터명</div>
               <div className="text-[10.5px] text-ink-3">수집일</div>
               <div className="text-[10.5px] text-ink-3">이용 조건</div>
+              {/* 실제로 지금 쓰이고 있는 출처만 표에 올린다 */}
+              {usesOpenMeteo && place && (
+                <div className="contents">
+                  <div className="text-ink-1">선택 지역 관측</div>
+                  <div className="text-ink-2">
+                    Open-Meteo
+                    <span className="text-ink-3"> · 일자료 (예보 격자 {place.gridLat.toFixed(2)}, {place.gridLon.toFixed(2)})</span>
+                  </div>
+                  <div className="tnum text-ink-3">실시간</div>
+                  <div className="text-ink-3">CC BY 4.0</div>
+                </div>
+              )}
               {datasetCredits.map((d) => (
                 <div key={d.file} className="contents">
                   <div className="text-ink-1">{d.label}</div>
@@ -106,14 +144,14 @@ export function Attribution() {
                     {d.dataset && <span className="text-ink-3"> · {d.dataset}</span>}
                   </div>
                   <div className="tnum text-ink-3">{d.fetchedAt ?? '—'}</div>
-                  <div className={d.synthetic ? 'text-[var(--color-warn)]' : 'text-ink-3'}>
-                    {d.synthetic ? '합성 데이터' : d.license}
+                  <div className={d.kind === 'observed' ? 'text-ink-3' : 'text-[var(--color-warn)]'}>
+                    {d.license}
                   </div>
                 </div>
               ))}
             </div>
 
-            {isDummyData && (
+            {hasNonObserved && (
               <p
                 className="mt-4 rounded-lg border px-3 py-2 text-[11.5px] leading-relaxed"
                 style={{
@@ -121,11 +159,24 @@ export function Attribution() {
                   background: 'color-mix(in oklab, var(--color-warn) 10%, transparent)',
                 }}
               >
-                <span className="font-semibold" style={{ color: 'var(--color-warn)' }}>
-                  일부 자료가 아직 합성 데이터입니다.
-                </span>{' '}
-                스키마 검증용으로 생성한 값이며 실제 관측이 아닙니다. 실측으로 교체하면 이 배지는 자동으로
-                사라집니다.
+                {hasSynthetic ? (
+                  <>
+                    <span className="font-semibold" style={{ color: 'var(--color-warn)' }}>
+                      일부 자료가 아직 합성 데이터입니다.
+                    </span>{' '}
+                    스키마 검증용으로 생성한 값이며 실제 관측이 아닙니다. 실측으로 교체하면 이 배지는 자동으로
+                    사라집니다.
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold" style={{ color: 'var(--color-warn)' }}>
+                      SSP 시나리오는 근사 곡선입니다.
+                    </span>{' '}
+                    미래 전망이라 '실측'이라는 것이 존재하지 않습니다. 있어야 할 것은 기상청 기후정보포털이
+                    공표한 시나리오 값인데, 그 자료를 아직 확보하지 못해 같은 형태의 곡선으로 근사해 두었습니다.
+                    <span className="text-ink-2"> 값의 크기와 갈래의 폭은 참고용으로만 읽어 주세요.</span>
+                  </>
+                )}
               </p>
             )}
 

@@ -1,5 +1,6 @@
 /**
- * S5 · 2단계-B — 사용자가 곡선을 2100년까지 끌어 연장한다.
+ * S5 · 100년 — 사용자가 곡선을 2100년까지 끌어 연장하고, 손을 떼면 SSP 부채꼴로 갈라진다.
+ * 시간 규모 순서상 '수십 년' 다음, '수만 년'(궤도) 앞이다.
  * 손을 떼면 SSP 세 시나리오가 부채꼴로 펼쳐진다: 미래는 하나의 선이 아니다.
  */
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
@@ -81,7 +82,7 @@ export function S5Future({ onNext }: { onNext: () => void }) {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div className="flex items-end justify-between">
         <div>
-          <div className="text-[11px] font-medium tracking-[0.14em] text-act-2">2단계-B · 미래</div>
+          <div className="text-[11px] font-medium tracking-[0.14em] text-act-2">2단계-B · 100년</div>
           <h1 className="mt-0.5 text-[22px] leading-tight font-semibold tracking-tight">
             {revealed ? '미래는 하나의 선이 아닙니다' : '이 곡선을 2100년까지 끌어보세요'}
           </h1>

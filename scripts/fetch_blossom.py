@@ -11,7 +11,13 @@
       오퍼레이션: 계절관측일 조회 (getSeasonObs)
       DATA_GO_KR_KEY 로 호출한다.
 
-  · 기상자료개방포털(data.kma.go.kr) 「기후통계분석 > 계절관측」  ← 권장
+  · 기상청 API허브 「계절관측」 (sfc_ssn.php)  ← 가장 간단, 권장
+      KMA_API_KEY(API허브 키) 하나로 40년치가 한 번에 온다. 별도 활용신청 불필요.
+      벚나무 개화 = SSN_ID 205 · SSN_MD 202 (아래 SSN_CHERRY / SSN_BLOOM).
+      이 코드는 공표된 서울 벚꽃 개화일(2023-03-25, 2024-04-01)과 대조해 확정했다 —
+      코드표 PDF 는 폰트가 서브셋이라 텍스트 추출이 되지 않는다.
+
+  · 기상자료개방포털(data.kma.go.kr) 「기후통계분석 > 계절관측」
       생물계절(왕벚나무 개화)은 연 1행짜리 자료라 API를 쓸 이유가 거의 없다.
       부산(지점 159) · 왕벚나무 · 개화 로 조회해 CSV 를 내려받아
       scripts/raw/busan_blossom.csv 로 두면 이 스크립트가 읽는다.
@@ -62,6 +68,11 @@ SPECIES = "왕벚나무"
 PHENOMENON = "개화"
 
 SOURCE_TAG = "KMA_SEASON_OBS"
+
+# API허브 계절관측
+APIHUB_SSN_URL = "https://apihub.kma.go.kr/api/typ01/url/sfc_ssn.php"
+SSN_CHERRY = "205"   # 계절관측 코드 · 벚나무
+SSN_BLOOM = "202"    # 계절현상 코드 · 개화 (201 발아 / 203 만발)
 CSV_PATH = RAW_DIR / "busan_blossom.csv"
 
 # 개화일로 인정할 범위. 부산의 벚꽃은 3월 초~4월 말 사이다. 이 밖의 값은
@@ -181,6 +192,41 @@ def parse_api(payload: str) -> list[dict]:
     return sorted((r for r in out if sane(r)), key=lambda r: r["year"])
 
 
+def parse_apihub(payload: str) -> list[dict]:
+    """API허브 sfc_ssn.php 응답 → 개화 기록.
+
+    형식: ` YY, STN, TM, SSN_ID, SSN_MD,` (주석은 #). 인코딩은 EUC-KR 이지만
+    이 파서가 보는 칸은 전부 숫자·날짜라 인코딩과 무관하다.
+    """
+    out: list[dict] = []
+    for line in payload.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        cols = [c.strip() for c in line.split(",")]
+        if len(cols) < 5 or cols[3] != SSN_CHERRY or cols[4] != SSN_BLOOM:
+            continue
+        day = parse_date_cell(cols[2], int(cols[0]) if cols[0].isdigit() else None)
+        if day:
+            out.append(to_record(day.year, day))
+    return sorted((r for r in out if sane(r)), key=lambda r: r["year"])
+
+
+def fetch_apihub(key: str, start: int, end: int, dry_run: bool) -> list[dict]:
+    """API허브에서 40년치를 한 번에 받는다 (연 자료라 요청 1회면 끝난다)."""
+    params = {
+        "stn": str(STN_ID),
+        "tm1": f"{start}0101",
+        "tm2": f"{end}1231",
+        "authKey": key,
+    }
+    url = f"{APIHUB_SSN_URL}?{urllib.parse.urlencode(params)}"
+    if dry_run:
+        print(f"  [dry-run] {mask_url(url, key)}")
+        return []
+    return parse_apihub(fetch(url))
+
+
 def fetch_api(key: str, start: int, end: int, dry_run: bool) -> list[dict]:
     records: list[dict] = []
     for year in range(start, end + 1):
@@ -287,13 +333,17 @@ def main() -> None:
         source = SOURCE_TAG + "_CSV"
     else:
         provider, key = load_key()
-        if provider != "data.go.kr":
+        print(f"키: {masked(key)} ({provider})")
+        if provider == "apihub":
+            # API허브 계절관측 — 키 하나로 40년치가 한 번에 온다
+            records = fetch_apihub(key, args.years[0], args.years[1], args.dry_run)
+        elif provider == "data.go.kr":
+            records = fetch_api(key, args.years[0], args.years[1], args.dry_run)
+        else:
             sys.exit(
-                "계절관측은 공공데이터포털 서비스다. DATA_GO_KR_KEY 를 설정하거나,\n"
-                f"기상자료개방포털에서 CSV 를 내려 {CSV_PATH} 로 둘 것."
+                "계절관측은 API허브(KMA_API_KEY) 또는 공공데이터포털(DATA_GO_KR_KEY) 로 받는다.\n"
+                f"둘 다 없으면 기상자료개방포털에서 CSV 를 내려 {CSV_PATH} 로 둘 것."
             )
-        print(f"키: {masked(key)}")
-        records = fetch_api(key, args.years[0], args.years[1], args.dry_run)
         if args.dry_run:
             print("dry-run 종료.")
             return

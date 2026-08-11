@@ -5,7 +5,13 @@
 import { useState, type ReactNode } from 'react'
 import { ChartFrame, type Margins } from './ChartFrame'
 import { linearScale, niceTicks, type Scale } from '../lib/scales'
-import type { YearlyRecord } from '../types'
+
+/**
+ * 이 차트가 실제로 읽는 것은 연도와 연평균뿐이다. 번들 ASOS(YearlyRecord)와
+ * Open-Meteo 아카이브에서 만든 시계열이 둘 다 들어오므로, 필요한 두 필드만
+ * 요구한다 — 여기서 YearlyRecord 를 통째로 받으면 지역 시계열을 못 그린다.
+ */
+export type YearPoint = { year: number; tavg: number }
 
 export const CHART_MARGINS: Margins = { top: 22, right: 96, bottom: 34, left: 46 }
 
@@ -14,7 +20,7 @@ export type ChartCtx = { x: Scale; y: Scale; margins: Margins; width: number; he
 type Props = {
   width: number
   height: number
-  records: YearlyRecord[]
+  records: YearPoint[]
   xDomain: [number, number]
   yDomain: [number, number]
   /** 앞에서부터 몇 개까지 찍을지 (누적 애니메이션) */
@@ -45,7 +51,7 @@ export function YearlyChart({
   children,
   tooltipEnabled = true,
 }: Props) {
-  const [hover, setHover] = useState<YearlyRecord | null>(null)
+  const [hover, setHover] = useState<YearPoint | null>(null)
   const m = CHART_MARGINS
   const x = linearScale(xDomain, [m.left, width - m.right])
   const y = linearScale(yDomain, [height - m.bottom, m.top])

@@ -4,30 +4,37 @@
  */
 import { useMemo, useRef, useState } from 'react'
 import { YearlyChart, CHART_MARGINS } from '../components/YearlyChart'
-import { yearly, yearlyTrend } from '../data/loader'
 import { clamp, linearScale } from '../lib/scales'
+import { trendOf, useClimate } from '../state/climate'
 import { useJourney } from '../state/journey'
 import { S4_MAX } from '../state/journey'
 
 const W = 960
 const H = 380
 
-/** 앞뒤로 추세를 읽을 수 있어야 하므로 양끝 6년은 출제하지 않는다 */
-function pickHiddenYear(): number {
-  const pool = yearly.slice(6, -6)
-  return pool[Math.floor(Math.random() * pool.length)].year
-}
-
+/**
+ * 배점 — 기획안 §6 의 확정값.
+ *   오차 0.1℃ 이내 만점 · 1.0℃ 이상 0점 · 그 사이는 선형 보간.
+ */
+const HIT = 0.1
+const ZERO = 1.0
 const scoreOf = (error: number): number => {
-  if (error <= 0.2) return S4_MAX
-  const decay = Math.min(1, ((error - 0.2) / 1.5) ** 1.15)
-  return Math.max(0, Math.round(S4_MAX * (1 - decay)))
+  if (error <= HIT) return S4_MAX
+  if (error >= ZERO) return 0
+  return Math.round(S4_MAX * (1 - (error - HIT) / (ZERO - HIT)))
 }
 
 export function S4YearGuess({ onNext }: { onNext: () => void }) {
-  const { setYearGuess, rounds } = useJourney()
-  const [hiddenYear] = useState(pickHiddenYear)
-  const trend = useMemo(() => yearlyTrend(), [])
+  const { setYearGuess, rounds, trendGuess } = useJourney()
+  const climate = useClimate()
+  const yearly = climate.yearly
+
+  /** 앞뒤로 추세를 읽을 수 있어야 하므로 양끝 6년은 출제하지 않는다 */
+  const [hiddenYear] = useState(() => {
+    const pool = yearly.slice(6, -6)
+    return pool[Math.floor(Math.random() * pool.length)].year
+  })
+  const trend = useMemo(() => trendOf(yearly), [yearly])
 
   const temps = yearly.map((r) => r.tavg)
   const yDomain: [number, number] = [
@@ -132,7 +139,6 @@ export function S4YearGuess({ onNext }: { onNext: () => void }) {
             trendVisible
             hiddenYear={revealed ? null : hiddenYear}
             highlightYear={revealed ? hiddenYear : null}
-            xTicks={[1985, 1995, 2005, 2015, 2024]}
             tooltipEnabled={revealed}
           >
             {({ x }) => (
@@ -257,6 +263,22 @@ export function S4YearGuess({ onNext }: { onNext: () => void }) {
                 오차 <span className="font-semibold">{errorVsActual.toFixed(2)}℃</span>
               </span>
             </div>
+            {/* S3 에서 그린 추세를 회수한다 — 내가 만든 것이 뒤에서 쓰인다 */}
+            {trendGuess && (
+              <p className="max-w-3xl text-[12.5px] leading-relaxed text-ink-3">
+                앞 단계에서 <span style={{ color: 'var(--color-act-3)' }}>10년당 {trendGuess.perDecade > 0 ? '+' : ''}
+                {trendGuess.perDecade.toFixed(2)}℃</span> 로 찍으셨죠 (실제 {trendGuess.actualPerDecade > 0 ? '+' : ''}
+                {trendGuess.actualPerDecade.toFixed(2)}℃). 그 기울기만으로 이 해를 추정했다면 오차는{' '}
+                <span className="tnum text-ink-2">
+                  {Math.abs(
+                    actual.tavg -
+                      (trendValue + ((trendGuess.perDecade - trendGuess.actualPerDecade) / 10) * (hiddenYear - yearly[Math.round(yearly.length / 2)].year)),
+                  ).toFixed(2)}
+                  ℃
+                </span>{' '}
+                였습니다.
+              </p>
+            )}
             <p className="max-w-3xl text-[13px] leading-relaxed text-ink-2">
               {dailyMeanError !== null && (
                 <>

@@ -41,8 +41,13 @@ export function KmaCompare({
   // 그날 예보 자료가 없으면 3자 대결 자체를 접는다 (조용히 2자로 돌아간다)
   if (!kma || !issued) return null
 
+  // 라운드가 물은 것만 비교한다. 기온 라운드에서 강수 대결까지 펼치면 사용자가
+  // 찍지도 않은 항목에 '당신'의 값이 생겨버린다.
+  const compareTemp = guess.tmax !== undefined
+  const comparePrecip = guess.precip !== undefined
+
   const actual = forecastCase.answer.tmax
-  const userError = guess.tmax - actual
+  const userError = (guess.tmax ?? actual) - actual
   const kmaError = kma.tmax - actual
   // 눈금은 최소 ±2℃ — 둘 다 잘 맞힌 날에 점 두 개가 붙어버리지 않게 한다
   const span = Math.max(2, Math.abs(userError) * 1.25, Math.abs(kmaError) * 1.25)
@@ -51,51 +56,57 @@ export function KmaCompare({
   return (
     <div className="panel-quiet flex flex-col gap-2.5 px-3.5 py-3">
       <div className="flex items-baseline justify-between">
-        <span className="text-[11px] tracking-[0.1em] text-ink-3">최고기온 · 3자 대결</span>
+        <span className="text-[11px] tracking-[0.1em] text-ink-3">
+          {compareTemp ? '최고기온' : '강수'} · 3자 대결
+        </span>
         <span className="text-[10.5px] text-ink-3">
           기상청 {issued.baseDate.slice(5).replace('-', '.')} {issued.baseTime.slice(0, 2)}시 발표
           {issued._source === 'dummy' && <span className="text-ink-3"> · 합성값</span>}
         </span>
       </div>
 
-      {/* 세 값을 나란히 */}
-      <div className="grid grid-cols-3 gap-2">
-        <Value label="당신" value={guess.tmax} color={USER} />
-        <Value label="기상청" value={kma.tmax} color={KMA} />
-        <Value label="실제" value={actual} color="var(--color-series-obs)" strong />
-      </div>
+      {compareTemp && (
+        <>
+          {/* 세 값을 나란히 */}
+          <div className="grid grid-cols-3 gap-2">
+            <Value label="당신" value={guess.tmax!} color={USER} />
+            <Value label="기상청" value={kma.tmax} color={KMA} />
+            <Value label="실제" value={actual} color="var(--color-series-obs)" strong />
+          </div>
 
-      {/* 오차 수직선 — 가운데가 실제 관측 */}
-      <div className="relative mt-0.5 h-9">
-        <div className="absolute inset-x-0 top-4 h-px bg-white/12" />
-        {/* 실제 = 기준선 */}
-        <div className="absolute top-1 h-6 w-px left-1/2 -translate-x-1/2 bg-[var(--color-series-obs)]" />
-        <Dot pctLeft={pct(kmaError)} color={KMA} error={kmaError} />
-        <Dot pctLeft={pct(userError)} color={USER} error={userError} raised />
-        <div className="absolute inset-x-0 top-[26px] flex justify-between text-[9.5px] text-ink-3">
-          <span>−{span.toFixed(1)}℃</span>
-          <span>실제</span>
-          <span>+{span.toFixed(1)}℃</span>
+          {/* 오차 수직선 — 가운데가 실제 관측 */}
+          <div className="relative mt-0.5 h-9">
+            <div className="absolute inset-x-0 top-4 h-px bg-white/12" />
+            {/* 실제 = 기준선 */}
+            <div className="absolute top-1 h-6 w-px left-1/2 -translate-x-1/2 bg-[var(--color-series-obs)]" />
+            <Dot pctLeft={pct(kmaError)} color={KMA} error={kmaError} />
+            <Dot pctLeft={pct(userError)} color={USER} error={userError} raised />
+            <div className="absolute inset-x-0 top-[26px] flex justify-between text-[9.5px] text-ink-3">
+              <span>−{span.toFixed(1)}℃</span>
+              <span>실제</span>
+              <span>+{span.toFixed(1)}℃</span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {comparePrecip && (
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11.5px]">
+          <span>
+            <Swatch color={USER} /> 당신 {labelOfPrecip(guess.precip!)}
+          </span>
+          <span>
+            <Swatch color={KMA} /> 기상청 {labelOfPrecip(kma.precipClass)}
+            {kma.precipProb !== null && <span className="tnum text-ink-3"> ({kma.precipProb}%)</span>}
+          </span>
+          <span className="text-ink-1">
+            <Swatch color="var(--color-series-obs)" /> 실제{' '}
+            {labelOfPrecip(precipClassOf(forecastCase.answer.precip))}
+          </span>
         </div>
-      </div>
+      )}
 
-      {/* 강수 — 등급 세 개 나란히 */}
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-white/8 pt-2 text-[11.5px]">
-        <span className="text-ink-3">강수</span>
-        <span>
-          <Swatch color={USER} /> 당신 {labelOfPrecip(guess.precip)}
-        </span>
-        <span>
-          <Swatch color={KMA} /> 기상청 {labelOfPrecip(kma.precipClass)}
-          {kma.precipProb !== null && <span className="tnum text-ink-3"> ({kma.precipProb}%)</span>}
-        </span>
-        <span className="text-ink-1">
-          <Swatch color="var(--color-series-obs)" /> 실제{' '}
-          {labelOfPrecip(precipClassOf(forecastCase.answer.precip))}
-        </span>
-      </div>
-
-      <Outcome kma={kma} />
+      <Outcome kma={kma} precipOnly={comparePrecip} />
     </div>
   )
 }
@@ -167,7 +178,28 @@ const Swatch = ({ color }: { color: string }) => (
 )
 
 /** 이 라운드가 남기는 한 줄. 감점이 아니라 발견. */
-function Outcome({ kma }: { kma: NonNullable<RoundScore['kma']> }) {
+function Outcome({ kma, precipOnly }: { kma: NonNullable<RoundScore['kma']>; precipOnly: boolean }) {
+  // 강수 라운드에서는 기온 오차(℃)로 승패를 말할 수 없다 — 등급 적중 여부만 말한다.
+  if (precipOnly) {
+    return kma.precipHit ? (
+      <p className="text-[11.5px] leading-relaxed text-ink-3">
+        기상청도 같은 등급을 냈습니다. 강수 유무는 며칠 규모에서 비교적 잘 맞는 항목이에요 — 얼마나 올지가
+        어려운 쪽입니다.
+      </p>
+    ) : (
+      <Banner
+        color="var(--color-act-3)"
+        title="전문가도 틀립니다"
+        body={
+          <>
+            기상청은 <span className="font-semibold">{labelOfPrecip(kma.precipClass)}</span> 로 예보했지만 실제는
+            달랐습니다. 실력이 모자라서가 아니라 <span className="text-ink-1">대기가 혼돈이기 때문</span>입니다 —
+            초기 상태의 아주 작은 오차가 며칠마다 두 배로 자라거든요.
+          </>
+        }
+      />
+    )
+  }
   if (kma.userWins) {
     const wide = kma.margin <= -1
     return (

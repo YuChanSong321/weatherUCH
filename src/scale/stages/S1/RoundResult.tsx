@@ -22,14 +22,19 @@ export function RoundResult({
   isLastRound: boolean
   onNext: () => void
 }) {
-  const { answer, today } = forecastCase
+  const { today } = forecastCase
+  // 라운드가 물은 날이 곧 열어볼 날이다. R3 는 사흘 뒤를 물었으니 사흘 뒤를 연다.
+  const answer = forecastCase.kind === 'tmax3' ? forecastCase.answer3 : forecastCase.answer
   const actualClass = precipClassOf(answer.precip)
   const actualPrecipLabel = PRECIP_CLASSES.find((p) => p.id === actualClass)!.label
+  const userTemp = forecastCase.kind === 'tmax3' ? guess.tmax3 : guess.tmax
 
   return (
     <section className="panel rise flex flex-col gap-3 p-4">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-[15px] font-semibold tracking-tight">내일이 도착했습니다</h2>
+        <h2 className="text-[15px] font-semibold tracking-tight">
+          {forecastCase.kind === 'tmax3' ? '사흘 뒤가 도착했습니다' : '내일이 도착했습니다'}
+        </h2>
         <span className="tnum text-[12px]">
           <span className="font-semibold">{score.earned}</span>
           <span className="text-ink-3"> / {score.max}점</span>
@@ -38,7 +43,11 @@ export function RoundResult({
 
       {/* 실제 관측 */}
       <div className="panel-quiet grid grid-cols-4 gap-2 px-3 py-2.5 text-center">
-        <Fact label="최고기온" value={`${answer.tmax.toFixed(1)}℃`} sub={`당신 ${guess.tmax.toFixed(1)}℃`} />
+        <Fact
+          label="최고기온"
+          value={`${answer.tmax.toFixed(1)}℃`}
+          sub={userTemp === undefined ? '이 라운드는 강수' : `당신 ${userTemp.toFixed(1)}℃`}
+        />
         <Fact label="강수" value={answer.precip > 0 ? `${answer.precip} mm` : '없음'} sub={actualPrecipLabel} />
         <Fact label="일교차" value={`${dtrOf(answer).toFixed(1)}℃`} sub={`하늘 ${skyOf(answer.cloud)}`} />
         <Fact label="바람" value={`${answer.windDir} ${answer.windSpeed.toFixed(1)}`} sub={`${answer.windDeg}°`} />
@@ -86,9 +95,9 @@ export function RoundResult({
 
       <div className="flex items-center justify-between gap-4">
         <span className="tnum text-[11px] text-ink-3">
-          오늘 {today.tmax.toFixed(1)}℃ → 내일 {answer.tmax.toFixed(1)}℃ (변화{' '}
-          {forecastCase.features.tmaxDelta > 0 ? '+' : ''}
-          {forecastCase.features.tmaxDelta.toFixed(1)}℃)
+          오늘 {today.tmax.toFixed(1)}℃ → {forecastCase.kind === 'tmax3' ? '사흘 뒤' : '내일'}{' '}
+          {answer.tmax.toFixed(1)}℃ (변화 {answer.tmax - today.tmax > 0 ? '+' : ''}
+          {(answer.tmax - today.tmax).toFixed(1)}℃)
         </span>
         <button type="button" className="btn btn-primary" onClick={onNext}>
           {isLastRound ? '3라운드 결과 보기' : '다음 라운드'}

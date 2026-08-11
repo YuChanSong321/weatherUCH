@@ -104,10 +104,29 @@ export const SUMMER_BOUNDS = (() => {
 
 export type MissionId = 'glaciate' | 'deglaciate'
 
-/** 난이도 균형: 현재 지구에서 양쪽 한계까지 거리의 55% 지점을 목표로 둔다 */
+/**
+ * 두 다이얼(자전축·이심률)만으로 세차를 현재값에 고정한 채 도달 가능한 범위.
+ *
+ * ⚠️ SUMMER_BOUNDS 는 세차까지 360° 돌려본 범위다. S6 에는 세차 슬라이더가 없으므로
+ * 그 범위로 목표를 잡으면 **아무리 돌려도 닿지 않는 미션**이 된다.
+ */
+export const DIAL_BOUNDS = (() => {
+  let min = Infinity
+  let max = -Infinity
+  for (const e of [0.005, 0.06]) {
+    for (const o of [22.1, 24.5]) {
+      const q = summerInsolation({ eccentricity: e, obliquity: o, precession: PRESENT.precession })
+      if (q < min) min = q
+      if (q > max) max = q
+    }
+  }
+  return { min, max }
+})()
+
+/** 난이도 균형: 현재 지구에서 도달 가능한 한계까지 거리의 55% 지점을 목표로 둔다 */
 const REACH = 0.55
-const COLD_TARGET = PRESENT_SUMMER - REACH * (PRESENT_SUMMER - SUMMER_BOUNDS.min)
-const WARM_TARGET = PRESENT_SUMMER + REACH * (SUMMER_BOUNDS.max - PRESENT_SUMMER)
+const COLD_TARGET = PRESENT_SUMMER - REACH * (PRESENT_SUMMER - DIAL_BOUNDS.min)
+const WARM_TARGET = PRESENT_SUMMER + REACH * (DIAL_BOUNDS.max - PRESENT_SUMMER)
 
 export type Mission = {
   id: MissionId

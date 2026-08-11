@@ -1,17 +1,17 @@
 /** S1 마무리 — 3라운드 총점과 "그럼 2주 뒤는?" 질문으로 S2로 넘긴다. */
-import { kmaSeasonSummary, verdictOfTotal, type RoundScore } from '../../lib/forecast'
+import { kmaSeasonSummary, verdictOfTotal, type RoundKind, type RoundScore } from '../../lib/forecast'
 import { S1_MAX } from '../../state/journey'
 
-const ROUND_TITLE: Record<number, string> = {
-  1: '조용한 날',
-  2: '기압이 움직인 날',
-  3: '대기가 어제를 배신한 날',
+/** 세 라운드는 같은 날을 본다 — 다른 것은 '무엇을, 며칠 앞을' 물었는가다 */
+const ROUND_TITLE: Record<RoundKind, string> = {
+  tmax: '내일 기온',
+  precip: '내일 강수',
+  tmax3: '3일 뒤 기온',
 }
 
 export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: () => void }) {
   const earned = rounds.reduce((s, r) => s + r.earned, 0)
   const verdict = verdictOfTotal(earned, S1_MAX)
-  const worstError = Math.max(0, ...rounds.map((r) => r.tmaxError))
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 rise">
@@ -30,30 +30,34 @@ export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: ()
           </span>
         </div>
 
-        {/* 라운드별 최고기온 오차 — 리드타임이 아니라 '날의 성격'이 난이도를 정했다 */}
+        {/* 라운드별 득점. 막대는 배점 대비 획득률이다 — 라운드마다 만점이 다르므로
+            점수만 나란히 놓으면 20점짜리 보너스가 초라해 보인다. */}
         <div className="flex flex-col gap-2 border-t border-white/8 pt-3">
           {rounds.map((r) => (
-            <div key={r.round} className="grid grid-cols-[9.5rem_1fr_5.2rem] items-center gap-3">
+            <div key={r.round} className="grid grid-cols-[8rem_1fr_6.5rem] items-center gap-3">
               <span className="text-[11.5px] whitespace-nowrap text-ink-3">
-                R{r.round} · {ROUND_TITLE[r.round]}
+                R{r.round} · {ROUND_TITLE[r.kind]}
               </span>
               <div className="h-2 overflow-hidden rounded-full bg-white/8">
                 <div
                   className="h-full rounded-full transition-[width] duration-700"
                   style={{
-                    width: `${Math.min(100, (r.tmaxError / Math.max(2, worstError)) * 100)}%`,
+                    width: `${Math.min(100, (r.earned / r.max) * 100)}%`,
                     background: 'var(--color-act-1)',
                   }}
                 />
               </div>
               <span className="tnum text-right text-[11.5px] text-ink-2">
-                오차 {r.tmaxError.toFixed(1)}℃
+                {r.earned}/{r.max}점
+                {r.kind !== 'precip' && <span className="text-ink-3"> · {r.tmaxError.toFixed(1)}℃</span>}
               </span>
             </div>
           ))}
         </div>
         <p className="text-[11.5px] leading-relaxed text-ink-3">
-          같은 실력으로도 어떤 날은 맞고 어떤 날은 어긋납니다. 어긋난 날은 당신의 실수가 아니라 대기의 성질이었어요.
+          {/* 이 콘텐츠 전체의 논지를 여기서 한 번 심는다 — S8 의 U자 곡선이 이 문장을 회수한다 */}
+          같은 날, 같은 방법으로 찍었는데 하루 뒤와 사흘 뒤의 성적이 다릅니다. 리드타임이 길어질수록 어려워지는
+          것 — 그게 이 여정의 주제예요.
         </p>
       </div>
 
@@ -91,10 +95,8 @@ function KmaScoreboard({ rounds }: { rounds: RoundScore[] }) {
   return (
     <div className="panel flex flex-col gap-3 p-5">
       <div className="flex items-baseline justify-between">
-        <span className="text-[12.5px] text-ink-2">당신 vs 기상청 · 최고기온 평균 오차</span>
-        <span className="text-[11px] text-ink-3">
-          비교 가능한 {s.rounds}개 라운드{s.rounds < rounds.length && ' (예보 자료가 있는 날만)'}
-        </span>
+        <span className="text-[12.5px] text-ink-2">당신 vs 기상청 · 내일 최고기온</span>
+        <span className="text-[11px] text-ink-3">그날 발표된 단기예보와 비교</span>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -102,11 +104,19 @@ function KmaScoreboard({ rounds }: { rounds: RoundScore[] }) {
         <MaeBar label="기상청" value={s.kmaMae} scale={scale} color="var(--color-act-2)" />
       </div>
 
+      {s.precip && (
+        <div className="flex items-baseline gap-3 border-t border-white/8 pt-2.5 text-[11.5px]">
+          <span className="text-ink-3">강수 등급</span>
+          <span className="text-ink-2">당신 {s.precip.userHit ? '적중' : '빗나감'}</span>
+          <span className="text-ink-2">기상청 {s.precip.kmaHit ? '적중' : '빗나감'}</span>
+        </div>
+      )}
+
       <p className="border-t border-white/8 pt-3 text-[12px] leading-relaxed text-ink-2">
         {s.wins > 0 ? (
           <>
             <span className="font-semibold" style={{ color: 'var(--color-good)' }}>
-              {s.wins}개 라운드에서 기상청을 이기셨습니다.
+              기온에서 기상청을 이기셨습니다.
             </span>{' '}
           </>
         ) : null}
@@ -124,8 +134,8 @@ function KmaScoreboard({ rounds }: { rounds: RoundScore[] }) {
         {s.kmaMissedRounds > 0 && (
           <>
             {' '}
-            그런데 <span className="text-ink-1">기상청도 {s.kmaMissedRounds}개 라운드에서 어긋났습니다.</span> 이 격차는
-            실력의 문제가 아니라 대기의 성질이고, 며칠만 더 밀면 양쪽 다 무너져요.
+            그런데 <span className="text-ink-1">기상청도 이날 어긋났습니다.</span> 이 격차는 실력의 문제가 아니라
+            대기의 성질이고, 며칠만 더 밀면 양쪽 다 무너져요.
           </>
         )}
       </p>

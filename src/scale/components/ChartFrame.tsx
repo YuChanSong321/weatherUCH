@@ -38,7 +38,19 @@ export function ChartFrame({
   overlay?: ReactNode
 }) {
   return (
-    <svg width={width} height={height} className="block" role="img">
+    /*
+     * viewBox + max-w-full — 차트는 데스크톱 기준 고정 좌표계로 그려지지만, 좁은
+     * 화면에서는 통째로 축소돼야 한다 (기획안 §4 반응형). width/height 만 쓰면
+     * 모바일에서 가로로 잘려 나간다.
+     */
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      width={width}
+      height={height}
+      className="block h-auto max-w-full"
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+    >
       {/* 가로 격자 */}
       {yTicks.map((t) => (
         <g key={`gy-${t}`}>

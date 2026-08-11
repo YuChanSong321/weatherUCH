@@ -512,12 +512,16 @@ def main() -> None:
             # 화면이 거짓말을 한다 — 출처 필드도 그에 맞춰 갈린다.
             **(prov_meta("기후변화 시나리오 · 경상권 연평균기온", ssp_source)
                if ssp_source != "APPROX_CURVE" else {
+                   # SSP 는 미래 전망이라 '실측'이라는 것이 애초에 존재하지 않는다.
+                   # 있어야 할 것은 기상청 기후정보포털이 공표한 시나리오 값이고,
+                   # 그게 없어서 같은 형태로 근사한 상태다. '합성 데이터'와는 성격이
+                   # 다르므로 화면에도 '근사 곡선'으로 따로 표시된다.
                    "source": "APPROX_CURVE",
-                   "_source": "approximation (not observed)",
-                   "_provider": "합성 근사 곡선 (scripts/common.py)",
-                   "_dataset": "실측 아님 — 기후변화정보포털 CSV 로 교체 필요",
+                   "_source": "approximation (not a published scenario)",
+                   "_provider": "근사 곡선 (scripts/common.py)",
+                   "_dataset": "SSP1-2.6 / 2-4.5 / 5-8.5 경상권 기온 전망 근사 — 기상청 기후정보포털 공표값으로 교체 필요",
                    "_fetched_at": datetime.now().astimezone().isoformat(timespec="seconds"),
-                   "_license": "실측 아님",
+                   "_license": "공표 시나리오 아님",
                }),
             "region": "경상권",
             "baseline": {"period": "1995-2014", "tavg": baseline},

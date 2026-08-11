@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 import math
 import os
 import re
@@ -317,12 +318,29 @@ def advisory_for(record: dict) -> dict | None:
 # ─────────────────────────────────────────────── 벚꽃 개화일
 
 def blossom_payload(records: list[dict], source: str) -> dict:
-    """busan_blossom.json 의 겉껍데기. 더미/실데이터가 같은 모양을 쓴다."""
+    """busan_blossom.json 의 겉껍데기. 더미/실데이터가 같은 모양을 쓴다.
+
+    실데이터일 때는 앱의 출처 표기 화면(Attribution.tsx)이 읽는 `_provider` 등을
+    반드시 채운다 — 비워두면 화면에 '확인 필요'로 뜬다. 대회 규정상 데이터
+    원출처 표기가 필수다.
+    """
+    real = source != "SYNTHETIC_DUMMY"
+    credit = (
+        {
+            "_provider": "기상청",
+            "_dataset": "계절관측(생물계절) · 왕벚나무 개화",
+            "_fetched_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "_license": "공공누리 유형 확인 필요",
+        }
+        if real
+        else {}
+    )
     return {
         "meta": {
             "schemaVersion": SCHEMA_VERSION,
             "source": source,
-            "_source": "dummy" if source == "SYNTHETIC_DUMMY" else "kma",
+            "_source": "dummy" if source == "SYNTHETIC_DUMMY" else "KMA API Hub",
+            **credit,
             "station": STATION,
             "species": "왕벚나무",
             "phenomenon": "개화",

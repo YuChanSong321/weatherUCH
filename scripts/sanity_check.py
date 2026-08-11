@@ -269,19 +269,28 @@ def check_ssp() -> None:
 
 def check_provenance() -> None:
     print("\n[출처 메타]")
-    synthetic = []
+    synthetic, approx = [], []
     for name in sorted(p.name for p in DATA_DIR.glob("*.json")):
         meta = json.loads((DATA_DIR / name).read_text(encoding="utf-8"))["meta"]
         src = meta.get("source", "?")
         if src == "SYNTHETIC_DUMMY":
             synthetic.append(name)
             continue
+        if src == "APPROX_CURVE":
+            # 근사 곡선은 '수집일·이용조건'을 요구하지 않는다 — 받아온 자료가 아니라
+            # 만든 곡선이다. 대신 무엇의 근사인지(_dataset)는 반드시 적혀 있어야 한다.
+            approx.append(name)
+            if not meta.get("_dataset"):
+                warn(f"{name} — meta._dataset 이 비어 있다. 무엇의 근사인지 적어야 한다")
+            continue
         for field in ("_provider", "_dataset", "_fetched_at", "_license"):
             if not meta.get(field):
                 warn(f"{name} — meta.{field} 가 비어 있다. 앱 출처 표기에 '확인 필요'로 뜬다")
     if synthetic:
         warn(f"합성 데이터 {len(synthetic)}종: {', '.join(synthetic)} — 실측 교체 전까지 앱에 '합성' 배지가 뜬다")
-    else:
+    if approx:
+        print(f"  주의 근사 곡선 {len(approx)}종: {', '.join(approx)} — 앱에 '근사' 배지가 뜬다")
+    if not synthetic and not approx:
         print("  OK   전 파일 실측 + 출처 메타 완비")
 
 

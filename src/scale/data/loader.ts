@@ -48,6 +48,18 @@ const blossomFile = blossomJson as unknown as BlossomFile
 
 export const CITY = dailyFile.meta.station?.name ?? '부산'
 
+/**
+ * 번들 실측이 서 있는 관측소 좌표.
+ *
+ * S0 에서 사용자가 찍은 지점이 여기서 가까우면 외부 API 대신 이 번들을 쓴다.
+ * 좌표를 코드에 적지 않고 meta 에서 읽는다 — 관측소가 바뀌면 판정도 따라가야 한다.
+ * (기상청 부산 ASOS 지점번호 159)
+ */
+export const stationCoord = {
+  lat: dailyFile.meta.station?.lat ?? 35.1047,
+  lon: dailyFile.meta.station?.lon ?? 129.032,
+}
+
 /** 일별 관측 (S1 출제 풀, S2 압축 애니메이션) */
 export const daily: DailyRecord[] = dailyFile.records
 export const dailyMonthlyMeans: MonthlyMean[] = dailyFile.monthlySeries
@@ -90,15 +102,29 @@ export const dataSources = {
   blossom: blossomFile.meta.source,
 }
 /**
- * '실측이 아닌' 출처 태그. 화면은 이 중 하나라도 있으면 "합성" 배지를 띄운다.
+ * 자료의 성격. '실측이 아니다'를 한 덩어리로 묶으면 안 된다 — 성격이 다르고,
+ * 사용자에게 해야 할 말도 다르기 때문이다.
  *
- * SYNTHETIC_DUMMY 만 보면 구멍이 생긴다 — SSP 는 CSV 가 없을 때 근사 곡선으로
- * 폴백하면서 APPROX_CURVE 를 남기는데, 그걸 놓치면 근사값이 실측인 척하게 된다.
+ *  observed   실제로 관측된 값. 기상청 ASOS·계절관측·과거예보, 또는 수동 반입 파일.
+ *  approx     우리가 만든 근사 곡선. SSP 시나리오가 여기다 — **미래 전망이라
+ *             '실측'이라는 것이 애초에 존재할 수 없다.** 있어야 할 것은 기상청
+ *             기후정보포털이 공표한 시나리오 값이고, 그게 없어서 근사한 상태다.
+ *             "아직 실측이 아님"이라고 쓰면 틀린 말이 된다.
+ *  synthetic  스키마 검증용으로 지어낸 더미. 대응하는 실측이 존재하며 교체 대상이다.
  */
-const NOT_OBSERVED = new Set(['SYNTHETIC_DUMMY', 'APPROX_CURVE'])
-const isSynthetic = (source: string) => NOT_OBSERVED.has(source)
+export type DataKind = 'observed' | 'approx' | 'synthetic'
 
-export const isDummyData = Object.values(dataSources).some(isSynthetic)
+export const kindOf = (source: string): DataKind =>
+  source === 'APPROX_CURVE' ? 'approx' : source === 'SYNTHETIC_DUMMY' ? 'synthetic' : 'observed'
+
+const kinds = Object.values(dataSources).map(kindOf)
+
+/** 관측이 아닌 자료가 하나라도 있는가 (근사 포함) */
+export const hasNonObserved = kinds.some((k) => k !== 'observed')
+/** 지어낸 더미가 남아 있는가 — 이게 참이면 교체해야 할 자료가 있다는 뜻이다 */
+export const hasSynthetic = kinds.some((k) => k === 'synthetic')
+/** 근사 곡선이 섞여 있는가 */
+export const hasApprox = kinds.some((k) => k === 'approx')
 
 /**
  * 화면에 띄우는 출처 표기 — 대회 규정이 데이터 원출처 표기를 필수로 둔다.
@@ -114,7 +140,13 @@ export type DatasetCredit = {
   dataset: string
   fetchedAt: string | null
   license: string
-  synthetic: boolean
+  kind: DataKind
+}
+
+/** 이용 조건 칸에 무엇을 적을지 — 성격마다 다른 말을 해야 한다 */
+const LICENSE_BY_KIND: Record<Exclude<DataKind, 'observed'>, string> = {
+  approx: '근사 곡선',
+  synthetic: '합성 데이터',
 }
 
 const creditOf = (
@@ -123,15 +155,20 @@ const creditOf = (
   meta: DataMeta,
   fallbackDataset: string,
 ): DatasetCredit => {
-  const synthetic = isSynthetic(String(meta.source))
+  const kind = kindOf(String(meta.source))
   return {
     file,
     label,
-    provider: synthetic ? '합성 생성기 (scripts/make_dummy_data.py)' : String(meta._provider ?? '기상청'),
-    dataset: synthetic ? '' : String(meta._dataset ?? fallbackDataset),
+    // 지어낸 더미만 생성기를 밝힌다. 근사 곡선은 자기 출처(_provider)를 그대로 쓴다 —
+    // SSP 를 make_dummy_data.py 가 만든 것처럼 적어두면 그것도 잘못된 표기다.
+    provider:
+      kind === 'synthetic'
+        ? '합성 생성기 (scripts/make_dummy_data.py)'
+        : String(meta._provider ?? '기상청'),
+    dataset: kind === 'synthetic' ? '' : String(meta._dataset ?? fallbackDataset),
     fetchedAt: typeof meta._fetched_at === 'string' ? meta._fetched_at.slice(0, 10) : null,
-    license: String(meta._license ?? '공공누리 유형 확인 필요'),
-    synthetic,
+    license: kind === 'observed' ? String(meta._license ?? '공공누리 유형 확인 필요') : LICENSE_BY_KIND[kind],
+    kind,
   }
 }
 
@@ -150,8 +187,10 @@ export const datasetCredits: DatasetCredit[] = [
  * 화면 문구를 손으로 적어두면 파일이 실측으로 바뀐 뒤에도 "전부 합성입니다" 같은
  * 낡은 경고가 남는다 — 그것도 허위 표기다. 문구에 들어갈 목록까지 meta 에서 만든다.
  */
-export const syntheticLabels: string[] = datasetCredits.filter((d) => d.synthetic).map((d) => d.label)
-export const isAllSynthetic = syntheticLabels.length === datasetCredits.length
+export const nonObservedLabels: string[] = datasetCredits
+  .filter((d) => d.kind !== 'observed')
+  .map((d) => d.label)
+export const isAllNonObserved = nonObservedLabels.length === datasetCredits.length
 
 const byDate = new Map(daily.map((r) => [r.date, r]))
 export const getDay = (date: string): DailyRecord | undefined => byDate.get(date)

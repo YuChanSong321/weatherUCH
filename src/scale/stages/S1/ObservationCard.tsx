@@ -1,6 +1,8 @@
 /** S1 좌측 — "오늘까지의 관측". 사용자가 예측의 근거로 삼을 유일한 정보. */
 import { Sparkline } from '../../components/Sparkline'
+import { CITY } from '../../data/loader'
 import { dtrOf, skyOf, type ForecastCase } from '../../lib/forecast'
+import { usePlace } from '../../state/place'
 import type { DailyRecord } from '../../types'
 
 const fmtDate = (iso: string) => {
@@ -21,12 +23,13 @@ const trendColor = (delta: number, invert = false) => {
 
 export function ObservationCard({ forecastCase }: { forecastCase: ForecastCase }) {
   const { history, today, features } = forecastCase
+  const { place } = usePlace()
 
   return (
     <section className="panel flex flex-col gap-3.5 p-4">
       <div className="flex items-baseline justify-between">
         <h2 className="text-[15px] font-semibold tracking-tight">오늘까지의 관측</h2>
-        <span className="text-[11px] text-ink-3">부산 · {fmtDate(today.date)}</span>
+        <span className="text-[11px] text-ink-3">{place?.label ?? CITY} · {fmtDate(today.date)}</span>
       </div>
 
       {/* 3일 관측 표 */}
