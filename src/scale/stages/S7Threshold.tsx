@@ -10,6 +10,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useGlobe } from '../components/GlobeLayer'
+import { StageBrief } from '../components/StageBrief'
 import { THRESHOLDS } from '../lib/earthState'
 import { surfaceFromThresholds } from '../lib/surfaceState'
 import { diagnose, overallSeverity, SEVERITY_COLOR } from '../lib/thresholdEngine'
@@ -156,6 +157,21 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
         </div>
       </div>
 
+      <div className="pointer-events-auto">
+        <StageBrief
+          tone="var(--color-act-3)"
+          overGlobe
+          doing="위기 상태로 시작합니다. 세 다이얼을 안전 구간으로 되돌리되, 위험 쪽으로 넘겨보는 것도 실험이에요."
+          learning={
+            <>
+              <span className="text-ink-1">임계점(Tipping point)</span> — 어떤 값은 조금씩 변하다가 어느 선을 넘는 순간
+              시스템이 다른 상태로 통째로 넘어가고, 그 뒤로는 원인을 되돌려도 결과가 돌아오지 않는다.
+            </>
+          }
+          using="빙상 붕괴·해양 순환·아마존 열대우림처럼 되돌릴 수 없는 지점을 미리 계산해 두는 일 — 1.5℃·2℃ 같은 목표선이 그래서 존재합니다."
+        />
+      </div>
+
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto lg:grid-cols-[332px_minmax(0,1fr)_356px] lg:overflow-visible">
         {/* 조종석 */}
         <section className="panel pointer-events-auto flex flex-col gap-3.5 overflow-y-auto p-4 backdrop-blur-md">
@@ -164,6 +180,7 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
           <Dial
             label="지자기 세기"
             note={`${THRESHOLDS.magneticCollapse}% 이하에서 차폐 상실`}
+            concept="지구 바깥핵의 액체 철이 흐르며 만드는 자기장입니다. 태양풍과 우주선을 휘어 보내 대기와 오존층을 지켜요. 나침반이 북쪽을 가리키는 이유이기도 합니다."
             value={magneticField}
             min={0}
             max={100}
@@ -181,6 +198,7 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
           <Dial
             label="궤도 이심률"
             note={`${THRESHOLDS.eccentricityExtreme} 이상에서 궤도 극단화`}
+            concept="공전 궤도가 원에서 얼마나 찌그러졌는지. 0이면 완전한 원이라 1년 내내 태양과의 거리가 같고, 커질수록 근일점과 원일점의 차이가 벌어집니다."
             value={orbit.eccentricity}
             min={0.005}
             max={0.06}
@@ -198,6 +216,7 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
           <Dial
             label="자전축 기울기"
             note="22.5°–24.0° 가 온화한 구간"
+            concept="자전축이 공전면에 대해 기울어진 각도. 계절이 생기는 이유이고, 클수록 여름과 겨울의 차이가 커집니다. 0°면 계절이 사라져요."
             value={orbit.obliquity}
             min={22.1}
             max={24.5}
@@ -259,6 +278,33 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
             <p className="text-[10px] leading-snug text-ink-3">
               규칙 기반 진단입니다 — 널리 알려진 인과관계를 교육용으로 정리한 것이며, 지구시스템 모델의 계산 결과가
               아닙니다.
+            </p>
+          </div>
+
+          {/*
+            이 화면이 다음 화면으로 넘어가는 논리적 다리.
+            여기까지 사용자는 '사람이 만질 수 없는 다이얼' 세 개를 만져봤다. 그 경험이
+            의미를 갖는 건, 사람이 실제로 잡고 있는 다이얼이 딱 하나 있다는 사실과
+            맞붙었을 때다. 이 문단이 없으면 이 단계는 그냥 재미있는 미니게임으로 끝난다.
+          */}
+          <div
+            className="panel flex flex-col gap-1.5 p-3.5 backdrop-blur-md"
+            style={{ borderColor: 'color-mix(in oklab, var(--color-act-3) 40%, transparent)' }}
+          >
+            <h3 className="text-[12.5px] font-semibold">임계점이란 무엇인가</h3>
+            <p className="text-[11px] leading-relaxed text-ink-2">
+              다이얼을 조금씩 움직이는 동안에는 아무 일도 일어나지 않다가, 어느 선을 넘는 순간 화면 전체가 바뀌는 걸
+              보셨을 거예요. 그게 <span className="text-ink-1">임계점</span>입니다. 변화가 비례해서 오지 않고,{' '}
+              <span className="text-ink-1">넘기 전까지는 조용합니다.</span>
+            </p>
+            <p className="text-[11px] leading-relaxed text-ink-3">
+              그리고 실제 임계점은 이 시뮬레이터와 달리 <span className="text-ink-2">한 방향으로만 열립니다</span> —
+              빙상이 무너진 뒤 기온을 되돌려도 빙상은 돌아오지 않아요. 되돌리는 다이얼이 아예 없는 겁니다.
+            </p>
+            <p className="border-t border-white/8 pt-1.5 text-[11px] leading-relaxed text-ink-3">
+              방금 만진 세 다이얼은 <span className="text-ink-2">사람이 만질 수 없는 것</span>들입니다. 자기장도 궤도도
+              우리 소관이 아니에요. 그런데 사람이 실제로 손에 쥔 다이얼이 딱 하나 있습니다 —{' '}
+              <span className="text-ink-1">대기 중 이산화탄소</span>. 다음 화면이 그 하나를 놓고 벌어지는 이야기입니다.
             </p>
           </div>
         </div>
@@ -323,6 +369,7 @@ function Timer({
 function Dial({
   label,
   note,
+  concept,
   value,
   min,
   max,
@@ -336,6 +383,8 @@ function Dial({
 }: {
   label: string
   note: string
+  /** 이 값이 대체 무엇인지 — 조작만으로는 알 수 없는 것 */
+  concept: string
   value: number
   min: number
   max: number
@@ -382,6 +431,7 @@ function Dial({
           aria-label={label}
         />
       </div>
+      <p className="mt-0.5 text-[10.5px] leading-relaxed text-ink-3">{concept}</p>
     </div>
   )
 }

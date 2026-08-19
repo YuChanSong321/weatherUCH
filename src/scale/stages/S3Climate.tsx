@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BlossomLayer, doyLabel } from '../components/BlossomLayer'
 import { useGlobe } from '../components/GlobeLayer'
+import { StageIntro, StageIntroBar, type IntroStep } from '../components/StageIntro'
 import { YearlyChart } from '../components/YearlyChart'
 import { blossom, blossomSpecies } from '../data/loader'
 import { clamp } from '../lib/scales'
@@ -26,6 +27,41 @@ const H = 380
 
 /** 이만큼 쌓여야 추세선이 자란다 — 점 몇 개로 그은 직선은 추세가 아니다 */
 const TREND_MIN = 12
+
+/**
+ * 본 화면에 앞서 한 마디씩 거치는 도입 (→ [components/StageIntro]).
+ * 세 마디의 순서는 고정이다: 손이 할 일 → 그게 가르치는 개념 → 그 개념이 쓰이는 곳.
+ */
+const INTRO: IntroStep[] = [
+  {
+    label: '지금 할 일',
+    body: (
+      <>
+        아래 띠를 왼쪽에서 오른쪽으로 <span className="text-act-2">문질러</span> 40년치 연평균을 직접 쌓아보세요.
+        절반쯤에서 한 번 멈추고, 나머지 20년이 어디로 갈지 먼저 찍습니다.
+      </>
+    ),
+  },
+  {
+    label: '여기서 배우는 개념',
+    body: (
+      <>
+        <span className="text-act-2">추세와 잡음의 분리</span> — 한 해의 오르내림(잡음)과 여러 해에 걸친 방향(신호)은
+        다른 것이고, 신호는 점을 충분히 모아야만 드러납니다.
+      </>
+    ),
+    chip: '추세와 잡음의 분리 — 점을 충분히 모아야 방향이 드러난다',
+  },
+  {
+    label: '이 개념이 쓰이는 곳',
+    body: (
+      <>
+        기후변화 감시, 해수면·빙하 관측. 그리고 통계가 쓰이는 거의 모든 곳 —{' '}
+        <span className="text-act-2">주가·감염병 곡선·시험 성적</span>도 같은 방법으로 읽습니다.
+      </>
+    ),
+  },
+]
 /** 스크러버가 예측을 받기 위해 멈추는 지점 (전체의 비율) */
 const GATE = 0.5
 /** 레이어가 걷히는 시간 — S4로 넘어가기 전에 이만큼 기다린다 */
@@ -37,6 +73,8 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
   const { trendGuess, setTrendGuess } = useJourney()
   const series = climate.yearly
 
+  /** 도입 세 마디를 지났는가 — 지나기 전에는 그래프를 아예 띄우지 않는다 */
+  const [introDone, setIntroDone] = useState(false)
   /** 스크러버 위치 = 지금까지 드러난 연도 수 */
   const [revealed, setRevealed] = useState(0)
   const [blossomVisible, setBlossomVisible] = useState(false)
@@ -128,6 +166,18 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
   const headYear = revealed > 0 ? series[Math.min(series.length, revealed) - 1].year : null
   const complete = revealed >= series.length
 
+  // 훅은 모두 위에서 부른 뒤에 갈라진다 (조건부 훅 금지)
+  if (!introDone) {
+    return (
+      <StageIntro
+        eyebrow="2단계 · 수십 년"
+        steps={INTRO}
+        tone="var(--color-act-2)"
+        onDone={() => setIntroDone(true)}
+      />
+    )
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
       <div className="flex items-end justify-between">
@@ -170,6 +220,12 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
           )}
         </div>
       </div>
+
+      <StageIntroBar
+        chip={INTRO[1].chip!}
+        tone="var(--color-act-2)"
+        onReplay={() => setIntroDone(false)}
+      />
 
       <div className="panel p-4">
         <YearlyChart
@@ -313,6 +369,8 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
         )}
       </div>
 
+      {trendVisible && <TrendReader series={series} trend={trend} guess={trendGuess} />}
+
       <div className="flex items-start justify-between gap-6">
         <p className="max-w-3xl text-[13.5px] leading-relaxed text-ink-2">
           {blossomVisible && blossomShift ? (
@@ -367,6 +425,139 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
           </button>
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * 추세선 읽는 법.
+ *
+ * 심사 피드백: "추세선 표현하는 쪽에 좀 더 디테일한 설명이 들어가면 좋겠다."
+ * 그전까지 이 화면은 주황색 직선 하나와 "+0.31℃" 라는 숫자만 던져놓고 있었다.
+ * 그 선이 **어떻게 그어졌고, 무엇을 주장하고, 무엇을 주장하지 않는지**가 없으면
+ * 추세선은 그냥 예쁜 장식이다. 네 칸으로 나눠 적는다.
+ *   ① 어떻게 그었나 (최소제곱)  ② 어떻게 읽나 (기울기의 단위)
+ *   ③ 얼마나 믿나 (잔차의 폭)   ④ 무엇이 아닌가 (예측이 아니다)
+ */
+function TrendReader({
+  series,
+  trend,
+  guess,
+}: {
+  series: Array<{ year: number; tavg: number }>
+  trend: { slope: number; intercept: number; perDecade: number }
+  guess: { perDecade: number; actualPerDecade: number } | null
+}) {
+  const firstYear = series[0].year
+  const lastYear = series[series.length - 1].year
+  const span = lastYear - firstYear
+  const totalRise = trend.slope * span
+
+  /** 잔차 — 점이 선에서 벗어난 정도. 이 폭이 "한 해로는 알 수 없다"의 크기다. */
+  const resid = series.map((r) => r.tavg - (trend.slope * r.year + trend.intercept))
+  const sigma = Math.sqrt(resid.reduce((s, v) => s + v * v, 0) / Math.max(1, resid.length - 1))
+  /** 선에서 가장 멀리 떨어진 해 — "그런데도 이만큼 튄 해가 있다" */
+  const worst = series.reduce(
+    (acc, r, i) => (Math.abs(resid[i]) > Math.abs(acc.d) ? { year: r.year, d: resid[i] } : acc),
+    { year: firstYear, d: 0 },
+  )
+
+  const gap = guess ? guess.perDecade - trend.perDecade : null
+
+  return (
+    <div className="panel flex flex-col gap-2 p-4">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="text-[13px] font-semibold">주황색 선 하나는 무엇을 말하고 있나</h2>
+        <span className="text-[10.5px] text-ink-3">
+          최소제곱 직선 · {firstYear}–{lastYear} · 점 {series.length}개
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 gap-x-5 gap-y-2 md:grid-cols-2">
+        <Note title="① 어떻게 그은 선인가">
+          점 {series.length}개에서 선까지의 <span className="text-ink-2">세로 거리를 제곱해 모두 더한 값이 가장 작아지는</span>{' '}
+          직선을 컴퓨터가 하나 고른 것입니다(최소제곱법). 사람이 눈대중으로 그린 선이 아니라, 이 점들에 대해 유일하게
+          정해지는 답이에요. 점을 이어 그리지 않는 이유는 이어 그리면 잡음까지 따라 그리기 때문입니다 — 직선은 잡음을
+          버리고 방향만 남깁니다.
+        </Note>
+
+        <Note title="② 기울기 읽는 법">
+          <span className="tnum text-ink-1">
+            {trend.perDecade > 0 ? '+' : ''}
+            {trend.perDecade.toFixed(2)}℃/10년
+          </span>{' '}
+          은 “10년이 지날 때마다 연평균기온이 평균 {Math.abs(trend.perDecade).toFixed(2)}℃씩{' '}
+          {trend.perDecade > 0 ? '올라간다' : '내려간다'}”는 뜻입니다. {firstYear}년부터 {lastYear}년까지로 환산하면{' '}
+          <span className="tnum text-ink-1">
+            {totalRise > 0 ? '+' : ''}
+            {totalRise.toFixed(2)}℃
+          </span>{' '}
+          — 여름 낮 기온이 아니라 <span className="text-ink-2">한 해 365일을 모두 평균한 값</span>이 이만큼 움직였다는
+          것이라, 체감보다 훨씬 큰 변화입니다.
+        </Note>
+
+        <Note title="③ 점들은 선 위에 있지 않습니다">
+          점들은 선에서 평균 <span className="tnum text-ink-1">±{sigma.toFixed(2)}℃</span> 만큼 벗어나 있어요. 실제로{' '}
+          <span className="tnum text-ink-2">{worst.year}년</span>은 선보다 {Math.abs(worst.d).toFixed(2)}℃{' '}
+          {worst.d > 0 ? '높았고' : '낮았고'}, 그건 그해 날씨가 그랬을 뿐입니다. 그래서{' '}
+          <span className="text-ink-2">추운 한 해가 있었다는 사실은 추세를 반박하지 못합니다</span> — 반박하려면 선의
+          기울기를 다시 계산해서 뒤집어야 해요.
+        </Note>
+
+        <Note title="④ 추세선은 예측이 아닙니다">
+          이 선은 {firstYear}–{lastYear}년 구간을 <span className="text-ink-2">요약</span>한 것이지 미래를 계산한 것이
+          아닙니다. 그대로 늘여 2100년을 말할 수는 있지만, 그건 “지금 속도가 계속 유지된다면”이라는 가정을 하나
+          붙이는 일이에요. 그 가정을 실제 물리로 대체하는 것이 다음 단계에서 볼{' '}
+          <span className="text-ink-2">기후 시나리오</span>입니다.
+        </Note>
+      </div>
+
+      {gap !== null && guess && (
+        <p className="border-t border-white/8 pt-2 text-[11.5px] leading-relaxed text-ink-2">
+          절반 지점에서 <span className="tnum" style={{ color: 'var(--color-act-3)' }}>
+            {guess.perDecade > 0 ? '+' : ''}
+            {guess.perDecade.toFixed(2)}℃/10년
+          </span>{' '}
+          으로 찍으셨고, 40년 전체의 실제 기울기는{' '}
+          <span className="tnum" style={{ color: 'var(--color-act-2)' }}>
+            {trend.perDecade > 0 ? '+' : ''}
+            {trend.perDecade.toFixed(2)}℃/10년
+          </span>{' '}
+          입니다 — 차이 <span className="tnum text-ink-1">{Math.abs(gap).toFixed(2)}℃</span>.{' '}
+          {Math.abs(gap) <= 0.08 ? (
+            <>
+              거의 정확합니다. <span className="text-ink-1">절반의 점만 보고도 방향을 읽어내셨어요</span> — 하루 뒤
+              기온은 그렇게 맞히지 못했는데 말이죠.
+            </>
+          ) : Math.abs(gap) <= 0.2 ? (
+            <>
+              방향과 크기를 대체로 맞히셨습니다. <span className="text-ink-1">개별 해는 못 맞혀도 기울기는 보인다</span>는
+              것이 이 단계의 요점이에요.
+            </>
+          ) : gap > 0 ? (
+            <>
+              실제보다 <span className="text-ink-1">가파르게</span> 보셨습니다. 최근 몇 해의 더운 기억이 기울기를 끌어
+              올리는 건 흔한 일이에요 — 그래서 눈대중이 아니라 계산으로 긋습니다.
+            </>
+          ) : (
+            <>
+              실제보다 <span className="text-ink-1">완만하게</span> 보셨습니다. 소수점 아래 숫자라 작아 보이지만, {span}
+              년을 곱하면 {totalRise.toFixed(2)}℃가 됩니다.
+            </>
+          )}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function Note({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-[11px] font-semibold" style={{ color: 'var(--color-act-2)' }}>
+        {title}
+      </div>
+      <p className="mt-0.5 text-[11.5px] leading-relaxed text-ink-3">{children}</p>
     </div>
   )
 }

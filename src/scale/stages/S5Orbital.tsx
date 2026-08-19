@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChartFrame } from '../components/ChartFrame'
 import { GlobeViewToggle } from '../components/GlobeViewToggle'
 import { useGlobe } from '../components/GlobeLayer'
+import { StageBrief } from '../components/StageBrief'
 import {
   NATURAL_HORIZON_YEARS,
   naturalCurve,
@@ -87,27 +88,68 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
     if (real) setSurface(surfaceFromAnomaly(endDelta))
   }, [real, endDelta, setSurface, setSurfaceAuto])
   const warmth = orbitalWarmth(orbit)
-  const summer = summerInsolation(orbit)
 
   return (
     /* 컨테이너는 pointer-events-none — 패널이 없는 자리를 끌면 그대로 궤도가 돈다 */
     <div className="pointer-events-none relative flex min-h-[460px] lg:h-[calc(100vh-12.5rem)] w-full flex-col gap-2">
-      <div className="pointer-events-auto">
-        <div className="text-[11px] font-medium tracking-[0.14em] text-act-3">3단계 · 수만 년</div>
-        <h1 className="mt-0.5 text-[20px] leading-tight font-semibold tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-          지구의 기후는 원래 만 년 단위로 움직입니다
-        </h1>
+      <div className="pointer-events-auto flex flex-col gap-1.5">
+        <div>
+          <div className="text-[11px] font-medium tracking-[0.14em] text-act-3">3단계 · 수만 년</div>
+          <h1 className="mt-0.5 text-[20px] leading-tight font-semibold tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+            지구의 기후는 원래 만 년 단위로 움직입니다
+          </h1>
+        </div>
+        <StageBrief
+          tone="var(--color-act-3)"
+          overGlobe
+          doing="다이얼 두 개를 밀어 지구의 궤도를 바꾸고, 왼쪽 위 일사량 숫자가 어디로 가는지 보세요."
+          learning={
+            <>
+              <span className="text-ink-1">밀란코비치 주기</span> — 궤도의 모양과 자전축이 만 년 단위로 흔들리며 고위도
+              여름에 닿는 햇빛의 양을 바꾸고, 그것이 빙하기를 켜고 끈다.
+            </>
+          }
+          using="빙하코어·해저 퇴적물의 연대 측정, 과거 기후 복원, 그리고 '지금의 온난화가 자연 주기 때문인지'를 판별하는 기준선."
+        />
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto lg:grid-cols-[332px_minmax(0,1fr)_344px] lg:overflow-visible">
         {/* 조종석 */}
-        <section className="panel pointer-events-auto flex flex-col gap-4 overflow-y-auto p-4 backdrop-blur-md">
-          <div>
-            <div className="text-[10.5px] tracking-[0.1em] text-act-3">과제 · 점수 없음</div>
-            <h2 className="mt-0.5 text-[15px] font-semibold tracking-tight">{mission.title}</h2>
-            <p className="mt-1 text-[11.5px] leading-relaxed text-ink-2">{mission.goal}</p>
+        <section className="panel pointer-events-auto flex flex-col overflow-y-auto backdrop-blur-md">
+          {/*
+            계기판을 sticky 로 못 박아 둔다.
+            원래는 과제 → 슬라이더 → 일사량 순서였는데, 일사량이 슬라이더 아래에 있어서
+            **다이얼을 미는 동안 정작 그 결과 숫자가 화면 밖**이었다. 스크롤을 내리면
+            이번엔 슬라이더가 안 보이고. 실시간 반응이 이 화면의 전부인데 인과의 양끝을
+            동시에 볼 수 없었던 셈이다. 이제 위쪽에 붙어 따라다닌다.
+          */}
+          <div
+            className="sticky top-0 z-10 flex flex-col gap-2 border-b border-white/10 px-4 pt-4 pb-3"
+            style={{ background: 'color-mix(in oklab, var(--color-space-1) 93%, white 4%)' }}
+          >
+            <div className="flex items-baseline justify-between gap-2">
+              <div>
+                <div className="text-[10.5px] tracking-[0.1em] text-act-3">과제 · 점수 없음</div>
+                <h2 className="mt-0.5 text-[14.5px] font-semibold tracking-tight">{mission.title}</h2>
+              </div>
+              {met && (
+                <span
+                  className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                  style={{
+                    background: 'color-mix(in oklab, var(--color-good) 22%, transparent)',
+                    color: 'var(--color-good)',
+                  }}
+                >
+                  목표 달성
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] leading-relaxed text-ink-3">{mission.goal}</p>
+
+            <InsolationGauge summer={summerNow} threshold={mission.threshold} met={met} />
           </div>
 
+          <div className="flex flex-col gap-4 px-4 pt-4 pb-4">
           <Slider
             label="자전축 기울기"
             note="연교차의 진폭을 정합니다"
@@ -169,64 +211,7 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
             </div>
           )}
 
-          <div
-            className="panel-quiet px-3 py-2.5"
-            style={met ? { borderColor: 'color-mix(in oklab, var(--color-good) 55%, transparent)' } : undefined}
-          >
-            <div className="flex items-baseline justify-between">
-              <span className="text-[10.5px] text-ink-3">북위 65° 하지 일사량</span>
-              {met && (
-                <span className="text-[10px] font-semibold" style={{ color: 'var(--color-good)' }}>
-                  목표 달성
-                </span>
-              )}
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span
-                className="tnum text-[24px] leading-none font-semibold"
-                style={{ color: met ? 'var(--color-good)' : undefined }}
-              >
-                {summer.toFixed(0)}
-              </span>
-              <span className="text-[11px] text-ink-3">W/m² (현재 지구 {summerInsolation(PRESENT).toFixed(0)})</span>
-            </div>
-
-            {/* 목표 게이지 — 지금 어디에 있고 어디로 가야 하는지 */}
-            <div className="relative mt-2 h-2.5 rounded-full bg-white/8">
-              <div
-                className="absolute inset-y-0 rounded-full transition-[width] duration-150"
-                style={{
-                  width: `${Math.max(0, Math.min(100, ((summerNow - DIAL_BOUNDS.min) / (DIAL_BOUNDS.max - DIAL_BOUNDS.min)) * 100))}%`,
-                  background: met ? 'var(--color-good)' : 'var(--color-act-3)',
-                }}
-              />
-              <div
-                className="absolute -top-1 h-4.5 w-px bg-white/70"
-                style={{ left: `${((mission.threshold - DIAL_BOUNDS.min) / (DIAL_BOUNDS.max - DIAL_BOUNDS.min)) * 100}%` }}
-                title="목표"
-              />
-              <div
-                className="absolute -bottom-1 h-4.5 w-px bg-act-2/70"
-                style={{ left: `${((PRESENT_SUMMER - DIAL_BOUNDS.min) / (DIAL_BOUNDS.max - DIAL_BOUNDS.min) ) * 100}%` }}
-                title="현재 지구"
-              />
-            </div>
-            <div className="tnum mt-1.5 flex justify-between text-[10px] text-ink-3">
-              <span>{DIAL_BOUNDS.min.toFixed(0)}</span>
-              <span>목표 {mission.threshold.toFixed(0)}</span>
-              <span>{DIAL_BOUNDS.max.toFixed(0)}</span>
-            </div>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-3">
-              고위도의 여름이 서늘하면 겨울 눈이 녹지 않고 쌓입니다. 빙하기의 방아쇠는 추운 겨울이 아니라{' '}
-              <span className="text-ink-2">서늘한 여름</span>이에요.
-            </p>
-            {/* 이심률을 키웠는데 오히려 서늘해지는 건 버그가 아니라 지금 지구의 사정이다.
-                설명이 없으면 슬라이더가 고장 난 것처럼 읽힌다. */}
-            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-3">
-              지금 지구는 <span className="text-ink-2">1월 초에 태양과 가장 가깝습니다.</span> 그래서 이심률을 키우면
-              북반구의 여름은 태양에서 더 멀어져요 — 궤도를 찌그러뜨릴수록 여름이 서늘해집니다.
-            </p>
-          </div>
+          <ConceptNotes />
 
           <div className="mt-auto flex flex-col gap-2">
             {/* 근일점은 스쳐 지나간다 — 케플러 2법칙이라 그게 맞다. 시간을 왜곡해
@@ -249,6 +234,7 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
             <button type="button" className="btn btn-ghost py-2 text-[12px]" onClick={resetWorld}>
               현재 지구로 되돌리기
             </button>
+          </div>
           </div>
         </section>
 
@@ -333,6 +319,119 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
         <button type="button" className="btn btn-primary shrink-0" onClick={onNext}>
           이 시계를 직접 만져보기
         </button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 이 화면의 계기판 — 다이얼을 미는 동안 항상 화면에 붙어 있어야 하는 단 하나의 숫자.
+ *
+ * 현재 지구 대비 증감(Δ)을 같이 띄운다. 절대값 470 이 커진 건지 작아진 건지는
+ * 기준을 모르면 읽을 수 없는데, 이 화면에서 가장 자주 하는 판단이 그거다.
+ */
+function InsolationGauge({
+  summer,
+  threshold,
+  met,
+}: {
+  summer: number
+  threshold: number
+  met: boolean
+}) {
+  const delta = summer - PRESENT_SUMMER
+  const pos = (v: number) =>
+    Math.max(0, Math.min(100, ((v - DIAL_BOUNDS.min) / (DIAL_BOUNDS.max - DIAL_BOUNDS.min)) * 100))
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[10.5px] text-ink-3">북위 65° 하지 일사량</span>
+        <span
+          className="tnum text-[11px] font-semibold"
+          style={{ color: Math.abs(delta) < 0.5 ? 'var(--color-ink-3)' : delta > 0 ? 'var(--color-warn)' : 'var(--color-act-1)' }}
+        >
+          현재 지구 대비 {delta > 0 ? '+' : ''}
+          {delta.toFixed(0)}
+        </span>
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span
+          className="tnum text-[26px] leading-none font-semibold transition-colors"
+          style={{ color: met ? 'var(--color-good)' : undefined }}
+        >
+          {summer.toFixed(0)}
+        </span>
+        <span className="text-[11px] text-ink-3">W/m² · 현재 지구 {PRESENT_SUMMER.toFixed(0)}</span>
+      </div>
+
+      {/* 목표 게이지 — 지금 어디에 있고 어디로 가야 하는지 */}
+      <div className="relative mt-2 h-2.5 rounded-full bg-white/8">
+        <div
+          className="absolute inset-y-0 rounded-full transition-[width] duration-150"
+          style={{ width: `${pos(summer)}%`, background: met ? 'var(--color-good)' : 'var(--color-act-3)' }}
+        />
+        <div className="absolute -top-1 h-4.5 w-px bg-white/70" style={{ left: `${pos(threshold)}%` }} title="목표" />
+        <div
+          className="absolute -bottom-1 h-4.5 w-px bg-act-2/70"
+          style={{ left: `${pos(PRESENT_SUMMER)}%` }}
+          title="현재 지구"
+        />
+      </div>
+      <div className="tnum mt-1.5 flex justify-between text-[10px] text-ink-3">
+        <span>{DIAL_BOUNDS.min.toFixed(0)}</span>
+        <span className="text-ink-2">목표 {threshold.toFixed(0)}</span>
+        <span>{DIAL_BOUNDS.max.toFixed(0)}</span>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 개념 노트 — 슬라이더를 미는 것만으로는 배울 수 없는 것들.
+ *
+ * 물리적 인과(다이얼 → 지구가 변한다)는 화면이 이미 보여준다. 여기 적는 것은
+ * 그 인과에 붙은 **이름과 단위**다. 일사량이 무엇인지, 왜 하필 북위 65°인지,
+ * 왜 이심률을 키웠는데 오히려 서늘해지는지 — 셋 다 모르면 숫자가 그냥 숫자다.
+ */
+function ConceptNotes() {
+  return (
+    <div className="panel-quiet flex flex-col gap-2 px-3 py-2.5">
+      <h3 className="text-[11.5px] font-semibold text-ink-1">읽는 법 · 개념 세 가지</h3>
+
+      <div>
+        <div className="text-[10.5px] font-medium" style={{ color: 'var(--color-act-3)' }}>
+          일사량 (W/m²)
+        </div>
+        <p className="text-[11px] leading-relaxed text-ink-3">
+          1m² 넓이에 1초 동안 쏟아지는 태양 에너지의 양입니다. 태양이 더 밝아지는 게 아니라,{' '}
+          <span className="text-ink-2">궤도와 자전축이 햇빛을 어느 위도·어느 계절에 몰아주느냐</span>가 바뀌는 거예요.
+          지구 전체가 1년에 받는 총량은 거의 그대로입니다 — 배분만 달라집니다.
+        </p>
+      </div>
+
+      <div>
+        <div className="text-[10.5px] font-medium" style={{ color: 'var(--color-act-3)' }}>
+          왜 하필 북위 65°의 여름인가
+        </div>
+        <p className="text-[11px] leading-relaxed text-ink-3">
+          대륙 빙상이 자라는 위도입니다. 고위도의 여름이 서늘하면 겨울 눈이 다 녹지 못하고 쌓여요. 빙하기의 방아쇠는
+          추운 겨울이 아니라 <span className="text-ink-2">서늘한 여름</span>입니다. 쌓인 눈은 햇빛을 되쏘아 더
+          서늘하게 만들고(얼음–반사율 되먹임), 그래서 작은 변화가 큰 결과가 됩니다.
+        </p>
+      </div>
+
+      {/* 이심률을 키웠는데 오히려 서늘해지는 건 버그가 아니라 지금 지구의 사정이다.
+          설명이 없으면 슬라이더가 고장 난 것처럼 읽힌다. */}
+      <div>
+        <div className="text-[10.5px] font-medium" style={{ color: 'var(--color-act-3)' }}>
+          이심률을 키웠는데 왜 서늘해지죠?
+        </div>
+        <p className="text-[11px] leading-relaxed text-ink-3">
+          지금 지구는 <span className="text-ink-2">1월 초에 태양과 가장 가깝습니다.</span> 그래서 궤도를 찌그러뜨릴수록
+          북반구의 여름(7월)은 태양에서 더 멀어져요. 고장이 아니라 지금 지구의 사정입니다 — 2만 6천 년 주기의
+          세차운동이 이 관계를 뒤집으면 같은 조작이 반대로 작동합니다.
+        </p>
       </div>
     </div>
   )

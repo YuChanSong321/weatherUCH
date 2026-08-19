@@ -71,6 +71,19 @@ export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: ()
             같은 방법으로 14일을 밀고 나가면, 오차는 며칠마다 두 배로 자랍니다. 예측은 그 지점에서 무너져요.
           </span>
         </p>
+        {/*
+          "왜 어려운가"를 여기서 한 번 이름 붙여 심어둔다.
+          점수만 보여주고 넘기면 "내가 못 맞혔다"로 끝나는데, 이 콘텐츠가 말하려는 건
+          "아무도 못 맞힌다, 그리고 그건 물리적 이유가 있다" 쪽이다. 마지막 화면의
+          앙상블 그래프가 이 문단을 그림으로 회수한다.
+        */}
+        <p className="mx-auto mt-3 max-w-xl border-t border-white/8 pt-3 text-[12px] leading-relaxed text-ink-3">
+          <span className="text-ink-2">왜 어려울까요.</span> 관측망이 아무리 촘촘해도 지금 대기의 상태에는 아주 작은
+          오차가 남습니다. 대기는 그 작은 차이를 이틀마다 두 배로 키워요 — 오늘의 0.1℃ 오차가 2주 뒤에는 몇 ℃가 됩니다.
+          이걸 <span className="text-ink-2">카오스(초기 조건 민감성)</span>라고 부르고, 그래서 2주는{' '}
+          <span className="text-ink-2">기술이 아니라 물리가 정한 한계</span>입니다. 슈퍼컴퓨터를 열 배로 늘려도 3주가
+          되지 않아요.
+        </p>
         <button type="button" className="btn btn-primary mt-4" onClick={onNext}>
           그 벽 너머로 가보기
         </button>

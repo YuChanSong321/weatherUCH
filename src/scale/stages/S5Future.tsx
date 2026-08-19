@@ -3,8 +3,9 @@
  * 시간 규모 순서상 '수십 년' 다음, '수만 년'(궤도) 앞이다.
  * 손을 떼면 SSP 세 시나리오가 부채꼴로 펼쳐진다: 미래는 하나의 선이 아니다.
  */
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CHART_MARGINS, YearlyChart } from '../components/YearlyChart'
+import { StageIntro, StageIntroBar, type IntroStep } from '../components/StageIntro'
 import { scenarios, sspBaseline, sspRegion, yearly, yearlyTrend } from '../data/loader'
 import { clamp, linearScale, smoothPath } from '../lib/scales'
 import { useJourney } from '../state/journey'
@@ -13,8 +14,40 @@ const W = 960
 const H = 400
 const LAST_YEAR = 2100
 
+/** 본 화면에 앞서 한 마디씩 거치는 도입 (→ [components/StageIntro]) */
+const INTRO: IntroStep[] = [
+  {
+    label: '지금 할 일',
+    body: (
+      <>
+        기온 곡선의 끝을 잡고 <span className="text-act-2">2100년까지 직접 끌었다가</span> 손을 떼세요. 당신이 놓은
+        자리에서, 과학이 계산한 세 갈래가 펼쳐집니다.
+      </>
+    ),
+  },
+  {
+    label: '여기서 배우는 개념',
+    body: (
+      <>
+        <span className="text-act-2">SSP 시나리오</span> — 미래 기후는 하나의 예측값이 아니라, 사회가 어떤 선택을
+        하느냐에 따라 갈라지는 여러 개의 경로입니다.
+      </>
+    ),
+    chip: 'SSP 시나리오 — 미래는 하나의 값이 아니라 선택이 만드는 여러 경로',
+  },
+  {
+    label: '이 개념이 쓰이는 곳',
+    body: (
+      <>
+        <span className="text-act-2">2050 탄소중립 목표</span>, 지자체 기후변화 적응대책, 해안 제방과 댐의 설계 기준이
+        모두 이 시나리오 위에서 정해집니다.
+      </>
+    ),
+  },
+]
+
 export function S5Future({ onNext }: { onNext: () => void }) {
-  const { setDragged2100 } = useJourney()
+  const { setDragged2100, trendGuess } = useJourney()
   const trend = useMemo(() => yearlyTrend(), [])
   const lastObs = yearly[yearly.length - 1]
   /** 부채의 경첩 — 최근 10년 평균. 관측·사용자 연장선·시나리오가 모두 여기서 출발한다. */
@@ -24,11 +57,21 @@ export function S5Future({ onNext }: { onNext: () => void }) {
   }, [])
   /** 관측 추세를 그대로 2100년까지 밀었을 때의 값 */
   const naiveExtension = hinge + trend.slope * (LAST_YEAR - lastObs.year)
+  /**
+   * 2단계에서 사용자가 직접 찍었던 추세를 그대로 민 값 — 여정의 연결선.
+   * "아까 당신이 그린 기울기가 여기까지 온다"는 것을 보여줘야, 40년 화면과 100년
+   * 화면이 별개의 두 그래프가 아니라 하나의 이야기가 된다.
+   */
+  const guessExtension = trendGuess
+    ? hinge + (trendGuess.perDecade / 10) * (LAST_YEAR - lastObs.year)
+    : null
 
   const yDomain: [number, number] = [13.5, 22.5]
   const xDomain: [number, number] = [yearly[0].year - 1, LAST_YEAR + 1]
   const y = linearScale(yDomain, [H - CHART_MARGINS.bottom, CHART_MARGINS.top])
 
+  /** 도입 세 마디를 지났는가 — 지나기 전에는 그래프를 아예 띄우지 않는다 */
+  const [introDone, setIntroDone] = useState(false)
   const [endValue, setEndValue] = useState<number>(Number(hinge.toFixed(2)))
   const [touched, setTouched] = useState(false)
   const [revealed, setRevealed] = useState(false)
@@ -78,6 +121,18 @@ export function S5Future({ onNext }: { onNext: () => void }) {
     return { scenario: best, gap: bestGap }
   }, [endValue])
 
+  // 훅은 모두 위에서 부른 뒤에 갈라진다 (조건부 훅 금지)
+  if (!introDone) {
+    return (
+      <StageIntro
+        eyebrow="2단계-B · 100년"
+        steps={INTRO}
+        tone="var(--color-act-2)"
+        onDone={() => setIntroDone(true)}
+      />
+    )
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div className="flex items-end justify-between">
@@ -102,6 +157,12 @@ export function S5Future({ onNext }: { onNext: () => void }) {
             ))}
         </div>
       </div>
+
+      <StageIntroBar
+        chip={INTRO[1].chip!}
+        tone="var(--color-act-2)"
+        onReplay={() => setIntroDone(false)}
+      />
 
       <div className="panel p-4">
         <div
@@ -298,8 +359,23 @@ export function S5Future({ onNext }: { onNext: () => void }) {
 
       {!revealed ? (
         <p className="max-w-4xl text-[13.5px] leading-relaxed text-ink-2">
-          관측 추세를 그대로 밀면 2100년은 {naiveExtension.toFixed(1)}℃입니다. 하지만 그건 지난 40년의 속도가 그대로
-          유지된다는 가정이에요. 어디에 점을 놓으시겠어요? 끌었다가 손을 떼면 과학이 계산한 답이 펼쳐집니다.
+          {guessExtension !== null && (
+            <>
+              방금 40년 화면에서 추세를{' '}
+              <span className="tnum font-semibold" style={{ color: 'var(--color-act-3)' }}>
+                {trendGuess!.perDecade > 0 ? '+' : ''}
+                {trendGuess!.perDecade.toFixed(2)}℃/10년
+              </span>
+              으로 찍으셨죠. 그 기울기를 그대로 밀면 2100년은{' '}
+              <span className="tnum text-ink-1">{guessExtension.toFixed(1)}℃</span>가 됩니다.{' '}
+            </>
+          )}
+          {guessExtension !== null ? '실제 관측 추세로 밀면 ' : '관측 추세를 그대로 2100년까지 밀면 '}
+          <span className="tnum text-ink-1">{naiveExtension.toFixed(1)}℃</span>
+          {guessExtension !== null ? '고요.' : '입니다.'} 하지만 그건 지난 40년의 속도가 그대로 유지된다는 가정일
+          뿐이에요 —{' '}
+          <span className="text-ink-1">기후는 직선으로 움직이지 않습니다.</span> 어디에 점을 놓으시겠어요? 끌었다가 손을
+          떼면 과학이 계산한 답이 펼쳐집니다.
         </p>
       ) : (
         /* 결과 문장과 시나리오 설명을 한 패널에 넣는다 — 1280×800 에서 둘로 나누면
@@ -342,10 +418,68 @@ export function S5Future({ onNext }: { onNext: () => void }) {
  * 둘 다 적고 기준이 다르다는 것을 밝힌다 — 그리고 그 차이 자체가 가르칠 거리다.
  * 중위도 육지는 전 지구 평균보다 빠르게 데워진다.
  */
-const SCENARIO_GUIDE: Record<string, { grade: string; meaning: string; global: string }> = {
-  ssp126: { grade: '모범적 대응', meaning: '친환경 성장 + 탄소 배출 감축 성공', global: '+1.8' },
-  ssp245: { grade: '중간 단계', meaning: '지금과 비슷한 수준으로 현상 유지', global: '+2.7' },
-  ssp585: { grade: '최악의 경우', meaning: '화석연료 남용 + 무분별한 산업 개발', global: '+4.4' },
+type ScenarioNote = {
+  /** 한 단어 등급 — 카드를 훑을 때 가장 먼저 읽히는 것 */
+  grade: string
+  /** 이 경로를 만드는 사회의 모습 (SSP 는 배출량이 아니라 사회 시나리오다) */
+  society: string
+  /** 그 사회에서 실제로 벌어지는 일 */
+  impact: string
+  /** 이 경로로 가려면 / 이 경로를 피하려면 무엇을 해야 하는가 */
+  actsTitle: string
+  acts: string[]
+  /** 전 지구 평균 상승폭 (IPCC AR6, 2081–2100, 산업화 이전 대비) */
+  global: string
+}
+
+/**
+ * 세 시나리오의 상세.
+ *
+ * 원래는 5열짜리 한 줄 표였다. 심사 피드백이 "각기 내용을 더 자세히, 대응방안도"
+ * 라고 짚어 카드로 펼쳤다. 한 줄에 다 넣으려다 보니 SSP 가 **배출량 시나리오가
+ * 아니라 사회 시나리오**라는 가장 중요한 사실이 빠져 있었다 — 그래서 society 를
+ * 첫 칸에 둔다. 곡선이 갈라지는 이유는 물리가 아니라 사회이기 때문이다.
+ */
+const SCENARIO_NOTE: Record<string, ScenarioNote> = {
+  ssp126: {
+    grade: '저배출 · 지속가능',
+    society: '재생에너지와 전기화로 에너지를 바꾸고, 2050년 무렵 배출과 흡수가 맞아떨어지는(탄소중립) 세상.',
+    impact:
+      '이미 배출한 몫 때문에 21세기 중반까지는 계속 더워집니다. 그래도 후반에 곡선이 눕는 유일한 경로예요.',
+    actsTitle: '이 길로 가려면',
+    acts: [
+      '발전을 무탄소 전원(재생·원자력)으로 교체',
+      '건물 단열·수송 전동화로 에너지 수요 자체를 줄이기',
+      '숲·갯벌 등 흡수원 복원과 탄소 포집·저장',
+    ],
+    global: '+1.8',
+  },
+  ssp245: {
+    grade: '중간 · 현재 궤도',
+    society: '각국이 선언한 감축 목표는 있으나 이행은 절반쯤인 세상. 지금 정책의 연장선에 가장 가깝습니다.',
+    impact:
+      '폭염일수와 집중호우가 지금의 몇 배로 잦아집니다. 감축이 늦어진 만큼 적응에 드는 비용이 커져요.',
+    actsTitle: '여기서 벗어나려면',
+    acts: [
+      '선언을 이행으로 — 감축 목표의 점검·공시 체계',
+      '폭염·집중호우에 맞춘 도시 인프라 재설계',
+      '농업 품종 전환과 물 관리 적응 계획',
+    ],
+    global: '+2.7',
+  },
+  ssp585: {
+    grade: '고배출 · 화석연료 기반',
+    society: '기술과 경제는 빠르게 성장하지만 그 동력을 여전히 화석연료에서 얻는 세상.',
+    impact:
+      '해수면 상승과 생태계 이동이 적응 속도를 앞지릅니다. 사람이 살기 어려워지는 지역이 생겨요.',
+    actsTitle: '이 경로에 대한 대응',
+    acts: [
+      '대응이 아니라 회피의 대상입니다',
+      '적응만으로 감당할 수 없는 지역이 나옵니다',
+      '넘고 나서 고치는 비용이 넘지 않는 비용보다 훨씬 큽니다',
+    ],
+    global: '+4.4',
+  },
 }
 
 const GRADE_TONE: Record<string, string> = {
@@ -356,45 +490,71 @@ const GRADE_TONE: Record<string, string> = {
 
 function ScenarioGuide({ nearestId }: { nearestId: string }) {
   return (
-    <div className="flex flex-col gap-1.5 border-t border-white/8 pt-2.5">
+    <div className="flex flex-col gap-2 border-t border-white/8 pt-2.5">
       <div className="flex items-baseline justify-between gap-4">
         <h3 className="text-[12.5px] font-semibold">세 갈래는 각각 어떤 세상일까요</h3>
         <span className="text-[10.5px] text-ink-3">
-          SSP = 공통사회경제경로 · 뒤의 숫자는 2100년의 온실가스 강제력(W/m²)
+          SSP = 공통사회경제경로 — <span className="text-ink-2">배출량이 아니라 ‘사회’ 시나리오</span>입니다 · 뒤의
+          숫자는 2100년의 온실가스 강제력(W/m²)
         </span>
       </div>
 
-      <div className="grid grid-cols-[104px_84px_minmax(0,1fr)_140px_96px] items-baseline gap-x-3 gap-y-0.5 text-[11.5px]">
-        <div className="text-[10.5px] text-ink-3">시나리오</div>
-        <div className="text-[10.5px] text-ink-3">구분</div>
-        <div className="text-[10.5px] text-ink-3">의미</div>
-        <div className="text-right text-[10.5px] text-ink-3">{sspRegion} 2100년</div>
-        <div className="text-right text-[10.5px] text-ink-3">전 지구 평균</div>
-
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
         {scenarios.map((s) => {
-          const g = SCENARIO_GUIDE[s.id]
+          const g = SCENARIO_NOTE[s.id]
           const last = s.points[s.points.length - 1]
           const isNearest = s.id === nearestId
-          // subgrid 없이 평평한 5열 격자에 그대로 흘린다 (브라우저 의존을 줄인다)
           return (
-            <Fragment key={s.id}>
-              <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} />
-                <span className={isNearest ? 'font-semibold text-ink-1' : 'text-ink-2'}>{s.label}</span>
+            <div
+              key={s.id}
+              className="flex flex-col gap-1.5 rounded-xl border px-3 py-2.5"
+              style={{
+                borderColor: isNearest ? s.color : 'rgb(255 255 255 / 0.1)',
+                background: isNearest ? `color-mix(in oklab, ${s.color} 10%, transparent)` : 'transparent',
+              }}
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: s.color }}>
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} />
+                  {s.label}
+                </span>
+                <span className="text-[10px]" style={{ color: GRADE_TONE[s.id] ?? 'var(--color-ink-2)' }}>
+                  {g?.grade}
+                </span>
               </div>
-              <div style={{ color: GRADE_TONE[s.id] ?? 'var(--color-ink-2)' }}>{g?.grade}</div>
-              <div className="text-ink-2">{g?.meaning}</div>
-              <div className="tnum text-right text-ink-1">
-                {last.tavg.toFixed(1)}℃
-                <span className="text-ink-3"> (+{last.anomaly.toFixed(1)})</span>
+
+              {/* 숫자 두 벌 — 아래 각주가 왜 다른지 설명한다 */}
+              <div className="tnum flex items-baseline justify-between gap-2 border-y border-white/8 py-1 text-[11px]">
+                <span className="text-ink-3">
+                  {sspRegion} <span className="font-semibold text-ink-1">{last.tavg.toFixed(1)}℃</span> (+
+                  {last.anomaly.toFixed(1)})
+                </span>
+                <span className="text-ink-3">
+                  전 지구 <span className="text-ink-2">{g?.global}℃</span>
+                </span>
               </div>
-              <div className="tnum text-right text-ink-3">{g?.global}℃</div>
-            </Fragment>
+
+              <p className="text-[11px] leading-relaxed text-ink-2">{g?.society}</p>
+              <p className="text-[11px] leading-relaxed text-ink-3">{g?.impact}</p>
+
+              <div className="mt-auto border-t border-white/8 pt-1.5">
+                <div className="text-[10px] font-medium tracking-[0.08em]" style={{ color: GRADE_TONE[s.id] }}>
+                  {g?.actsTitle}
+                </div>
+                <ul className="mt-0.5 flex flex-col gap-0.5">
+                  {g?.acts.map((a) => (
+                    <li key={a} className="text-[10.5px] leading-relaxed text-ink-2">
+                      · {a}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           )
         })}
       </div>
 
-      <p className="mt-0.5 text-[10.5px] leading-relaxed text-ink-3">
+      <p className="text-[10.5px] leading-relaxed text-ink-3">
         두 숫자의 기준이 다릅니다 — {sspRegion} 값은 {sspBaseline.period} 평균({sspBaseline.tavg}℃) 대비,
         전 지구 평균은 산업화 이전(1850–1900) 대비입니다. 그래서 값이 서로 다른 게 정상이고,
         <span className="text-ink-2"> 중위도 육지가 전 지구 평균보다 빠르게 데워진다</span>는 뜻이기도 합니다.
