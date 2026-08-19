@@ -45,12 +45,13 @@ export function StageIntro({
   const step = steps[i]
 
   const advance = () => (last ? onDone() : setI((n) => n + 1))
+  const back = () => setI((n) => Math.max(0, n - 1))
 
   // 발표 중 손이 마우스에서 떨어져 있어도 넘길 수 있어야 한다
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === 'Enter') advance()
-      if (e.key === 'ArrowLeft' && i > 0) setI((n) => n - 1)
+      if (e.key === 'ArrowLeft') back()
       if (e.key === 'Escape') onDone()
     }
     window.addEventListener('keydown', onKey)
@@ -113,12 +114,29 @@ export function StageIntro({
         </AnimatePresence>
       </div>
 
-      <div className="flex items-center gap-4">
+      {/*
+        되돌아갈 문을 만들어 둔다.
+        키보드 ←(왼쪽 화살표)로는 원래 돌아갈 수 있었지만 화면에는 '다음'만 있어서,
+        한 마디 놓치면 처음부터 다시 들어와야 하는 것처럼 보였다.
+
+        첫 카드에서도 버튼을 지우지 않고 흐리게(disabled) 둔다 — 카드를 넘길 때마다
+        버튼 줄의 폭이 달라지면 '다음'의 위치가 흔들려서, 발표 중에 같은 자리를 반복해
+        누르기가 어려워진다.
+      */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          className="btn btn-ghost px-5 py-2.5 text-[13px]"
+          onClick={back}
+          disabled={i === 0}
+        >
+          이전
+        </button>
         <button type="button" className="btn btn-primary px-7 py-2.5 text-[13.5px]" onClick={advance}>
           {last ? '시작하기' : '다음'}
         </button>
         {!last && (
-          <button type="button" className="text-[11.5px] text-ink-3 hover:text-ink-2" onClick={onDone}>
+          <button type="button" className="ml-1 text-[11.5px] text-ink-3 hover:text-ink-2" onClick={onDone}>
             건너뛰기
           </button>
         )}
