@@ -1,5 +1,7 @@
-/** S1 채점 결과 — "틀렸다"가 아니라 "무엇이 어긋났고 왜 그랬는지". */
+/** S1 채점 결과 — "틀렸다"가 아니라 "무엇이 어긋났고 왜 그랬는지, 예보관은 어떻게 하는지". */
 import { KmaCompare } from './KmaCompare'
+import { MethodPanel } from './MethodPanel'
+import { usePlace } from '../../state/place'
 import { dtrOf, skyOf, type ForecastCase, type Guess, type ItemScore, type RoundScore } from '../../lib/forecast'
 import { PRECIP_CLASSES, precipClassOf } from '../../lib/forecast'
 
@@ -36,6 +38,9 @@ export function RoundResult({
    * — KmaCompare 와 상단 기상특보 배지가 이미 쓰고 있는 규칙 그대로다.
    */
   const precipSealed = forecastCase.kind === 'tmax'
+
+  /* 방법론 칸은 이 지역의 관측 전체를 본다 — 기후값 평균과 강수 지속성 통계를 여기서 낸다 */
+  const { place } = usePlace()
 
   return (
     <section className="panel rise flex flex-col gap-3 p-4">
@@ -97,6 +102,9 @@ export function RoundResult({
           )
         })}
       </div>
+
+      {/* 예보관의 방법 — 같은 문제를 표준 방법으로 다시 풀어본다 */}
+      {place && <MethodPanel records={place.records} forecastCase={forecastCase} guess={guess} />}
 
       {/* 라운드가 가르친 규칙 */}
       <div

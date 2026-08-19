@@ -25,7 +25,10 @@ import { useJourney } from '../state/journey'
 const W = 960
 const H = 380
 
-/** 이만큼 쌓여야 추세선이 자란다 — 점 몇 개로 그은 직선은 추세가 아니다 */
+/**
+ * 이만큼 쌓여야 추세선이 자란다 — 점 몇 개로 그은 직선은 추세가 아니다.
+ * 단, 이 문턱을 넘어도 사용자가 방향을 찍기 전에는 선을 그리지 않는다 (아래 trendVisible).
+ */
 const TREND_MIN = 12
 
 /**
@@ -83,12 +86,21 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
   const dragging = useRef(false)
 
   const trend = useMemo(() => trendOf(series), [series])
-  const trendVisible = revealed >= TREND_MIN
   const showBlossom = climate.hasBlossom && blossom.length > 0
 
   /** 절반까지 왔고 아직 추세를 안 찍었다면 여기서 멈춘다 */
   const gateIndex = Math.round(series.length * GATE)
   const gated = trendGuess === null
+
+  /*
+   * 실제 추세선은 **찍은 뒤에** 나온다.
+   *
+   * 원래는 점이 TREND_MIN 개 쌓이면 바로 선이 자라게 했는데, 그 문턱(12개)이 절반
+   * 관문(약 21개)보다 앞이라 "10년당 몇 도"를 찍으라고 물어보는 순간 화면에는 이미
+   * 정답선과 +0.27℃/10년 이라는 숫자가 떠 있었다. 답을 보여주고 답을 묻는 셈이라
+   * 예측이 성립하지 않는다. 이제 순서는 점 쌓기 → 예측 → 정답 공개다.
+   */
+  const trendVisible = revealed >= TREND_MIN && !gated
   const maxReveal = gated ? gateIndex : series.length
   const atGate = gated && revealed >= gateIndex
   const [guessPerDecade, setGuessPerDecade] = useState(0)
@@ -195,9 +207,12 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-series-obs" /> {climate.label} 연평균
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-4 rounded-full bg-act-2" /> 선형 추세
-          </span>
+          {/* 선이 아직 없을 때 범례만 먼저 띄우면 '어딘가에 선이 있다'는 힌트가 된다 */}
+          {trendVisible && (
+            <span className="flex items-center gap-1.5">
+              <span className="h-0.5 w-4 rounded-full bg-act-2" /> 선형 추세
+            </span>
+          )}
           {trendVisible && showBlossom && (
             <button
               type="button"
@@ -391,13 +406,14 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
             </>
           ) : atGate ? (
             <>
-              절반까지 오셨습니다. 여기까지의 점만 보고{' '}
-              <span className="text-ink-1">나머지 20년의 방향</span>을 찍어보세요 — 10년마다 몇 도씩 움직일까요?
+              절반까지 오셨습니다. 추세선은 아직 없습니다 — 지금까지 쌓인 점만 보고{' '}
+              <span className="text-ink-1">나머지 20년의 방향</span>을 먼저 찍어보세요. 10년마다 몇 도씩 움직일까요?
             </>
           ) : scrubbed ? (
             <>
               점 하나가 1년 — 365일의 날씨를 눌러 만든 숫자입니다. 계속 문지르세요. 몇 개로는 아무 방향도 보이지
-              않다가, <span className="text-ink-1">{TREND_MIN}개쯤 쌓이면</span> 선이 자라기 시작합니다.
+              않습니다. <span className="text-ink-1">절반쯤에서 한 번 멈춰</span> 나머지의 방향을 먼저 찍고, 그 다음에
+              실제 추세선이 나옵니다.
             </>
           ) : (
             <>

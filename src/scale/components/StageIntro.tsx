@@ -134,11 +134,16 @@ export function StageIntro({
 export function StageIntroBar({
   chip,
   tone,
+  label = '배우는 개념',
+  replayLabel = '안내 다시 보기',
   overGlobe = false,
   onReplay,
 }: {
   chip: string
   tone: string
+  /** 띠의 이름 — 단계에서는 '배우는 개념', 정리 화면에서는 '예보의 방법' 같은 것 */
+  label?: string
+  replayLabel?: string
   overGlobe?: boolean
   onReplay: () => void
 }) {
@@ -154,7 +159,7 @@ export function StageIntroBar({
       }}
     >
       <span className="text-[10px] font-medium tracking-[0.1em] whitespace-nowrap" style={{ color: tone }}>
-        배우는 개념
+        {label}
       </span>
       <span className="truncate text-[11.5px] text-ink-2">{chip}</span>
       <button
@@ -162,7 +167,7 @@ export function StageIntroBar({
         onClick={onReplay}
         className="shrink-0 rounded-full px-2.5 py-1 text-[10.5px] text-ink-3 transition-colors hover:bg-white/6 hover:text-ink-1"
       >
-        안내 다시 보기
+        {replayLabel}
       </button>
     </div>
   )

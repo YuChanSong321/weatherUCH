@@ -467,3 +467,171 @@ export function verdictOfTotal(earned: number, max: number): { title: string; bo
     body: '세계 최고의 슈퍼컴퓨터도 며칠 뒤부터는 손을 듭니다. 지금 느끼신 그 어긋남이 바로 다음 단계의 주제예요.',
   }
 }
+
+// ─────────────────────────────────────────────────── 예보의 방법론
+
+/**
+ * 예보관이 실제로 쓰는 방법을 이 판의 숫자로 채점한다.
+ *
+ * 왜 필요한가: 점수와 해설만 있으면 "내가 감으로 찍고 맞았나 틀렸나"로 끝난다.
+ * 정작 배워야 할 것은 **앞날을 말하는 방법이 따로 있다**는 사실이다. 그래서 같은
+ * 문제를 세 가지 표준 방법으로 풀어 오차를 나란히 놓는다.
+ *
+ *   지속성(persistence)  오늘 값을 그대로 내일의 답으로 — 며칠 규모에서는 꽤 강하다
+ *   기후값(climatology)  그 날짜의 여러 해 평균을 답으로 — 리드타임이 길어지면 이쪽이 이긴다
+ *   수치예보(NWP)        대기를 격자로 쪼개 물리 방정식을 푼다 — 기상청이 하는 일
+ *
+ * 이 세 줄이 S1 의 마지막 메시지("며칠은 예측, 수십 년은 전망")의 근거가 된다.
+ * 기후값이 이기기 시작하는 지점이 곧 예측이 전망으로 바뀌는 지점이기 때문이다.
+ */
+export type MethodScore = {
+  id: 'persistence' | 'climatology' | 'nwp' | 'you'
+  name: string
+  /** 방법이 하는 일 한 줄 */
+  how: string
+  /** 그 방법이 내놓은 답 */
+  answer: string
+  /** 실제와의 오차(℃). 비교 불가면 null */
+  error: number | null
+  /** 자료가 없어 못 돌린 방법 */
+  unavailable?: string
+}
+
+/**
+ * 그 날짜의 기후값(평년값 근사) — 여러 해의 같은 시기 최고기온 평균.
+ *
+ * 창을 ±5일로 두는 이유: 같은 날짜만 모으면 표본이 해의 수만큼뿐이라 들쭉날쭉해서
+ * '평균 상태'가 되지 않는다. 정답이 든 해는 빼고 센다 — 답을 평균에 섞으면 이 방법이
+ * 부당하게 유리해진다.
+ */
+export function climatologyTmax(
+  records: DailyRecord[],
+  targetDate: string,
+  halfWindow = 5,
+): { mean: number; years: number } | null {
+  const target = new Date(`${targetDate}T00:00:00Z`)
+  const targetYear = target.getUTCFullYear()
+  const doy = (d: Date) => Math.floor((d.getTime() - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86_400_000)
+  const targetDoy = doy(target)
+
+  const years = new Set<number>()
+  let sum = 0
+  let n = 0
+  for (const r of records) {
+    const d = new Date(`${r.date}T00:00:00Z`)
+    const year = d.getUTCFullYear()
+    if (year === targetYear) continue
+    // 연말·연초를 가로지르는 창까지 감싼다
+    const gap = Math.abs(doy(d) - targetDoy)
+    if (Math.min(gap, 365 - gap) > halfWindow) continue
+    sum += r.tmax
+    n += 1
+    years.add(year)
+  }
+  /*
+   * 세 해는 있어야 '그 시기의 평균'이라 부를 수 있다.
+   *
+   * 번들 자료가 5년치(2019~2023)라서 정답 해를 빼면 네 해가 남는다. 기상청이 말하는
+   * 평년값은 30년 평균이지만, 여기서 하려는 일은 "오늘을 안 보는 방법"이 며칠 규모에서
+   * 어떻게 지고 길게 가면 어떻게 이기는지를 보여주는 것이므로 몇 해 평균으로도 성립한다.
+   * 대신 화면에 몇 해를 썼는지 그대로 적는다. 2주치만 받아오는 Open-Meteo 지역은
+   * 여기서 걸려 null 이 되고, 화면이 "낼 수 없다"고 말한다.
+   */
+  if (years.size < 3 || n === 0) return null
+  return { mean: sum / n, years: years.size }
+}
+
+/** 기온 라운드의 방법별 성적 */
+export function tmaxMethods(records: DailyRecord[], c: ForecastCase, userGuess: number): MethodScore[] {
+  const actual = c.kind === 'tmax3' ? c.answer3.tmax : c.answer.tmax
+  const targetDate = c.kind === 'tmax3' ? c.answer3.date : c.answer.date
+  const climo = climatologyTmax(records, targetDate)
+  const err = (v: number) => Math.abs(v - actual)
+
+  const out: MethodScore[] = [
+    {
+      id: 'you',
+      name: '당신',
+      how: '관측 3일을 읽고 직접 찍은 값',
+      answer: `${userGuess.toFixed(1)}℃`,
+      error: err(userGuess),
+    },
+    {
+      id: 'persistence',
+      name: '지속성',
+      how: '오늘 값을 그대로 답으로 낸다 — 대기는 대체로 어제를 닮는다는 성질에 기댄 방법',
+      answer: `${c.today.tmax.toFixed(1)}℃`,
+      error: err(c.today.tmax),
+    },
+    climo
+      ? {
+          id: 'climatology',
+          name: '기후값',
+    how: `이 자료의 같은 시기 ${climo.years}년(±5일) 평균을 답으로 낸다 — 오늘 날씨는 아예 보지 않는 방법`,
+          answer: `${climo.mean.toFixed(1)}℃`,
+          error: err(climo.mean),
+        }
+      : {
+          id: 'climatology',
+          name: '기후값',
+          how: '그 시기의 여러 해 평균을 답으로 낸다 — 오늘 날씨는 아예 보지 않는 방법',
+          answer: '—',
+          error: null,
+          unavailable: '이 지역은 최근 2주 관측만 받아와서 평균을 낼 해가 없습니다',
+        },
+  ]
+
+  if (c.kind === 'tmax' && c.kma) {
+    out.push({
+      id: 'nwp',
+      name: '수치예보',
+      how: '대기를 격자로 쪼개 물리 방정식을 푼다 — 기상청이 그날 실제로 발표한 값',
+      answer: `${c.kma.tmax.toFixed(1)}℃`,
+      error: err(c.kma.tmax),
+    })
+  }
+  return out
+}
+
+/**
+ * 강수의 지속성 — "오늘 비가 왔으면 내일도 비가 올 확률".
+ *
+ * 이 확률이 전체 강수일 비율보다 크다는 것이 곧 지속성이라는 방법의 근거다.
+ * 자료가 짧으면(2주짜리 지역) 확률이라 부를 수 없어 null 을 돌려준다.
+ */
+export function precipPersistence(
+  records: DailyRecord[],
+  today: DailyRecord,
+): { wetAfterWet: number; wetAfterDry: number; base: number; days: number; todayWet: boolean } | null {
+  if (records.length < 365) return null
+  const wet = (r: DailyRecord) => r.precip >= 1
+  let wetAfterWet = 0
+  let afterWet = 0
+  let wetAfterDry = 0
+  let afterDry = 0
+  let wetDays = 0
+  for (let i = 0; i < records.length - 1; i += 1) {
+    // 하루 건너뛴 자리(결측)는 '다음 날'이 아니므로 쓰지 않는다
+    const gap =
+      (new Date(`${records[i + 1].date}T00:00:00Z`).getTime() -
+        new Date(`${records[i].date}T00:00:00Z`).getTime()) /
+      86_400_000
+    if (wet(records[i])) wetDays += 1
+    if (gap !== 1) continue
+    if (wet(records[i])) {
+      afterWet += 1
+      if (wet(records[i + 1])) wetAfterWet += 1
+    } else {
+      afterDry += 1
+      if (wet(records[i + 1])) wetAfterDry += 1
+    }
+  }
+  if (afterWet < 30 || afterDry < 30) return null
+  return {
+    wetAfterWet: (wetAfterWet / afterWet) * 100,
+    wetAfterDry: (wetAfterDry / afterDry) * 100,
+    base: (wetDays / records.length) * 100,
+    days: records.length,
+    todayWet: wet(today),
+  }
+}

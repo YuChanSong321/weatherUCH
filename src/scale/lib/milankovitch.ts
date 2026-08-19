@@ -123,10 +123,28 @@ export const DIAL_BOUNDS = (() => {
   return { min, max }
 })()
 
-/** 난이도 균형: 현재 지구에서 도달 가능한 한계까지 거리의 55% 지점을 목표로 둔다 */
-const REACH = 0.55
-const COLD_TARGET = PRESENT_SUMMER - REACH * (PRESENT_SUMMER - DIAL_BOUNDS.min)
-const WARM_TARGET = PRESENT_SUMMER + REACH * (DIAL_BOUNDS.max - PRESENT_SUMMER)
+/**
+ * 난이도.
+ *
+ * 55% 지점에 두었을 때는 다이얼 하나(자전축)를 실험 구간까지 끝까지 밀면 그대로
+ * 달성되어 "너무 쉽다"는 지적을 받았다. 이제 목표는 두 가지로 조인다.
+ *   ① 도달 한계까지 거리의 대부분(아래 비율)을 가야 한다 → 다이얼 **둘 다** 써야 한다.
+ *   ② 궤도가 지구가 실제로 오간 범위 안이어야 인정된다(화면에서 판정) → 실험 구간으로
+ *      도망칠 수 없다. 자연이 실제로 한 일을 자연의 폭 안에서 재현하는 과제가 된다.
+ *
+ * 두 방향의 비율이 다른 이유: 세차를 현재값에 고정하면 따뜻한 쪽으로 갈 수 있는 폭
+ * (약 +29 W/m²)이 서늘한 쪽(약 −55 W/m²)의 절반밖에 안 된다. 같은 비율을 쓰면 빙하기
+ * 종료 과제만 사실상 한 점만 정답인 과제가 되어버린다.
+ *
+ * 실제 범위 안에서 두 다이얼로 닿을 수 있는 조합 (세차 고정, 슬라이더 눈금 기준):
+ *   빙하기 유발(≤435) — 22.5°/0.06, 22.5°/0.055, 23.0°/0.06, 22.5°/0.05  … 넷
+ *   빙하기 종료(≥498) — 24.0°/0.005, 24.5°/0.01, 24.5°/0.005            … 셋
+ * 다이얼 하나만 끝까지 밀면 458 / 496 이라 어느 쪽도 닿지 않는다 — 그게 이 과제의 요점이다.
+ */
+const REACH_COLD = 0.75
+const REACH_WARM = 0.68
+const COLD_TARGET = PRESENT_SUMMER - REACH_COLD * (PRESENT_SUMMER - DIAL_BOUNDS.min)
+const WARM_TARGET = PRESENT_SUMMER + REACH_WARM * (DIAL_BOUNDS.max - PRESENT_SUMMER)
 
 export type Mission = {
   id: MissionId
@@ -143,7 +161,7 @@ export const MISSIONS: Record<MissionId, Mission> = {
   glaciate: {
     id: 'glaciate',
     title: '빙하기를 유발하라',
-    goal: `북위 65° 여름 일사량을 ${COLD_TARGET.toFixed(0)} W/m² 이하로 낮춰보세요`,
+    goal: `북위 65° 여름 일사량을 ${COLD_TARGET.toFixed(0)} W/m² 이하로 낮추세요. 단, 궤도가 초록 띠(지구가 실제로 오간 범위) 안에 있어야 인정됩니다 — 다이얼 하나로는 닿지 않아요.`,
     threshold: COLD_TARGET,
     direction: 'below',
     hint: '여름이 서늘해야 눈이 녹지 않습니다. 자전축을 눕히고(기울기↓), 여름에 태양과 멀어지도록 세차를 돌려보세요.',
@@ -153,7 +171,7 @@ export const MISSIONS: Record<MissionId, Mission> = {
   deglaciate: {
     id: 'deglaciate',
     title: '빙하기를 끝내라',
-    goal: `북위 65° 여름 일사량을 ${WARM_TARGET.toFixed(0)} W/m² 이상으로 올려보세요`,
+    goal: `북위 65° 여름 일사량을 ${WARM_TARGET.toFixed(0)} W/m² 이상으로 올리세요. 단, 궤도가 초록 띠(지구가 실제로 오간 범위) 안에 있어야 인정됩니다 — 다이얼 하나로는 닿지 않아요.`,
     threshold: WARM_TARGET,
     direction: 'above',
     hint: '여름을 뜨겁게 만들어야 빙상이 녹습니다. 자전축을 더 세우고(기울기↑), 여름에 태양과 가까워지도록 세차를 맞춘 뒤, 이심률로 그 효과를 증폭해보세요.',

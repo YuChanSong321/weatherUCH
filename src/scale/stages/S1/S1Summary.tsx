@@ -1,6 +1,89 @@
-/** S1 마무리 — 3라운드 총점과 "그럼 2주 뒤는?" 질문으로 S2로 넘긴다. */
+/** S1 마무리 — 예보의 방법 정리 → 3라운드 총점 → "그럼 2주 뒤는?" 으로 S2로 넘긴다. */
+import { useState } from 'react'
+import { StageIntro, StageIntroBar, type IntroStep } from '../../components/StageIntro'
 import { kmaSeasonSummary, verdictOfTotal, type RoundKind, type RoundScore } from '../../lib/forecast'
 import { S1_MAX } from '../../state/journey'
+
+/**
+ * 예보의 방법 — 한 번에 한 마디씩 읽는다 (→ [components/StageIntro]).
+ *
+ * 처음에는 같은 내용을 요약 화면 아래쪽 판에 4열 + 2열로 깔았는데, "부록처럼 붙어
+ * 있어서 아무도 읽지 않는다"는 지적을 받았다. 맞는 말이다 — 점수와 등수가 위에 있는
+ * 화면에서 그 아래 긴 판은 넘기는 것이 자연스럽다.
+ *
+ * 이 단계에서 남겨야 하는 문장은 점수가 아니라 **"날씨는 예측하고 기후는 전망한다"**
+ * 이고, 뒤의 모든 단계(SSP 시나리오·궤도·임계점)가 그 구분 위에 서 있다. 그래서
+ * 도입에서 쓰던 방식을 그대로 쓴다: 카드 하나에 한 마디, 다음을 눌러 진행. 읽고 나면
+ * 한 줄로 접혀 요약 화면 위에 남고, 다시 보기로 펼친다.
+ */
+const METHOD_STEPS: IntroStep[] = [
+  {
+    label: '방법 ① 지속성',
+    body: (
+      <>
+        오늘 값을 그대로 답으로 냅니다. <span className="text-act-1">오늘 비가 왔으면 내일도 올 확률이 높다</span>는
+        성질에 기댄 방법이에요 — 며칠 규모에서는 이 단순한 방법이 놀랄 만큼 강합니다.
+      </>
+    ),
+  },
+  {
+    label: '방법 ② 기후값(평년값)',
+    body: (
+      <>
+        그 시기의 여러 해 평균을 답으로 냅니다. <span className="text-act-1">오늘 날씨는 아예 보지 않아요.</span> 하루
+        뒤에는 지고, 시간이 길어지면 이깁니다 — 이 역전이 예보와 전망의 경계선입니다.
+      </>
+    ),
+  },
+  {
+    label: '방법 ③ 수치예보',
+    body: (
+      <>
+        대기를 격자로 쪼개 유체·열역학 방정식을 시간에 따라 풉니다. 기상청과 슈퍼컴퓨터가 하는 일이고, 시작하려면{' '}
+        <span className="text-act-1">지금 대기의 상태(초기값)</span>가 반드시 필요합니다.
+      </>
+    ),
+  },
+  {
+    label: '방법 ④ 앙상블 · 확률',
+    body: (
+      <>
+        초기값을 조금씩 흔들어 계산을 수십 번 돌립니다. 결과가 갈라지는 정도가 그대로 확률이 돼요 —{' '}
+        <span className="text-act-1">강수확률 60%</span>는 그 계산들 가운데 60%에서 비가 왔다는 뜻입니다.
+      </>
+    ),
+  },
+  {
+    label: '그래서 · 날씨는 예측한다',
+    body: (
+      <>
+        날씨는 <span className="text-act-1">초기값 문제</span>입니다. 지금 대기의 상태를 알아야 시작할 수 있고, 거기 남은
+        미세한 오차가 이틀마다 두 배로 자랍니다. 그래서 아무리 잘 계산해도 2주에서 끝나요.
+      </>
+    ),
+  },
+  {
+    label: '그래서 · 기후는 전망한다',
+    body: (
+      <>
+        기후는 <span className="text-act-1">경계조건 문제</span>입니다. 30년 평균이 어디로 가는지는 개별 날짜가 아니라
+        CO₂·궤도·태양 같은 조건이 정해요. 그래서 8월 15일에 비가 올지는 영원히 못 맞혀도{' '}
+        <span className="text-act-1">2100년 여름 평균은 계산할 수 있습니다.</span>
+      </>
+    ),
+  },
+  {
+    label: '그래서 · 답은 하나가 아니다',
+    body: (
+      <>
+        단, 조건을 <span className="text-act-1">가정</span>해야 하므로 답이 하나로 떨어지지 않습니다 — 배출을 얼마나
+        하느냐에 따라 갈라지는 <span className="text-act-1">시나리오별 범위</span>로 말할 수밖에 없어요. 그래서 기후는
+        예측이 아니라 <span className="text-act-1">전망</span>이라고 부릅니다. 다음 단계부터 그 전망을 직접 만들어 봅니다.
+      </>
+    ),
+    chip: '지속성·기후값·수치예보·앙상블 — 날씨는 예측(초기값), 기후는 전망(경계조건)',
+  },
+]
 
 /** 세 라운드는 같은 날을 본다 — 다른 것은 '무엇을, 며칠 앞을' 물었는가다 */
 const ROUND_TITLE: Record<RoundKind, string> = {
@@ -12,6 +95,19 @@ const ROUND_TITLE: Record<RoundKind, string> = {
 export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: () => void }) {
   const earned = rounds.reduce((s, r) => s + r.earned, 0)
   const verdict = verdictOfTotal(earned, S1_MAX)
+  /** 방법 정리를 읽었는가 — 점수보다 이게 먼저다 (위 METHOD_STEPS 주석) */
+  const [methodDone, setMethodDone] = useState(false)
+
+  if (!methodDone) {
+    return (
+      <StageIntro
+        eyebrow="1단계 정리 · 예보의 방법"
+        steps={METHOD_STEPS}
+        tone="var(--color-act-1)"
+        onDone={() => setMethodDone(true)}
+      />
+    )
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 rise">
@@ -19,6 +115,17 @@ export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: ()
         <div className="text-[11px] font-medium tracking-[0.14em] text-act-1">1단계 결과</div>
         <h1 className="mt-1.5 text-[28px] leading-tight font-semibold tracking-tight">{verdict.title}</h1>
         <p className="mx-auto mt-2 max-w-xl text-[13.5px] leading-relaxed text-ink-2">{verdict.body}</p>
+      </div>
+
+      {/* 방금 읽은 방법 정리는 한 줄로 접어 둔다 — 다시 보기로 펼친다 */}
+      <div className="flex justify-center">
+        <StageIntroBar
+          chip={METHOD_STEPS[METHOD_STEPS.length - 1].chip!}
+          tone="var(--color-act-1)"
+          label="예보의 방법"
+          replayLabel="정리 다시 보기"
+          onReplay={() => setMethodDone(false)}
+        />
       </div>
 
       <div className="panel flex flex-col gap-3 p-5">
@@ -78,11 +185,10 @@ export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: ()
           앙상블 그래프가 이 문단을 그림으로 회수한다.
         */}
         <p className="mx-auto mt-3 max-w-xl border-t border-white/8 pt-3 text-[12px] leading-relaxed text-ink-3">
-          <span className="text-ink-2">왜 어려울까요.</span> 관측망이 아무리 촘촘해도 지금 대기의 상태에는 아주 작은
-          오차가 남습니다. 대기는 그 작은 차이를 이틀마다 두 배로 키워요 — 오늘의 0.1℃ 오차가 2주 뒤에는 몇 ℃가 됩니다.
-          이걸 <span className="text-ink-2">카오스(초기 조건 민감성)</span>라고 부르고, 그래서 2주는{' '}
-          <span className="text-ink-2">기술이 아니라 물리가 정한 한계</span>입니다. 슈퍼컴퓨터를 열 배로 늘려도 3주가
-          되지 않아요.
+          위에서 말한 초기값 문제의 이름이 <span className="text-ink-2">카오스(초기 조건 민감성)</span>입니다. 관측망이
+          아무리 촘촘해도 남는 오늘의 0.1℃ 오차가 2주 뒤에는 몇 ℃가 돼요 — 그래서 2주는{' '}
+          <span className="text-ink-2">기술이 아니라 물리가 정한 한계</span>이고, 슈퍼컴퓨터를 열 배로 늘려도 3주가
+          되지 않습니다. 그 벽 너머는 예측이 아니라 전망의 영역입니다.
         </p>
         <button type="button" className="btn btn-primary mt-4" onClick={onNext}>
           그 벽 너머로 가보기
