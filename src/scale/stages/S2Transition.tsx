@@ -13,6 +13,10 @@
  * ⚠️ 레버는 **예측을 제출한 뒤에만** 열린다. 처음엔 그냥 당기게 두었는데, 어차피
  * 보여줄 데이터를 여는 동작이라 건너뛰어도 손해가 없었고 그래서 심심했다. 먼저
  * 답을 받아두면 같은 조작이 곧 정답 공개가 된다 — 조작 하나가 두 배로 일한다.
+ *
+ * 첫 문장은 S1 의 "2주 벽"을 반드시 되짚는다. 벽 이야기 직후에 갑자기 365개의 점이
+ * 나오면 "질문에 답을 안 하고 딴 얘기"로 읽히기 때문이다. 벽을 넘는 방법이 예보를
+ * 늘리는 게 아니라 대상을 바꾸는 것이라는 걸 여기서 한 줄로 이어붙인다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChartFrame } from '../components/ChartFrame'
@@ -299,7 +303,8 @@ export function S2Transition({ year, onNext }: { year: number; onNext: () => voi
         <p className="max-w-2xl text-[13.5px] leading-relaxed text-ink-2">
           {!submitted ? (
             <>
-              위 차트의 점 하나하나가 하루의 기온입니다. 이 흩어진 365개를 눌러 하나로 만들면 몇 도가 될까요?{' '}
+              2주 뒤 그날의 기온은 아무도 못 맞힙니다. 그래서 하루를 묻는 건 여기서 접고, 1년을 통째로 눌러볼게요.
+              위 차트의 점 하나하나가 하루의 기온입니다 — 이 흩어진 365개를 하나로 누르면 몇 도가 될까요?{' '}
               <span className="text-ink-1">먼저 찍고 나서 레버를 당기세요.</span>
             </>
           ) : (

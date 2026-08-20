@@ -172,10 +172,10 @@ export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: ()
 
       <div className="panel px-5 py-4 text-center">
         <p className="text-[14px] leading-relaxed">
-          그렇다면 <span className="font-semibold text-act-1">2주 뒤</span>는 어떨까요?
+          그런데 <span className="font-semibold text-act-1">2주 뒤</span>는 이렇게 물어볼 수가 없습니다.
           <br />
           <span className="text-ink-2">
-            같은 방법으로 14일을 밀고 나가면, 오차는 며칠마다 두 배로 자랍니다. 예측은 그 지점에서 무너져요.
+            같은 방법으로 14일을 밀고 나가면 오차는 며칠마다 두 배로 자라서, 예측이 그 지점에서 무너지기 때문이에요.
           </span>
         </p>
         {/*
@@ -183,15 +183,23 @@ export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: ()
           점수만 보여주고 넘기면 "내가 못 맞혔다"로 끝나는데, 이 콘텐츠가 말하려는 건
           "아무도 못 맞힌다, 그리고 그건 물리적 이유가 있다" 쪽이다. 마지막 화면의
           앙상블 그래프가 이 문단을 그림으로 회수한다.
+
+          ⚠️ 여기서 "2주 뒤는 어떨까요?"로 물으면 다음 화면이 2주 예보를 보여줄 것처럼 읽힌다.
+          실제로 S2 는 시간축을 압축해 질문을 바꾸는 화면이라 곧바로 약속을 어긴 꼴이 된다.
+          그래서 물음표를 지우고, 마지막 줄에서 "질문을 바꾼다"를 먼저 밝힌다.
         */}
         <p className="mx-auto mt-3 max-w-xl border-t border-white/8 pt-3 text-[12px] leading-relaxed text-ink-3">
           위에서 말한 초기값 문제의 이름이 <span className="text-ink-2">카오스(초기 조건 민감성)</span>입니다. 관측망이
           아무리 촘촘해도 남는 오늘의 0.1℃ 오차가 2주 뒤에는 몇 ℃가 돼요 — 그래서 2주는{' '}
           <span className="text-ink-2">기술이 아니라 물리가 정한 한계</span>이고, 슈퍼컴퓨터를 열 배로 늘려도 3주가
-          되지 않습니다. 그 벽 너머는 예측이 아니라 전망의 영역입니다.
+          되지 않습니다. 그 벽 너머는 예측이 아니라 전망의 영역이에요.
+          <br />
+          <span className="text-ink-2">
+            그래서 다음 화면부터는 “며칠 뒤 몇 도”를 묻지 않습니다. 질문 자체를 바꿔볼게요.
+          </span>
         </p>
         <button type="button" className="btn btn-primary mt-4" onClick={onNext}>
-          그 벽 너머로 가보기
+          질문을 바꿔보기
         </button>
       </div>
     </div>
