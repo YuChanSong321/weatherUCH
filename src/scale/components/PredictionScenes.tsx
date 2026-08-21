@@ -532,7 +532,10 @@ export function ActTwoSummary({ onDone, onBack }: { onDone: () => void; onBack: 
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-3.5">
       {/* 세 화면이 한 묶음이라는 것이 보여야 한다 — 몇 번째인지, 몇 개인지 */}
       <div className="flex items-center gap-2">
-        <span className="text-[10.5px] font-medium tracking-[0.14em] text-ink-3">2단계 정리</span>
+        {/* '2단계'라고 부르지 않는다 — 이 자리의 시간 규모는 100년이고, 상단 자도
+            그렇게 가리킨다. 화면마다 다른 이름으로 부르면 사용자가 지금 어디에
+            있는지 놓친다. */}
+        <span className="text-[10.5px] font-medium tracking-[0.14em] text-ink-3">중간 정리</span>
         {TABS.map((t, i) => (
           <button
             key={t}

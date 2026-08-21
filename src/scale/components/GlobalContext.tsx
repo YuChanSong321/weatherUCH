@@ -85,27 +85,40 @@ export function GlobalContext() {
     return { from, to, local, global: perDecade(globalPts) }
   }, [climate.yearly])
 
+  /*
+   * 카드마다 두 줄을 붙인다.
+   *   what  이 숫자가 무엇을 잰 것인가 — 단위와 기준을 풀어서
+   *   so    그래서 얼마나 달라졌는가 — 눈에 그려지는 크기로
+   * 숫자만 크게 띄우면 "426 ppm" 이 큰지 작은지 알 수 없다.
+   */
+  const iceLost = ICE[0].extent - ICE[ICE.length - 1].extent
+  /** 남한 면적 100,363 km² — 줄어든 얼음의 크기를 감으로 옮기는 자 */
+  const KOREA_MKM2 = 0.100363
+
   const cards = [
     {
       key: 'temperature' as const,
       color: 'var(--color-bad)',
       points: TEMP.map((r) => ({ year: r.year, v: r.anomaly })),
       value: `${TEMP[TEMP.length - 1].anomaly > 0 ? '+' : ''}${TEMP[TEMP.length - 1].anomaly.toFixed(2)}℃`,
-      caption: `${TEMP[0].year}년 이후 · 1951–1980 평균 대비`,
+      what: '1951~1980년의 평균 기온을 0으로 놓고, 지금이 그보다 몇 도 높은지 잰 값입니다.',
+      so: `${TEMP[0].year}년부터 재 왔고, 최근 30년 사이에 특히 가팔라졌어요.`,
     },
     {
       key: 'co2' as const,
       color: 'var(--color-warn)',
       points: CO2.map((r) => ({ year: r.year, v: r.ppm })),
       value: `${CO2[CO2.length - 1].ppm.toFixed(0)} ppm`,
-      caption: `${CO2[0].year}년 ${CO2[0].ppm.toFixed(0)} ppm 에서 출발`,
+      what: 'ppm 은 공기 알갱이 100만 개 중 이산화탄소가 몇 개인지를 뜻합니다.',
+      so: `${CO2[0].year}년에는 ${CO2[0].ppm.toFixed(0)}개였으니, 그 사이 ${(CO2[CO2.length - 1].ppm - CO2[0].ppm).toFixed(0)}개가 늘었습니다.`,
     },
     {
       key: 'seaIce' as const,
       color: 'var(--color-act-1)',
       points: ICE.map((r) => ({ year: r.year, v: r.extent })),
       value: `${ICE[ICE.length - 1].extent.toFixed(2)} 백만 km²`,
-      caption: `${ICE[0].year}년 ${ICE[0].extent.toFixed(2)} 에서 줄어드는 중`,
+      what: '북극 바다에서 얼음이 가장 적게 남는 9월에, 남은 얼음이 덮은 넓이입니다.',
+      so: `${ICE[0].year}년보다 ${iceLost.toFixed(2)} 백만 km² 줄었어요 — 남한 넓이의 약 ${Math.round(iceLost / KOREA_MKM2)}배입니다.`,
       invert: true,
     },
   ]
@@ -118,8 +131,11 @@ export function GlobalContext() {
           {climate.label}에서 본 것이 <span className="text-ink-1">지구 전체에서도 보입니다</span>
         </h1>
         <p className="mt-1.5 max-w-4xl text-[12.5px] leading-relaxed text-ink-2">
-          한 지역만 보면 "이 동네 사정"일 수도 있습니다 — 도시가 커져도 기온은 오르니까요. 그래서 서로 독립적으로
-          관측되는 전 지구 지표 셋을 같이 봅니다. 셋이 같은 방향을 가리키면 남는 설명이 하나뿐이에요.
+          지금까지는 {climate.label} 한 곳만 봤습니다. 그런데 한 도시만 더워진 거라면 이유가 여럿이에요 — 건물이
+          늘고 아스팔트가 깔려도 기온은 오르니까요. 그래서{' '}
+          <span className="text-ink-1">서로 상관없는 방법으로 잰 지구 전체의 기록 셋</span>을 나란히 놓습니다.
+          기온계, 공기 성분 분석, 인공위성 사진 — 각각 다른 사람이 다른 도구로 잰 것들인데도 셋 다 같은 방향을
+          가리킨다면, 우연이라고 하기 어렵겠죠.
         </p>
       </div>
 
@@ -133,7 +149,8 @@ export function GlobalContext() {
               <div className="mt-1.5">
                 <Spark points={c.points} color={c.color} invert={c.invert} />
               </div>
-              <div className="text-[10px] leading-snug text-ink-3">{c.caption}</div>
+              <p className="text-[10.5px] leading-relaxed text-ink-2">{c.what}</p>
+              <p className="text-[10.5px] leading-relaxed text-ink-3">{c.so}</p>
               <div className="mt-0.5 text-[9.5px] text-ink-3">
                 {m.provider} · {m.period}
               </div>
@@ -151,23 +168,43 @@ export function GlobalContext() {
           }}
         >
           <h3 className="text-[13px] font-semibold text-ink-1">
-            같은 기간({cmp.from}–{cmp.to})을 같은 자로 재면
+            {climate.label}과 지구 전체를 나란히 놓으면
           </h3>
-          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Bar label={`${climate.label} 연평균기온`} value={cmp.local} color="var(--color-act-2)" max={Math.max(Math.abs(cmp.local), Math.abs(cmp.global)) * 1.2} />
-            <Bar label="전 지구 평균기온" value={cmp.global} color="var(--color-bad)" max={Math.max(Math.abs(cmp.local), Math.abs(cmp.global)) * 1.2} />
+          <p className="mt-0.5 text-[11px] leading-relaxed text-ink-3">
+            둘 다 {cmp.from}년부터 {cmp.to}년까지, 같은 {cmp.to - cmp.from}년을 잘라서 잰 값입니다. 기간이 다르면
+            나란히 놓는 것 자체가 말이 안 되니까요.
+          </p>
+          <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Bar
+              label={`${climate.label}`}
+              value={cmp.local}
+              years={cmp.to - cmp.from}
+              color="var(--color-act-2)"
+              max={Math.max(Math.abs(cmp.local), Math.abs(cmp.global)) * 1.2}
+            />
+            <Bar
+              label="지구 전체"
+              value={cmp.global}
+              years={cmp.to - cmp.from}
+              color="var(--color-bad)"
+              max={Math.max(Math.abs(cmp.local), Math.abs(cmp.global)) * 1.2}
+            />
           </div>
-          <p className="mt-2 text-[11.5px] leading-relaxed text-ink-2">
+          <p className="mt-2.5 text-[11.5px] leading-relaxed text-ink-2">
             {Math.abs(cmp.local) > Math.abs(cmp.global) ? (
               <>
-                {climate.label}이 전 지구 평균보다 <span className="text-ink-1">빠르게</span> 더워졌습니다. 육지는
-                바다보다 빨리 데워지고, 도시는 그보다 더 빠릅니다 — 그래서 내가 사는 곳의 변화는 전 지구 평균보다
-                크게 느껴지는 것이 보통입니다.
+                {climate.label}이 지구 평균보다 <span className="text-ink-1">더 빨리</span> 더워졌습니다. 흔한
+                일이에요 — 물은 데우기 어렵고 땅은 쉽게 데워지거든요. 지구의 70%가 바다라 평균이 낮게 나오고,
+                도시는 건물과 도로 때문에 한 번 더 얹힙니다.{' '}
+                <span className="text-ink-1">그래도 두 막대가 같은 쪽을 가리킨다는 것이 핵심입니다</span> — 내
+                동네만의 일이 아니라는 뜻이니까요.
               </>
             ) : (
               <>
-                {climate.label}의 상승 폭이 전 지구 평균과 비슷하거나 그보다 완만합니다. 바다에 접한 지역은 바다가
-                열을 흡수해 주어 상승이 느린 편이에요. 방향이 같다는 것이 핵심입니다.
+                {climate.label}은 지구 평균과 비슷하거나 조금 느리게 더워졌습니다. 바다에 붙은 곳은 바다가 열을
+                가져가 주어서 천천히 오르는 편이에요.{' '}
+                <span className="text-ink-1">중요한 건 두 막대가 같은 쪽을 가리킨다는 것입니다</span> — 내 동네만의
+                일이 아니라는 뜻이니까요.
               </>
             )}
           </p>
@@ -188,20 +225,42 @@ export function GlobalContext() {
   )
 }
 
-/** 10년당 상승폭 막대 — 두 값을 같은 척도에 놓아야 '빠르다/느리다'가 성립한다 */
-function Bar({ label, value, color, max }: { label: string; value: number; color: string; max: number }) {
+/**
+ * 10년당 상승폭 막대 — 두 값을 같은 척도에 놓아야 '빠르다/느리다'가 성립한다.
+ *
+ * 기간 전체의 합도 함께 적는다. "10년에 0.28℃"는 작아 보이지만 38년을 곱하면
+ * 1℃가 넘는다 — 속도만 보여주면 그 크기가 전달되지 않는다.
+ */
+function Bar({
+  label,
+  value,
+  years,
+  color,
+  max,
+}: {
+  label: string
+  value: number
+  years: number
+  color: string
+  max: number
+}) {
   const pct = Math.min(100, (Math.abs(value) / (max || 1)) * 100)
+  const total = (value * years) / 10
   return (
     <div>
       <div className="flex items-baseline justify-between text-[11.5px]">
         <span className="text-ink-2">{label}</span>
         <span className="tnum font-semibold" style={{ color }}>
-          {value > 0 ? '+' : ''}
-          {value.toFixed(2)}℃ / 10년
+          10년마다 {value > 0 ? '+' : ''}
+          {value.toFixed(2)}℃
         </span>
       </div>
       <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <div className="tnum mt-1 text-[10.5px] text-ink-3">
+        {years}년 동안 모두 합치면 {total > 0 ? '+' : ''}
+        {total.toFixed(2)}℃
       </div>
     </div>
   )

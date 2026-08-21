@@ -45,6 +45,15 @@ export function CoolingParadox({ onNext }: { onNext: () => void }) {
   const now = insolationAt(0)
   const peak = insolationAt(HOLOCENE_PEAK_YEAR)
 
+  /*
+   * "1000년에 −0.9 W/m²" 는 숫자로만 보면 크기를 가늠할 수 없다. 사람의 한평생
+   * (80년) 동안 바뀌는 양이 정점 이후 깎인 양의 몇 분의 1인지로 옮기면, 궤도가
+   * 얼마나 느리게 움직이는지가 곧바로 읽힌다.
+   */
+  const lifetimeRatio = Math.round(
+    Math.abs(insolationDropFromPeak) / Math.abs(insolationTrendPerMillennium * 0.08),
+  )
+
   const yDomain: [number, number] = [440, 545]
   const x = linearScale([FROM, TO], [M.left, W - M.right])
   const y = linearScale(yDomain, [H - M.bottom, M.top])
@@ -131,51 +140,60 @@ export function CoolingParadox({ onNext }: { onNext: () => void }) {
             <circle cx={x(0)} cy={y(now)} r={5} fill={TONE} stroke="var(--color-space-1)" strokeWidth={2} />
           </ChartFrame>
           <p className="mt-1.5 text-[10.5px] leading-relaxed text-ink-3">
-            북위 65° 하지 일사량 — 빙하기 논의에서 관례로 쓰는 지표입니다. 고위도 여름이 서늘하면 겨울눈이 녹지 않고
-            쌓여 빙상이 자랍니다. 곡선은 Berger(1978) 표준식에 궤도 3요소의 시간 변화를 넣어 계산한{' '}
-            <span className="text-ink-2">단순화 모델</span>입니다.
+            <span className="text-ink-2">세로축 W/m²</span> — 1㎡ 넓이에 쏟아지는 햇빛의 세기입니다. 북위 65°의
+            한여름 값만 봅니다. 이 위도의 여름이 서늘하면 겨울에 쌓인 눈이 다 녹지 못하고 남고, 그게 해마다 겹쳐
+            빙하가 자라거든요 — 빙하기가 켜지고 꺼지는 스위치라 학계가 이 값을 봅니다. 곡선은 Berger(1978)
+            표준식에 궤도 3요소의 시간 변화를 넣어 계산한 <span className="text-ink-2">단순화 모델</span>입니다.
           </p>
         </div>
 
         <div className="flex flex-col gap-3.5">
           <Fact
             n={1}
-            title="정점은 이미 지났습니다"
+            title="여름 햇빛의 10분의 1이 사라졌습니다"
             body={
               <>
-                고위도 여름 햇빛은 <span className="text-ink-1">1만 1천 년 전</span>에 가장 강했고, 그 뒤로 계속
-                줄어 지금은 그때보다{' '}
+                고위도 여름 햇빛은 <span className="text-ink-1">1만 1천 년 전</span>에 가장 강했습니다. 그 뒤로 계속
+                줄어 지금은{' '}
                 <span className="tnum font-semibold" style={{ color: 'var(--color-bad)' }}>
                   {Math.abs(insolationDropFromPeak).toFixed(0)} W/m²
                 </span>{' '}
-                낮습니다.
+                낮은데, 그때 값의{' '}
+                <span className="font-semibold" style={{ color: 'var(--color-bad)' }}>
+                  약 {Math.round((Math.abs(insolationDropFromPeak) / peak) * 100)}%
+                </span>
+                가 깎여 나간 셈이에요.
               </>
             }
           />
           <Fact
             n={2}
-            title="지금도 줄고 있습니다"
+            title="너무 느려서 느낄 수가 없습니다"
             body={
               <>
-                현재 변화율은{' '}
+                지금도 줄고 있지만 속도가{' '}
                 <span className="tnum font-semibold" style={{ color: 'var(--color-bad)' }}>
-                  {insolationTrendPerMillennium.toFixed(1)} W/m²
-                </span>{' '}
-                / 1000년. 앞으로 2만 년 동안 다시 크게 오르지 않아요 —{' '}
-                <span className="text-ink-1">궤도만 보면 식을 창</span>에 서 있습니다.
+                  1000년에 {insolationTrendPerMillennium.toFixed(1)} W/m²
+                </span>
+                . 사람이 <span className="text-ink-1">80년을 꼬박 살아도</span> 바뀌는 양은{' '}
+                <span className="tnum">{Math.abs(insolationTrendPerMillennium * 0.08).toFixed(2)} W/m²</span>{' '}
+                — 위에서 깎인 양의 <span className="tnum">{lifetimeRatio}분의 1</span>도 안 됩니다. 궤도는 이런
+                속도로 움직여요.
               </>
             }
           />
           <Fact
             n={3}
-            title="그런데 실제로는 오르고 있습니다"
+            title="그런데 기온은 반대로 갔습니다"
             body={
               <>
-                같은 기간 인류가 올린 기온은{' '}
+                햇빛은 줄어드는 중인데, 실제 기온은{' '}
+                <span className="text-ink-1">산업화 이후 270년 만에</span>{' '}
                 <span className="tnum font-semibold" style={{ color: 'var(--color-bad)' }}>
                   +{carbonWarmingNow().toFixed(2)}℃
-                </span>
-                . 궤도가 식히려는 힘을 덮고도 남습니다. 이 간극이 이 콘텐츠가 증명하려는 것입니다.
+                </span>{' '}
+                올랐습니다. <span className="text-ink-1">방향이 반대입니다.</span> 궤도가 식히려고 미는 힘을 무언가가
+                덮어쓰고 있다는 뜻이고, 그 무언가를 찾는 것이 이 여정의 나머지 절반입니다.
               </>
             }
           />

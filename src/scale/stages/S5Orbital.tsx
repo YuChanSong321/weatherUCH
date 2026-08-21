@@ -15,6 +15,8 @@ import { ChartFrame } from '../components/ChartFrame'
 import { CoolingParadox } from '../components/CoolingParadox'
 import { GlobeViewToggle } from '../components/GlobeViewToggle'
 import { ScenarioFocus } from '../components/ScenarioReadout'
+import { CLOSEUP_SECONDS, CollapseLayer, useCollapse } from '../components/CollapseSequence'
+import { atmosphereLossOf, collapseFor } from '../lib/collapse'
 import { useGlobe } from '../components/GlobeLayer'
 import { StageIntro, StageIntroBar, type IntroStep } from '../components/StageIntro'
 import { useFitZoom } from '../components/useFitZoom'
@@ -174,7 +176,43 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
    * 자기장 다이얼은 여기 없으므로 현재값(기본 100%)이 그대로 들어간다.
    */
   const scenarios = useMemo(() => activeScenarios({ ...orbit, magneticField }), [orbit, magneticField])
-  const { setSurface, setSurfaceAuto, setOrbitPark, telemetry } = useGlobe()
+
+  /*
+   * 돌아올 수 없는 지점 — 여기서는 이심률 쪽으로만 닿는다.
+   *
+   * 이 화면에 자기장 다이얼은 없고(항상 100%), 대신 이심률을 0.9 까지 밀 수 있다.
+   * 0.5 를 넘으면 연평균 일사량이 폭주 온실 문턱을 넘어 바다를 잃는다 — 실험 구간
+   * 안에서 실제로 되돌릴 수 없는 선이 하나 있는 셈이다 (→ lib/collapse).
+   */
+  const collapse = useMemo(
+    () => collapseFor({ magneticField, eccentricity: orbit.eccentricity }),
+    [magneticField, orbit.eccentricity],
+  )
+  const { warning, remaining: graceLeft, done, reset: resetCollapse } = useCollapse(collapse)
+
+  const { setSurface, setSurfaceAuto, setOrbitPark, telemetry, pulseAlert, setAtmosphereStripped, cinematicCloseup } = useGlobe()
+
+  // 결말 — 지표를 죽이고 대기를 벗긴다. 값이 아니라 상태다.
+  useEffect(() => {
+    if (!done) {
+      setAtmosphereStripped(0)
+      return
+    }
+    /*
+     * surfaceAuto 를 먼저 꺼야 한다.
+     *
+     * 실험 구간에서는 엔진이 자기 에너지 균형으로 지표를 직접 그린다(surfaceAuto).
+     * 그 상태로 setSurface 만 부르면 다음 프레임에 엔진이 도로 덮어써서, 판은
+     * "바다가 사라졌다"고 적혀 있는데 화면의 지구는 멀쩡한 파란 행성으로 남는다.
+     * 실제로 그랬다.
+     */
+    setSurfaceAuto(false)
+    setSurface(done.surface)
+    setAtmosphereStripped(atmosphereLossOf(done.kind))
+    pulseAlert(done.kind === 'mars' ? 0xff5a3c : 0xffb454)
+    // 글보다 행성을 먼저 — 카메라가 지구 앞까지 밀고 들어간다
+    cinematicCloseup(CLOSEUP_SECONDS - 0.4)
+  }, [done, setSurface, setSurfaceAuto, setAtmosphereStripped, pulseAlert, cinematicCloseup])
   const [introDone, setIntroDone] = useState(false)
   /** 냉각 역설을 증명하는 화면을 지났는가 */
   const [paradoxDone, setParadoxDone] = useState(false)
@@ -277,6 +315,9 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
   }
 
   /*
+   * ⚠️ 아래 지표 갱신은 결말(done)에 들어가면 멈춰야 한다 — 안 그러면 죽은 지구를
+   * 매 프레임 되살린다. 각 갱신 앞에 done 가드를 둔다.
+   *
    * 지표를 무엇이 그릴지는 어느 구간이냐에 달려 있다.
    *
    *  실제 구간 — 궤도가 이 정도 움직여도 지금 당장 달라지는 건 없다. 의미가 있는
@@ -286,9 +327,11 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
    *              모델이 직접 그리게 둔다.
    */
   useEffect(() => {
+    // 결말에 들어간 뒤에는 손대지 않는다 — 여기서 다시 쓰면 죽은 지구가 되살아난다
+    if (done) return
     setSurfaceAuto(!real)
     if (real) setSurface(surfaceFromAnomaly(endDelta))
-  }, [real, endDelta, setSurface, setSurfaceAuto])
+  }, [real, endDelta, setSurface, setSurfaceAuto, done])
   const warmth = orbitalWarmth(orbit)
 
   /* 창이 낮으면 칸을 스크롤하는 대신 판 전체를 줄인다 (→ [components/useFitZoom]).
@@ -324,6 +367,18 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
       style={fitStyle}
       className="pointer-events-none relative flex min-h-[460px] w-full flex-col gap-2 lg:h-[var(--fit-h)]"
     >
+      <CollapseLayer
+        collapse={warning}
+        remaining={graceLeft}
+        done={done}
+        onReset={() => {
+          resetCollapse()
+          // 실험 구간의 끝에서 돌아온다 — 현재 지구 값으로
+          setOrbit({ eccentricity: PRESENT.eccentricity, obliquity: PRESENT.obliquity })
+          setAtmosphereStripped(0)
+        }}
+      />
+
       <div className="pointer-events-auto flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-2">
           <div>

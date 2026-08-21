@@ -68,6 +68,10 @@ type GlobeApi = {
    * 임계를 나중에 몰아서 터뜨리면, 아무 일도 안 한 순간에 화면이 번쩍인다.
    */
   pulseAlert: (hex: number) => void
+  /** 대기가 우주로 벗겨진 정도 0…1 — 돌아올 수 없는 결말에서만 쓴다 */
+  setAtmosphereStripped: (v: number) => void
+  /** 결말 클로즈업 — 지구 바로 앞까지 카메라를 밀어 넣는다 */
+  cinematicCloseup: (dur?: number) => void
   /**
    * 지표 상태 — 빙상·건조화·바다 후퇴·용융 (전부 0…1).
    * 무엇을 어디에 연결할지는 [lib/surfaceState] 가 정한다.
@@ -197,6 +201,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
     const q = pending.current
     if (q.magneto !== undefined) sim.setMagnetosphereVisible(q.magneto)
     if (q.field !== undefined) sim.setMagneticField(q.field)
+    if (q.stripped !== undefined) sim.setAtmosphereStripped(q.stripped)
     if (Object.keys(q.surface).length > 0) sim.setSurface(q.surface)
   }, [ready])
 
@@ -296,7 +301,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
    * 켜지지 않는 일이 있었다(엔진이 늦게 뜨는 환경에서 재현). 마지막 지시를 붙들고
    * 있다가 준비되는 순간 다시 적용한다.
    */
-  const pending = useRef<{ magneto?: boolean; field?: number; surface: Partial<SurfaceState> }>({ surface: {} })
+  const pending = useRef<{ magneto?: boolean; field?: number; stripped?: number; surface: Partial<SurfaceState> }>({ surface: {} })
 
   const setMagnetosphere = useCallback((v: boolean) => {
     pending.current.magneto = v
@@ -310,6 +315,15 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
 
   const pulseAlert = useCallback((hex: number) => {
     simRef.current?.pulseAlert(hex)
+  }, [])
+
+  const cinematicCloseup = useCallback((dur?: number) => {
+    simRef.current?.cinematicCloseup(dur)
+  }, [])
+
+  const setAtmosphereStripped = useCallback((v: number) => {
+    pending.current.stripped = v
+    simRef.current?.setAtmosphereStripped(v)
   }, [])
 
   const setSurface = useCallback((next: Partial<SurfaceState>) => {
@@ -345,6 +359,8 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       setMagnetosphere,
       setMagneticField: setMagneticFieldOnGlobe,
       pulseAlert,
+      setAtmosphereStripped,
+      cinematicCloseup,
       setSurface,
       setSurfaceAuto,
       setOrbitPark,

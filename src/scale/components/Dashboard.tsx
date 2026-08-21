@@ -7,37 +7,23 @@
  * 기온이 교육용 모델의 산출값이라는 사실을 숨기지 않는다. 데이터 표기 원칙상
  * 관측값과 모델값이 같은 얼굴로 나란히 서면 안 된다.
  */
-import { useMemo } from 'react'
 import { useWorld } from '../state/world'
 import { PREINDUSTRIAL_CO2, THRESHOLDS } from '../lib/earthState'
-import { activeScenarios } from '../lib/thresholdEngine'
-import { ScenarioBand } from './ScenarioReadout'
-import { useJourney } from '../state/journey'
 
 export function Dashboard() {
   const { orbit, magneticField, co2, meanTemp, anomaly, alerts } = useWorld()
-  const { stage } = useJourney()
 
   /*
-   * 규칙 엔진을 대시보드에 붙인다 (기획안 §4).
+   * 예측 시나리오 띠는 여기 두지 않는다.
    *
-   * 엔진은 원래 S7 오른쪽 패널에서만 돌았는데, 그러면 다른 단계에서 다이얼을
-   * 넘겨도 아무 일이 없다. 임계를 넘는 **그 순간** 화면 아래가 반응해야 "내가
-   * 방금 선을 넘었다"가 조작으로 전달된다. 값은 state/world 에서 오므로 슬라이더를
-   * 미는 동안 프레임마다 다시 맞춰진다.
-   */
-  const scenarios = useMemo(
-    () => activeScenarios({ ...orbit, magneticField }),
-    [orbit, magneticField],
-  )
-
-  /*
-   * S6·S7 은 이 띠를 지구본 위로 올려 따로 띄운다 (→ components/ScenarioReadout 의
-   * ScenarioFocus). 여기까지 함께 뜨면 같은 말이 한 화면에 두 번 적힌다.
+   * 한때 이 자리에 있었는데, [state/world] 의 값은 단계를 넘어 살아남는다. S7 에서
+   * 자기장을 0 으로 만들고 나오면 그 값이 그대로 남아, 부산 날씨를 맞히는 화면
+   * 하단에 "오존층 파괴로 인한 UV 자외선 폭증"이 계속 떠 있었다. 그 값들을 만질 수
+   * 있는 화면은 S6·S7 뿐이므로, 판도 그 두 화면 안에만 둔다
+   * (→ components/ScenarioReadout 의 ScenarioFocus).
    */
   return (
     <div className="relative z-20 flex flex-col">
-      {stage !== 's6' && stage !== 's7' && <ScenarioBand scenarios={scenarios} />}
       <footer className="grid grid-cols-2 gap-2 px-4 pb-3 sm:grid-cols-4 md:px-8 lg:flex lg:items-stretch">
       <Metric
         label="전지구 평균기온"

@@ -11,6 +11,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useGlobe } from '../components/GlobeLayer'
 import { ScenarioFocus } from '../components/ScenarioReadout'
+import { CLOSEUP_SECONDS, CollapseLayer, useCollapse } from '../components/CollapseSequence'
+import { atmosphereLossOf, collapseFor } from '../lib/collapse'
+import { PRESENT } from '../lib/milankovitch'
 import { useFitZoom } from '../components/useFitZoom'
 import { StageIntro, StageIntroBar, type IntroStep } from '../components/StageIntro'
 import { THRESHOLDS } from '../lib/earthState'
@@ -180,7 +183,7 @@ const INTRO: IntroStep[] = [
 export function S7Threshold({ onNext }: { onNext: () => void }) {
   const { setOrbitResult } = useJourney()
   const { orbit, magneticField, setOrbit, setMagneticField, alerts } = useWorld()
-  const { setMagnetosphere, setMagneticField: setGlobeField, setSurface, pulseAlert } = useGlobe()
+  const { setMagnetosphere, setMagneticField: setGlobeField, setSurface, pulseAlert, setAtmosphereStripped, cinematicCloseup } = useGlobe()
 
   const [crisis] = useState(() => CRISES[Math.floor(Math.random() * CRISES.length)])
   const [introDone, setIntroDone] = useState(false)
@@ -192,6 +195,33 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
   const holdStart = useRef<number | null>(null)
   /** 직전 프레임이 임계였는지 — 넘는 '순간'만 세기 위해 (첫 실행은 null) */
   const wasCritical = useRef<boolean | null>(null)
+
+
+  /*
+   * 돌아올 수 없는 지점.
+   *
+   * 선을 넘으면 6초를 센다. 그 안에 다이얼을 물리면 없던 일이 되고, 넘기면 지구가
+   * 실제로 그 상태로 넘어간다 — 지표는 죽고 대기는 벗겨진다. 무엇이 일어나고
+   * 무엇이 일어나지 않는지는 [lib/collapse] 가 정한다 (지구는 폭발하지 않는다).
+   */
+  const collapse = useMemo(
+    () => collapseFor({ magneticField, eccentricity: orbit.eccentricity }),
+    [magneticField, orbit.eccentricity],
+  )
+  const { warning, remaining: graceLeft, done, reset: resetCollapse } = useCollapse(collapse)
+
+  useEffect(() => {
+    if (!done) {
+      setAtmosphereStripped(0)
+      return
+    }
+    // 결말 — 지표를 죽이고 대기를 벗긴다. 값이 아니라 상태다.
+    setSurface(done.surface)
+    setAtmosphereStripped(atmosphereLossOf(done.kind))
+    pulseAlert(done.kind === 'mars' ? 0xff5a3c : 0xffb454)
+    // 글보다 행성을 먼저 — 카메라가 지구 앞까지 밀고 들어간다
+    cinematicCloseup(CLOSEUP_SECONDS - 0.4)
+  }, [done, setSurface, setAtmosphereStripped, pulseAlert, cinematicCloseup])
 
   /** 규칙 엔진 매칭 — 화면(ScenarioFocus)과 충격파가 같은 목록을 본다 */
   const scenarios = useMemo(() => activeScenarios({ ...orbit, magneticField }), [orbit, magneticField])
@@ -238,7 +268,18 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
       const step = perSec * dt
       const now = live.current
       if (key === 'magneticField') {
-        setMagneticField(clamp(now.magneticField + step, 0, 100))
+        /*
+         * 압박은 1% 까지만 민다 — 0 은 "돌아올 수 없는 지점"이라(→ lib/collapse),
+         * 거기까지 밀어버리면 사용자가 아무것도 안 했는데 지구가 끝난다. 이 위기의
+         * 압박은 초당 −12%p 라 시작값 9% 에서 1초도 안 걸렸다.
+         *
+         * ⚠️ 그렇다고 하한을 상수 1 로 두면 안 된다. 사용자가 직접 0 으로 내린 순간
+         * 다음 틱이 그 값을 1 로 **끌어올린다** — 압박이 반대 방향으로 미는 셈이고,
+         * 실제로 "0 으로 내려도 자꾸 1 로 올라간다"가 됐다.
+         * 하한은 현재값과 1 중 작은 쪽이다. 압박은 자기 방향으로만 민다.
+         */
+        const floor = Math.min(now.magneticField, 1)
+        setMagneticField(clamp(now.magneticField + step, floor, 100))
       } else if (key === 'eccentricity') {
         setOrbit({ eccentricity: Number(clamp(now.orbit.eccentricity + step, 0.005, 0.06).toFixed(4)) })
       } else {
@@ -268,8 +309,10 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
   // 임계를 넘긴 만큼만 지표가 변한다 — 넘기 전에는 아무 일도 일어나지 않아야
   // '임계점'이라는 말이 성립한다
   useEffect(() => {
+    // 결말에 들어간 뒤에는 손대지 않는다 — 여기서 다시 쓰면 죽은 지구가 되살아난다
+    if (done) return
     setSurface(surfaceFromThresholds(orbit.eccentricity, magneticField, orbit.obliquity))
-  }, [orbit.eccentricity, magneticField, orbit.obliquity, setSurface])
+  }, [orbit.eccentricity, magneticField, orbit.obliquity, setSurface, done])
 
   /*
    * 새 시나리오가 걸리는 **그 프레임**에 지구본을 한 번 터뜨린다.
@@ -607,6 +650,30 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
           </div>
         </div>
       </div>
+
+      <CollapseLayer
+        collapse={warning}
+        remaining={graceLeft}
+        done={done}
+        onReset={() => {
+          resetCollapse()
+          /*
+           * 위기 상태로 되감는다 — 안전한 값으로 돌려주면 "되돌리기 버튼이 있다"는
+           * 이 화면의 아이러니가 공짜 정답이 되어 버린다. 넘기 직전으로만 돌린다.
+           *
+           * ⚠️ 세 값을 **모두** 되돌려야 한다. patch 에 있는 것만 쓰면, 궤도 위기에서
+           * 자기장을 0 으로 만들어 붕괴시킨 경우 patch.magneticField 가 없어서 0 이
+           * 그대로 남고, 되돌리자마자 다시 붕괴한다. 실제로 그렇게 갇혔다.
+           */
+          const patch = crisis.apply()
+          setMagneticField(patch.magneticField ?? 100)
+          setOrbit({
+            eccentricity: patch.eccentricity ?? PRESENT.eccentricity,
+            obliquity: patch.obliquity ?? PRESENT.obliquity,
+          })
+          setAtmosphereStripped(0)
+        }}
+      />
 
       {!outcome ? (
         <div className="hud-panel pointer-events-auto flex items-baseline justify-between gap-6 px-4 py-2.5">

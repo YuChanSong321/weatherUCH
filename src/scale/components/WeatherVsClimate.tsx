@@ -47,7 +47,7 @@ export function WeatherVsClimate({ footer }: { footer?: ReactNode }) {
 
     <section className="panel flex flex-col gap-3 p-5">
       <div>
-        <div className="text-[10.5px] font-medium tracking-[0.14em] text-ink-3">2단계 정리 · 두 예측의 차이</div>
+        <div className="text-[10.5px] font-medium tracking-[0.14em] text-ink-3">중간 정리 · 두 예측의 차이</div>
         <h1 className="mt-1 text-[22px] leading-tight font-semibold tracking-tight">
           이름은 비슷하지만 <span className="text-ink-1">서로 다른 일입니다</span>
         </h1>

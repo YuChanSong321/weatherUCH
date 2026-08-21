@@ -700,7 +700,15 @@ export async function createTerraSim(container, opts = {}){
      * 0 이면 아래 셰이더에서 아무 일도 하지 않는다.
      */
     uFieldLoss: { value: 0 },
-    uLossColor: { value: new THREE.Color(0xff2d2d) }
+    uLossColor: { value: new THREE.Color(0xff2d2d) },
+    /*
+     * 대기가 우주로 벗겨진 정도 0…1 (→ setAtmosphereStripped).
+     *
+     * 자기 차폐를 잃은 행성은 상층 대기를 태양풍에 깎인다. 그 결말은 색이 바뀌는
+     * 것이 아니라 **고리 자체가 얇아지다 사라지는** 것이다 — 화성의 하늘에는
+     * 지구 같은 파란 테두리가 없다. uFieldLoss 가 색을 맡고 이 값이 양을 맡는다.
+     */
+    uStripped: { value: 0 }
   };
   const atmoMat = new THREE.ShaderMaterial({
     uniforms: atmoU,
@@ -725,6 +733,7 @@ export async function createTerraSim(container, opts = {}){
       uniform float uNightGlow;
       uniform float uFieldLoss;
       uniform vec3  uLossColor;
+      uniform float uStripped;
       varying vec3 vWPos; varying vec3 vWNrm;
 
       void main(){
@@ -775,6 +784,10 @@ export async function createTerraSim(container, opts = {}){
           col  = mix( col, uLossColor, uFieldLoss );
           glow = mix( glow, depth * uIntensity * 1.25, uFieldLoss );
         }
+
+        // 6 · 대기 박탈 -------------------------------------------------------
+        // 남은 공기가 적을수록 산란할 것도 적다. 완전히 벗겨지면 고리가 사라진다.
+        glow *= ( 1.0 - uStripped );
 
         // additive blending: only rgb matters, keep alpha at 1
         gl_FragColor = vec4( col * glow, 1.0 );
@@ -1086,6 +1099,35 @@ export async function createTerraSim(container, opts = {}){
     return { pos, tgt: earthPos.clone() };
   }
 
+  /**
+   * 결말용 클로즈업 — 지구 바로 앞까지 밀고 들어간다.
+   *
+   * 일반 'earth' 뷰는 지구 반지름의 약 3배 거리에서 행성 전체를 담는다. 그건
+   * "지구가 어디에 있는가"를 보여주는 자리지, "지구가 무엇이 되었는가"를 보여주는
+   * 자리가 아니다. 결말에서는 지표가 화면을 가득 채워야 바다가 사라진 것도,
+   * 대기가 벗겨진 것도 눈에 들어온다.
+   *
+   * 낮 쪽에서 접근한다 — 밤면으로 들어가면 기껏 바꿔 놓은 지표가 어둠에 묻힌다.
+   */
+  function closeupPose(earthPos){
+    const toSun = earthPos.clone().negate().normalize();
+    const up = new THREE.Vector3(0, 1, 0);
+    const side = new THREE.Vector3().crossVectors(toSun, up).normalize();
+    /*
+     * 지구 중심에서 약 2.6 R 떨어진 자리. (지표는 1 R, 일반 'earth' 뷰는 약 3.4 R)
+     *
+     * 처음에는 1.85 R 까지 밀어 넣었는데 지표에 코를 박은 꼴이라, 행성인지 텍스처인지
+     * 알 수 없었다. 결말에서 보여줘야 하는 것은 '가까운 지표'가 아니라 **달라진 행성
+     * 전체**다 — 실루엣(대기가 남았는지)과 지표(바다가 남았는지)가 한 화면에 같이
+     * 들어와야 무엇이 변했는지 읽힌다.
+     */
+    const pos = earthPos.clone()
+      .add(toSun.clone().multiplyScalar(R_EARTH * 2.05))   // 낮 쪽으로
+      .add(side.clone().multiplyScalar(R_EARTH * 1.45))
+      .add(up.clone().multiplyScalar(R_EARTH * 0.6));
+    return { pos, tgt: earthPos.clone() };
+  }
+
   function setView(mode, animate = true, dur = 1.5){
     viewMode = mode;
     onViewChange?.(mode);
@@ -1350,7 +1392,9 @@ export async function createTerraSim(container, opts = {}){
       transition.t += dtRaw;
       const k = easeInOut(clamp(transition.t / transition.dur, 0, 1));
       // recompute the destination each frame: the Earth keeps moving
-      const dest = poseFor(viewMode, earthPivot.position);
+      const dest = transition.closeup
+        ? closeupPose(earthPivot.position)
+        : poseFor(viewMode, earthPivot.position);
       camera.position.lerpVectors(transition.fromPos, dest.pos, k);
       controls.target.lerpVectors(transition.fromTgt, dest.tgt, k);
       if (transition.t >= transition.dur){ transition = null; controls.enabled = true; }
@@ -1762,6 +1806,30 @@ export async function createTerraSim(container, opts = {}){
       if (next.warm   !== undefined) surfaceTarget.warm   = Math.max(0, Math.min(1, next.warm));
       if (next.seaDry !== undefined) surfaceTarget.seaDry = Math.max(0, Math.min(1, next.seaDry));
       if (next.melt   !== undefined) surfaceTarget.melt   = Math.max(0, Math.min(1, next.melt));
+    },
+    /**
+     * 결말 클로즈업 — 지구 바로 앞까지 카메라를 밀어 넣는다.
+     *
+     * 결말에서 판이 화면을 덮고 지구는 뒤에 조그맣게 남아 있으면, 정작 "무엇이
+     * 되었는지"를 못 본 채 설명만 읽게 된다. 글보다 행성을 먼저 보여준다.
+     * 끝난 뒤에는 'earth' 추적 모드가 그 프레이밍을 그대로 붙들고 간다.
+     */
+    cinematicCloseup(dur = 2.6){
+      viewMode = 'earth';
+      onViewChange?.('earth');
+      transition = {
+        t: 0, dur, closeup: true,
+        fromPos: camera.position.clone(), toPos: null,
+        fromTgt: controls.target.clone(), toTgt: null,
+      };
+      controls.enabled = false;
+    },
+    /**
+     * 대기가 우주로 벗겨진 정도 (0…1).
+     * 되돌아올 수 없는 결말에서만 쓴다 — 평소에는 0 이어야 한다.
+     */
+    setAtmosphereStripped(v){
+      atmoU.uStripped.value = Math.max(0, Math.min(1, v));
     },
     /**
      * 임계를 넘은 그 순간 한 번 터뜨린다.

@@ -29,41 +29,14 @@ const worstOf = (list: ScenarioHit[]): Severity =>
 
 const NOTE = '규칙 기반 교육용 예측 — 지구시스템 모델의 계산이 아닙니다'
 
-/** 하단 대시보드용 — 한 줄, 걸린 것이 없으면 사라진다 */
-export function ScenarioBand({ scenarios }: { scenarios: ScenarioHit[] }) {
-  if (scenarios.length === 0) return null
-  const worst = worstOf(scenarios)
-  return (
-    <div
-      className="rise mx-4 mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-1.5 md:mx-8"
-      role="status"
-      aria-live="polite"
-      style={{
-        borderColor: `color-mix(in oklab, ${SEVERITY_COLOR[worst]} 45%, transparent)`,
-        background: `color-mix(in oklab, ${SEVERITY_COLOR[worst]} 10%, transparent)`,
-      }}
-    >
-      <span
-        className="text-[9.5px] font-semibold tracking-[0.12em] whitespace-nowrap"
-        style={{ color: SEVERITY_COLOR[worst] }}
-      >
-        예측 시나리오
-      </span>
-      {scenarios.map((s) => (
-        <span key={s.id} className="flex items-center gap-1.5 text-[11px] whitespace-nowrap">
-          <span
-            className="h-1.5 w-1.5 shrink-0 rounded-full"
-            style={{ background: SEVERITY_COLOR[s.severity], boxShadow: `0 0 6px ${SEVERITY_COLOR[s.severity]}` }}
-          />
-          <span className="text-ink-1">{s.text}</span>
-        </span>
-      ))}
-      <span className="ml-auto text-[9.5px] whitespace-nowrap text-ink-3">{NOTE}</span>
-    </div>
-  )
-}
+/*
+ * 한때 하단 대시보드에도 같은 띠를 두었다가 뺐다. [state/world] 의 값은 단계를 넘어
+ * 살아남기 때문에, S7 에서 자기장을 0 으로 만들고 나오면 부산 날씨를 맞히는 화면
+ * 하단에 "오존층 파괴로 인한 UV 자외선 폭증"이 계속 떠 있었다. 그 값을 만질 수 있는
+ * 화면은 S6·S7 뿐이므로 판도 거기에만 둔다.
+ */
 
-/** S7 조종석용 — 지구본 위, 항목이 들고 날 때 눈에 걸리도록 */
+/** S6·S7 오른쪽 진단 칸 맨 위 — 항목이 들고 날 때 눈에 걸리도록 */
 export function ScenarioFocus({ scenarios }: { scenarios: ScenarioHit[] }) {
   const worst = worstOf(scenarios)
   const tone = SEVERITY_COLOR[worst]
