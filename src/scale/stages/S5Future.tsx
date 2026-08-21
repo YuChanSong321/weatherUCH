@@ -8,7 +8,7 @@ import { CHART_MARGINS, YearlyChart } from '../components/YearlyChart'
 import { StageIntro, StageIntroBar, type IntroStep } from '../components/StageIntro'
 import { scenarios, sspBaseline, sspRegion, yearly, yearlyTrend } from '../data/loader'
 import { clamp, linearScale, smoothPath } from '../lib/scales'
-import { WeatherVsClimate } from '../components/WeatherVsClimate'
+import { ActTwoSummary } from '../components/PredictionScenes'
 import { useJourney } from '../state/journey'
 
 const W = 960
@@ -140,30 +140,13 @@ export function S5Future({ onNext }: { onNext: () => void }) {
     )
   }
 
-  /* 2단계를 닫는 화면 — 기상과 기후를 둘 다 겪은 직후에만 납득되는 정리다 */
+  /*
+   * 2단계를 닫는 세 화면 — 기상 → 기후 → 정리.
+   * 여정 맨 끝에 있던 것을 여기로 옮겼다. 기상과 기후를 막 겪고 나온 직후여야
+   * 각 장면이 방금 자기가 한 일의 해설이 된다 (→ components/PredictionScenes).
+   */
   if (outro) {
-    return (
-      <div className="mx-auto w-full max-w-6xl">
-        <WeatherVsClimate
-          footer={
-            <div className="flex items-center justify-between gap-6">
-              <p className="text-[12px] leading-relaxed text-ink-2">
-                여기까지가 <span className="text-ink-1">사람이 만든 기후</span> 이야기입니다. 다음은 사람이
-                등장하기 훨씬 전부터 기후를 움직여온 쪽이에요.
-              </p>
-              <div className="flex shrink-0 items-center gap-2">
-                <button type="button" className="btn btn-ghost px-5 py-2 text-[13px]" onClick={() => setOutro(false)}>
-                  그래프로 돌아가기
-                </button>
-                <button type="button" className="btn btn-primary px-5 py-2 text-[13px]" onClick={onNext}>
-                  그런데 이 기후를 움직이는 건 무엇일까요
-                </button>
-              </div>
-            </div>
-          }
-        />
-      </div>
-    )
+    return <ActTwoSummary onDone={onNext} onBack={() => setOutro(false)} />
   }
 
   return (

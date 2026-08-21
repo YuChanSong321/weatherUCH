@@ -93,8 +93,12 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
   const { trendGuess, setTrendGuess } = useJourney()
   const series = climate.yearly
 
-  /** 도입 세 마디를 지났는가 — 지나기 전에는 그래프를 아예 띄우지 않는다 */
-  const [introDone, setIntroDone] = useState(false)
+  /*
+   * 진입 카드는 앞 단계(S2)의 나가는 카드에 합쳐졌다 — 조작 없이 설명만 이어지는
+   * 카드가 연달아 두 장 뜨던 것을 한 장으로 줄인 것이다. 그래서 여기서는 곧장
+   * 그래프로 들어간다. 아래 INTRO 는 '안내 다시 보기'로만 열린다.
+   */
+  const [introDone, setIntroDone] = useState(true)
   /** 추세선 읽는 법 다섯 마디를 지났는가 — 다 쌓은 뒤 나가면서 한 번 거친다 */
   const [readerDone, setReaderDone] = useState(false)
   /** 그 다섯 마디를 지금 띄우고 있는가 */
@@ -519,6 +523,44 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
  *   ⓪ 내 예측과 실제(정답 공개) → ① 어떻게 그었나(최소제곱) → ② 어떻게 읽나(기울기 단위)
  *   → ③ 얼마나 믿나(잔차) → ④ 무엇이 아닌가(예측이 아니다 → 다음 단계로)
  */
+/**
+ * 내가 그은 기울기와 실제 기울기를 같은 칸에 겹쳐 놓는다.
+ *
+ * 정리 카드가 "+0.31 대 +0.24" 라고만 말하면 두 숫자의 차이가 얼마나 큰 것인지
+ * 감이 오지 않는다. 같은 폭 위에 두 선분을 그으면 각도 차이가 먼저 읽히고,
+ * 그게 곧 "내가 얼마나 가파르게 봤나"다.
+ */
+function SlopeRecap({ guess, actual, span }: { guess: number; actual: number; span: number }) {
+  const W = 300
+  const H = 88
+  const rise = (perDecade: number) => (perDecade * span) / 10
+  const lim = Math.max(0.6, Math.abs(rise(guess)), Math.abs(rise(actual))) * 1.25
+  const y = (v: number) => H / 2 - (v / lim) * (H / 2 - 10)
+  const line = (perDecade: number, color: string) => (
+    <line x1={8} y1={y(0)} x2={W - 8} y2={y(rise(perDecade))} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
+  )
+  return (
+    <div className="panel-quiet flex items-center gap-4 px-4 py-3 text-left">
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0" role="img" aria-label="내 기울기와 실제 기울기 비교">
+        <line x1={8} y1={y(0)} x2={W - 8} y2={y(0)} stroke="rgb(255 255 255 / 0.14)" strokeWidth={1} strokeDasharray="3 4" />
+        {line(guess, 'var(--color-act-3)')}
+        {line(actual, 'var(--color-act-2)')}
+      </svg>
+      <div className="flex flex-col gap-1.5 text-[11px]">
+        <span className="flex items-center gap-1.5" style={{ color: 'var(--color-act-3)' }}>
+          <span className="h-0.5 w-4 rounded-full" style={{ background: 'var(--color-act-3)' }} />
+          내가 찍은 기울기
+        </span>
+        <span className="flex items-center gap-1.5" style={{ color: 'var(--color-act-2)' }}>
+          <span className="h-0.5 w-4 rounded-full" style={{ background: 'var(--color-act-2)' }} />
+          실제 추세선
+        </span>
+        <span className="text-ink-3">{span}년 전체를 같은 폭에 놓은 것</span>
+      </div>
+    </div>
+  )
+}
+
 function readerSteps(
   series: Array<{ year: number; tavg: number }>,
   trend: { slope: number; intercept: number; perDecade: number },
@@ -567,6 +609,8 @@ function readerSteps(
                 : `실제보다 완만하게 보셨습니다. 작아 보이지만 ${span}년을 곱하면 ${totalRise.toFixed(2)}℃입니다.`}
         </>
       ),
+      // 두 기울기를 실제 선분으로 겹쳐 보여준다 — 숫자 두 개보다 각도 차이가 먼저 읽힌다
+      visual: <SlopeRecap guess={guess.perDecade} actual={trend.perDecade} span={span} />,
     })
   }
 

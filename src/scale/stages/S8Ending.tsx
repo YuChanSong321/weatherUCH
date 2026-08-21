@@ -1,18 +1,13 @@
 /**
- * S8 · 여정의 끝 — 두 시계를 겹쳐 보고, 처음의 질문을 회수한다.
+ * S8 · 여정의 끝.
  *
- * 한 단계 안의 두 국면이다.
- *   ① 탄소 대조 — 274년과 5만 년을 로그 시간축 한 화면에 겹친다 ([S6Carbon])
- *   ② U자 회수 — S0 의 질문에 답하고 총점을 낸다 ([S7Ending])
- *
- * 이 자리에 온 이유: 시간 규모가 단조로 커지는 여정에서 '전체를 겹쳐 보는 것'은
- * 되돌아가는 것이 아니라 가장 멀리 물러난 자리에서만 할 수 있는 일이다.
+ * 예전에는 여기서 탄소 대조([S6Carbon])를 먼저 보여준 뒤 결과 화면으로 넘겼다.
+ * 지금은 탄소가 결과 화면의 장면 레일 안으로 들어갔다 — 3단계 정리 → 탄소 →
+ * 여정 총정리 → 선택이 한 줄기로 이어져야 하고, 화면 형식도 같아야 하기 때문이다.
+ * 그래서 이 파일은 껍데기만 남는다.
  */
-import { useState } from 'react'
-import { S6Carbon } from './S6Carbon'
 import { S7Ending } from './S7Ending'
 
 export function S8Ending() {
-  const [step, setStep] = useState<'carbon' | 'result'>('carbon')
-  return step === 'carbon' ? <S6Carbon onNext={() => setStep('result')} /> : <S7Ending />
+  return <S7Ending />
 }

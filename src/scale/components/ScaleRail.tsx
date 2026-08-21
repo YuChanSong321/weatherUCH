@@ -6,19 +6,23 @@ import { Attribution } from './Attribution'
 import { STAGE_SCALE, useJourney, type Stage } from '../state/journey'
 
 /**
- * 눈금 — 자 위에 이름이 붙는 자리.
+ * 눈금 — 자 위에 이름이 붙는 자리이자, **그 단계로 건너뛰는 버튼**.
  *
- * 마커 위치는 이 표에서 **파생시킨다**(아래 POSITION). 두 표를 손으로 따로 적어두면
+ * 마커 위치는 이 표에서 파생시킨다(아래 POSITION). 두 표를 손으로 따로 적어두면
  * 반드시 어긋난다 — 실제로 s3 마커가 44%, '수십 년' 눈금이 46% 여서 점이 글자
  * 옆에 비스듬히 서 있었다. 눈금을 옮기면 마커도 따라 움직여야 한다.
+ *
+ * `stage` 는 그 눈금을 누르면 갈 곳이다. s4(빈 해)는 s3 와 같은 '수십 년' 규모라
+ * 눈금을 따로 두지 않는다 — 규모가 같은데 자 위에 두 점이 서면 그것이 거짓말이다.
  */
 const TICKS = {
-  day: { at: 0.06, label: '하루' },
-  year: { at: 0.24, label: '한 해' },
-  decades: { at: 0.46, label: '수십 년' },
-  century: { at: 0.66, label: '100년' },
-  myriad: { at: 0.9, label: '수만 년' },
-} as const
+  day: { at: 0.05, label: '하루', stage: 's1' },
+  year: { at: 0.22, label: '한 해', stage: 's2' },
+  decades: { at: 0.44, label: '수십 년', stage: 's3' },
+  century: { at: 0.63, label: '100년', stage: 's5' },
+  myriad: { at: 0.84, label: '수만 년', stage: 's6' },
+  threshold: { at: 0.96, label: '임계', stage: 's7' },
+} as const satisfies Record<string, { at: number; label: string; stage: Stage }>
 
 const TICK_LIST = Object.values(TICKS)
 
@@ -33,15 +37,15 @@ const TICK_LIST = Object.values(TICKS)
  * 규모이고, 규모가 같은데 마커만 움직이면 그것이 거짓말이다.
  */
 const POSITION: Record<Stage, number> = {
-  s0: 0.02, // 아직 규모가 없다 — 첫 눈금 앞에 선다
+  s0: 0.015, // 아직 규모가 없다 — 첫 눈금 앞에 선다
   s1: TICKS.day.at,
   s2: TICKS.year.at,
   s3: TICKS.decades.at,
   s4: TICKS.decades.at,
   s5: TICKS.century.at,
   s6: TICKS.myriad.at,
-  s7: 0.94, // 수만 년 너머 — 임계·전체는 이름 붙은 눈금이 없다
-  s8: 0.99,
+  s7: TICKS.threshold.at,
+  s8: 0.995, // 여정의 끝 — 자의 오른쪽 끝을 넘어선 자리
 }
 
 const ACT_COLOR: Record<1 | 2 | 3, string> = {
@@ -78,16 +82,17 @@ export function ScaleRail({
         </div>
       </div>
 
-      <div className="relative hidden h-9 flex-1 lg:block">
+      <div className="relative hidden h-11 flex-1 lg:block">
         <div className="absolute top-4 h-px w-full bg-white/12" />
         {TICK_LIST.map((t) => (
-          <div key={t.label} className="absolute top-0" style={{ left: `${t.at * 100}%` }}>
-            <div className="h-3 w-px translate-y-2.5 bg-white/25" />
-            <div className="-translate-x-1/2 pt-1 text-[10px] whitespace-nowrap text-ink-3">{t.label}</div>
-          </div>
+          <ScaleTick key={t.label} tick={t} current={stage} />
         ))}
+        {/*
+          마커는 눌리지 않는다 — 클릭은 눈금 버튼이 받는다. 마커가 위에 떠서 그 밑의
+          버튼을 가리면, 지금 서 있는 칸만 유독 안 눌리는 화면이 된다.
+        */}
         <div
-          className="absolute top-4 -translate-x-1/2 -translate-y-1/2 transition-[left] duration-[1200ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
+          className="pointer-events-none absolute top-4 -translate-x-1/2 -translate-y-1/2 transition-[left] duration-[1200ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
           style={{ left: `${pos * 100}%` }}
         >
           <div
@@ -126,6 +131,8 @@ export function ScaleRail({
  */
 function StageNav() {
   const { back, forward, canBack, canForward } = useJourney()
+  /* canForward 는 '가본 곳까지'였는데, 시간 자가 아무 데나 열리는 이상 화살표만
+     막아둘 이유가 없다. 마지막 단계에서만 잠근다. */
   const btn =
     'grid h-7 w-7 place-items-center rounded-full border border-white/10 text-[13px] leading-none ' +
     'text-ink-3 transition-colors hover:border-white/25 hover:text-ink-1 ' +
@@ -144,6 +151,60 @@ function StageNav() {
         title={canForward ? '보던 단계로 돌아가기' : '아직 가보지 않은 단계입니다'}
       >
         ›
+      </button>
+    </div>
+  )
+}
+
+
+/**
+ * 눈금 하나 = 그 시간 규모로 건너뛰는 버튼.
+ *
+ * 아직 안 지난 단계도 **누를 수 있다.** 처음에는 가본 곳까지만 열었는데, 두 가지가
+ * 걸렸다. 하나는 주소 해시(`#s5`)로는 어차피 아무 데나 갈 수 있고 앱이 그걸 견디도록
+ * 만들어져 있어서 잠금이 실제로 막아주는 것이 없다는 점. 다른 하나는 처음 실행했을 때
+ * 자 전체가 잠긴 채로 떠서 고장난 화면처럼 보인다는 점이다.
+ *
+ * 대신 **지나온 칸과 아직인 칸을 밝기로 구분한다** — 앞으로 갈 길이 남았다는 감각은
+ * 유지하면서, 발표 중에 원하는 규모로 바로 뛸 수 있다. 앞질러 가면 그 단계의 점수는
+ * 비어 있는 채로 결과 화면에 도착하는데, 그건 누른 사람의 선택이다.
+ */
+function ScaleTick({
+  tick,
+  current,
+}: {
+  tick: { at: number; label: string; stage: Stage }
+  current: Stage
+}) {
+  const { go, canJump } = useJourney()
+  /** 이미 지나온 칸인가 — 막는 데 쓰지 않고 밝기에만 쓴다 */
+  const visited = canJump(tick.stage)
+  // s3·s4 는 같은 '수십 년' 눈금을 쓴다 — 둘 중 어디에 있어도 이 칸이 지금 자리다
+  const here = POSITION[current] === tick.at
+  const color = ACT_COLOR[STAGE_SCALE[tick.stage].act]
+
+  return (
+    <div className="absolute top-0" style={{ left: `${tick.at * 100}%` }}>
+      <div
+        className="h-3 w-px translate-y-2.5 transition-colors"
+        style={{ background: here ? color : visited ? 'rgb(255 255 255 / 0.25)' : 'rgb(255 255 255 / 0.12)' }}
+      />
+      <button
+        type="button"
+        onClick={() => go(tick.stage)}
+        aria-current={here ? 'step' : undefined}
+        title={visited ? `${tick.label} 단계로 이동` : `${tick.label} 단계로 건너뛰기 (아직 지나지 않은 단계입니다)`}
+        /* pt-3.5 — 마커(지름 14px, 중심 16px)가 라벨을 덮지 않게 그 아래로 내린다.
+           예전에는 현재 단계의 글자 위에 마커가 정확히 얹혀 가장 읽혀야 할 칸이
+           가려졌다. */
+        className="-translate-x-1/2 mt-3.5 cursor-pointer rounded-md px-1.5 py-0.5 text-[10px] whitespace-nowrap transition-colors hover:bg-white/8 hover:text-ink-1"
+        style={{
+          color: here ? color : 'var(--color-ink-3)',
+          opacity: here || visited ? 1 : 0.45,
+          fontWeight: here ? 600 : 400,
+        }}
+      >
+        {tick.label}
       </button>
     </div>
   )

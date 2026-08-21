@@ -52,7 +52,13 @@ const fmtCount = (v: number): string => roundSig(v).toLocaleString('ko-KR')
 const fmtYears = (y: number): string =>
   y >= 10_000 ? `${fmtCount(y / 10_000)}만 년` : `${fmtCount(y)}년`
 
-export function S6Carbon({ onNext }: { onNext: () => void }) {
+/**
+ * @param embedded 엔딩의 장면 레일 안에 얹힌 경우.
+ *   내용·구조·화면 구성은 그대로 두고 **껍데기만** 옆 장면들과 맞춘다 — 판 위에
+ *   올리고, 제목 줄을 kicker 형식으로 낮추고, 자기 진행 버튼을 감춘다(레일의
+ *   '다음'이 그 일을 한다). 형식이 어긋나면 이 화면만 딴 데서 온 것처럼 보인다.
+ */
+export function S6Carbon({ onNext, embedded = false }: { onNext?: () => void; embedded?: boolean }) {
   const { orbit, setCo2 } = useWorld()
   const { setClimateTint, setSurface } = useGlobe()
   const [carbonOn, setCarbonOn] = useState(false)
@@ -150,11 +156,19 @@ export function S6Carbon({ onNext }: { onNext: () => void }) {
   const head = carbonPts[carbonPts.length - 1] ?? [x(1), y(0)]
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
+    <div
+      className={
+        embedded
+          ? 'panel flex w-full flex-col gap-3 p-5'
+          : 'mx-auto flex w-full max-w-6xl flex-col gap-3'
+      }
+    >
       <div className="flex items-end justify-between">
         <div>
-          <div className="text-[11px] font-medium tracking-[0.14em] text-act-3">여정의 끝 · 전체</div>
-          <h1 className="mt-0.5 text-[22px] leading-tight font-semibold tracking-tight">
+          <div className="text-[10.5px] font-medium tracking-[0.14em] text-act-3">
+            {embedded ? '② 탄소 · 사람의 시계' : '여정의 끝 · 전체'}
+          </div>
+          <h1 className="mt-1 text-[22px] leading-tight font-semibold tracking-tight">
             {t > 0.6
               ? `사람의 ${carbonYears}년이 자연의 5만 년을 앞질렀습니다`
               : '자연의 시계와 사람의 시계를 나란히 놓아봅시다'}
@@ -324,10 +338,14 @@ export function S6Carbon({ onNext }: { onNext: () => void }) {
             </p>
           )}
         </div>
+        {/* 레일 안에서는 진행을 레일의 '다음'이 맡는다 — 버튼이 둘이면 어느 쪽이
+            앞으로 가는 것인지 알 수 없다. 레이어 켜기만 남긴다. */}
         {t > 0.6 ? (
-          <button type="button" className="btn btn-primary shrink-0 rise" onClick={onNext}>
-            처음의 질문으로
-          </button>
+          embedded ? null : (
+            <button type="button" className="btn btn-primary shrink-0 rise" onClick={onNext}>
+              처음의 질문으로
+            </button>
+          )
         ) : (
           <button type="button" className="btn btn-ghost shrink-0" onClick={() => setCarbonOn(true)}>
             켜기

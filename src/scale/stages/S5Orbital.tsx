@@ -317,13 +317,22 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
             onReplay={() => setIntroDone(false)}
           />
         </div>
-        <MissionTimer
-          remaining={remaining}
-          started={started}
-          outcome={outcome}
-          onRetry={retry}
-          onShowResult={() => (outcome === 'cleared' ? setShowSuccess(true) : setShowTimeout(true))}
-        />
+        {/*
+          카운트다운을 화면에서 걷어냈다.
+          이 단계는 자유 탐색인데 초가 줄어드는 숫자가 떠 있으면 시험처럼 읽혀서,
+          다이얼을 눌러보는 대신 서두르게 된다. 시간은 안에서만 돌고, 60초가 지나면
+          그때 한 번 "계속 볼지 / 넘어갈지"를 묻는다 (→ TimeoutCard).
+          결과 카드를 닫은 뒤 다시 열 길만 조용히 남겨 둔다.
+        */}
+        {outcome && (
+          <button
+            type="button"
+            className="pointer-events-auto rounded-full border border-white/12 px-3 py-1.5 text-[11px] text-ink-3 transition-colors hover:border-white/25 hover:text-ink-1"
+            onClick={() => (outcome === 'cleared' ? setShowSuccess(true) : setShowTimeout(true))}
+          >
+            {outcome === 'cleared' ? '달성 카드 다시 보기' : '안내 다시 보기'}
+          </button>
+        )}
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto lg:grid-cols-[332px_minmax(0,1fr)_344px] lg:overflow-visible">
@@ -346,7 +355,7 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
             <div className="flex items-baseline justify-between gap-2">
               <div>
                 <div className="text-[10.5px] tracking-[0.1em] text-act-3">
-                  과제 · 점수 없음 · {TIME_LIMIT}초
+                  과제 · 점수 없음 · 시간 제한 없음
                 </div>
                 <h2 className="mt-0.5 text-[14.5px] font-semibold tracking-tight">{mission.title}</h2>
               </div>
@@ -610,7 +619,7 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
           </button>
         ) : (
           <span className="shrink-0 text-[11.5px] text-ink-3">
-            과제가 끝나면 다음 단계로 넘어갑니다 ({TIME_LIMIT}초)
+            천천히 돌려보세요 — 과제를 달성하면 다음 단계가 열립니다
           </span>
         )}
       </div>
@@ -618,76 +627,6 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
   )
 }
 
-/**
- * 제한 시간 표시.
- *
- * S7 의 타이머와 같은 형태를 쓴다 — 같은 규칙(첫 조작에서 시작)을 두 화면이 공유하는데
- * 생김새가 다르면 사용자가 규칙도 다른 줄 안다. 다만 여기서는 시간이 끝나도 조작이
- * 잠기지 않으므로, 끝난 뒤에는 '다시 도전' 버튼으로 바뀐다.
- */
-function MissionTimer({
-  remaining,
-  started,
-  outcome,
-  onRetry,
-  onShowResult,
-}: {
-  remaining: number
-  started: boolean
-  outcome: null | 'cleared' | 'timeout'
-  onRetry: () => void
-  /** 판정 라벨을 눌러 결과 카드를 다시 연다 */
-  onShowResult: () => void
-}) {
-  const pct = (remaining / TIME_LIMIT) * 100
-  const urgent = remaining <= 15 && !outcome
-  const color =
-    outcome === 'cleared'
-      ? 'var(--color-good)'
-      : outcome === 'timeout'
-        ? 'var(--color-bad)'
-        : urgent
-          ? 'var(--color-bad)'
-          : 'var(--color-act-3)'
-
-  return (
-    <div className="flex shrink-0 flex-col items-end gap-1">
-      <div className="flex items-center gap-2.5">
-        <div className="h-1.5 w-28 overflow-hidden rounded-full bg-white/10">
-          <div
-            className="h-full rounded-full transition-[width] duration-100"
-            style={{ width: `${pct}%`, background: color }}
-          />
-        </div>
-        <span className="tnum w-14 text-right text-[15px] font-semibold" style={{ color: urgent ? color : undefined }}>
-          {remaining.toFixed(1)}s
-        </span>
-      </div>
-      <div className="flex items-center gap-2 text-[10.5px]">
-        {!started && !outcome && <span className="text-ink-3">다이얼을 움직이면 시작</span>}
-        {outcome && (
-          <button
-            type="button"
-            onClick={onShowResult}
-            className="underline decoration-dotted underline-offset-2"
-            style={{ color: outcome === 'cleared' ? 'var(--color-good)' : 'var(--color-bad)' }}
-          >
-            {outcome === 'cleared' ? '달성 · 결과 보기' : '시간 초과 · 결과 보기'}
-          </button>
-        )}
-        {outcome && (
-          <button
-            type="button"
-            onClick={onRetry}
-            className="rounded-full border border-white/15 px-2 py-0.5 text-ink-2 transition-colors hover:text-ink-1"
-          >
-            다시 도전
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
 
 /**
  * 시간 초과 카드.
@@ -734,12 +673,12 @@ function MissionTimedOut({
             className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
             style={{ background: 'color-mix(in oklab, var(--color-bad) 22%, transparent)', color: 'var(--color-bad)' }}
           >
-            시간 초과
+            안내
           </span>
           <span className="text-[10.5px] text-ink-3">{mission.title} · 점수는 없습니다</span>
         </div>
 
-        <h2 className="text-[19px] leading-tight font-semibold tracking-tight">{TIME_LIMIT}초 안에는 닿지 못했습니다</h2>
+        <h2 className="text-[19px] leading-tight font-semibold tracking-tight">잠깐 — 계속 보실래요?</h2>
 
         <p className="text-[12.5px] leading-relaxed text-ink-2">
           지금 북위 65° 여름 일사량은 <span className="tnum text-ink-1">{summer.toFixed(0)} W/m²</span> (목표{' '}
@@ -782,19 +721,19 @@ function MissionTimedOut({
         </div>
 
         <p className="text-[11.5px] leading-relaxed text-ink-3">
-          사실 시간에 쫓길 일은 아닙니다 — 궤도는 <span className="text-ink-2">만 년 단위</span>로 움직이니까요. 이{' '}
-          {TIME_LIMIT}초는 "두 다이얼을 함께 써야 한다"를 손이 알아채게 하려고 놓아둔 것이고, 점수는 걸려 있지 않습니다.
+          시간에 쫓길 일은 아닙니다 — 궤도는 <span className="text-ink-2">만 년 단위</span>로 움직이니까요. 점수도
+          걸려 있지 않습니다. 여기서 멈출지 더 볼지만 고르시면 됩니다.
         </p>
 
         <div className="mt-1 flex items-center gap-2">
-          <button type="button" className="btn btn-primary flex-1 py-2.5 text-[13px]" onClick={onRetry}>
-            다시 도전 ({TIME_LIMIT}초)
-          </button>
-          <button type="button" className="btn btn-ghost px-4 py-2.5 text-[12.5px]" onClick={onClose}>
-            계속 만져보기
+          <button type="button" className="btn btn-primary flex-1 py-2.5 text-[13px]" onClick={onClose}>
+            계속 조작하기
           </button>
           <button type="button" className="btn btn-ghost px-4 py-2.5 text-[12.5px]" onClick={onNext}>
-            다음 단계로
+            다음으로 넘어가기
+          </button>
+          <button type="button" className="btn btn-ghost px-4 py-2.5 text-[12.5px]" onClick={onRetry}>
+            처음부터
           </button>
         </div>
       </div>

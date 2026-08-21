@@ -26,6 +26,14 @@ export type IntroStep = {
   body: ReactNode
   /** 접힌 뒤 한 줄로 남길 요약 (없으면 남기지 않는다) */
   chip?: string
+  /**
+   * 글 아래에 함께 놓을 시각 요약.
+   *
+   * 정리 카드가 "당신은 이걸 배웠습니다"라고 글로만 말하면, 정작 자기가 무엇을
+   * 했는지는 남지 않는다. 사용자가 **실제로 만든 것**(찍은 값·그린 선·돌린 다이얼)을
+   * 옆에 놓아야 되짚기가 된다.
+   */
+  visual?: ReactNode
 }
 
 export function StageIntro({
@@ -93,7 +101,7 @@ export function StageIntro({
       {/* 3D 지구가 늘 뒤에 있으므로 카드는 항상 불투명 판 + 블러다. 반투명으로 두면
           대륙의 밝은 부분과 글자가 섞여, 한 문장만 읽히게 하려던 의도가 무너진다. */}
       <div
-        className="flex min-h-[13.5rem] w-full flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 px-8 py-9 backdrop-blur-md"
+        className="flex min-h-[13.5rem] w-full flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 px-8 py-8 backdrop-blur-md"
         style={{ background: 'color-mix(in oklab, var(--color-space-1) 88%, transparent)' }}
       >
         {/*
@@ -122,6 +130,7 @@ export function StageIntro({
             <p className="max-w-xl text-[17px] leading-[1.65] font-medium tracking-tight text-ink-1">
               {step.body}
             </p>
+            {step.visual && <div className="w-full max-w-xl pt-1">{step.visual}</div>}
           </motion.div>
         </AnimatePresence>
       </div>

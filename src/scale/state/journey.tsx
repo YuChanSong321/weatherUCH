@@ -91,6 +91,10 @@ type JourneyValue = {
   forward: () => void
   canBack: boolean
   canForward: boolean
+  /** 지금까지 도달한 가장 먼 단계 — 상단 시간 자가 어디까지 열어줄지 정한다 */
+  maxStage: Stage
+  /** 그 단계로 건너뛸 수 있는가 (가본 곳까지만) */
+  canJump: (s: Stage) => boolean
   rounds: RoundScore[]
   pushRound: (r: RoundScore) => void
   yearGuess: YearGuessResult | null
@@ -172,13 +176,10 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
     setStage((s) => STAGE_ORDER[Math.max(0, STAGE_ORDER.indexOf(s) - 1)])
   }, [])
 
-  /** 복습을 마치고 원래 있던 자리로 — 가본 곳을 넘어가지는 않는다 */
+  /** 다음 단계로. 상단 시간 자가 아무 칸이나 열어주므로 여기서도 막지 않는다. */
   const forward = useCallback(() => {
-    setStage((s) => {
-      const i = Math.min(STAGE_ORDER.indexOf(maxStage), STAGE_ORDER.indexOf(s) + 1)
-      return STAGE_ORDER[Math.max(0, i)]
-    })
-  }, [maxStage])
+    setStage((s) => STAGE_ORDER[Math.min(STAGE_ORDER.length - 1, STAGE_ORDER.indexOf(s) + 1)])
+  }, [])
 
   const pushRound = useCallback((r: RoundScore) => {
     setRounds((prev) => [...prev.filter((p) => p.round !== r.round), r].sort((a, b) => a.round - b.round))
@@ -211,7 +212,9 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
       back,
       forward,
       canBack: STAGE_ORDER.indexOf(stage) > 0,
-      canForward: STAGE_ORDER.indexOf(stage) < STAGE_ORDER.indexOf(maxStage),
+      canForward: STAGE_ORDER.indexOf(stage) < STAGE_ORDER.length - 1,
+      maxStage,
+      canJump: (s: Stage) => STAGE_ORDER.indexOf(s) <= STAGE_ORDER.indexOf(maxStage),
       rounds,
       pushRound,
       yearGuess,

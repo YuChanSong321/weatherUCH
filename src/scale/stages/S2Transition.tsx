@@ -25,7 +25,7 @@ import { StageIntro, StageIntroBar, type IntroStep } from '../components/StageIn
 import { monthlyNormals } from '../data/loader'
 import { linearScale, niceTicks, smoothPath } from '../lib/scales'
 import { useClimate } from '../state/climate'
-import { useJourney } from '../state/journey'
+import { useJourney, type YearMeanGuess } from '../state/journey'
 
 const W = 960
 const H = 380
@@ -96,16 +96,18 @@ const INTRO: IntroStep[] = [
 ]
 
 /**
- * 나가는 카드 — 한 해에서 수십 년으로 건너가는 다리.
+ * 나가는 카드 — 한 해를 닫고 수십 년을 여는 **한 장**.
  *
- * 여기가 이 콘텐츠에서 가장 잘 끊기던 자리다. 1단계(기상)는 "2주 벽"으로 매듭이
- * 잘 지어지는데, 한 해에서 수십 년으로 넘어갈 때는 아무 말 없이 화면만 바뀌어서
- * **기후가 대체 무엇인지가 끝내 드러나지 않았다.**
+ * 원래는 두 장이었다. 여기서 "한 해 정리" 카드를 띄우고, 단계가 넘어가며 줌아웃-줌인
+ * 이 일어난 뒤, 저쪽에서 "수십 년 진입" 카드가 또 떴다. 조작이 하나도 끼어 있지 않은
+ * 설명 두 장이 연달아 뜨는 셈이라 흐름이 끊기고 같은 말을 두 번 듣는 느낌이 났다.
+ * 그래서 한 장으로 합치고, 화면 전환은 이 카드 앞뒤로 한 번씩만 일어나게 했다.
+ * (→ S3Climate 는 자기 진입 카드를 건너뛴다. 그쪽 INTRO 는 '다시 보기'용으로 남는다.)
  *
- * 그래서 세 마디로 못을 박는다: 기상의 한계 → 기후의 방식 → 그래서 다음에 할 일.
- * 이 카드가 곧 '기후'의 정의이기도 하다.
+ * 첫 마디에는 사용자가 방금 찍은 값을 그림으로 함께 놓는다. 글로만 되짚으면
+ * "내가 뭘 했더라"가 남지 않는다.
  */
-const OUTRO = (year: number, mean: number): IntroStep[] => [
+const OUTRO = (year: number, mean: number, guess: YearMeanGuess | null): IntroStep[] => [
   {
     label: '방금 한 일',
     body: (
@@ -114,9 +116,10 @@ const OUTRO = (year: number, mean: number): IntroStep[] => [
         만들었습니다. 날씨가 사라지고 기후가 남은 자리예요.
       </>
     ),
+    visual: guess ? <GuessRecap guess={guess} /> : undefined,
   },
   {
-    label: '왜 이렇게 하나',
+    label: '그래서 기후란',
     body: (
       <>
         기상 예보는 <span className="text-ink-1">2주가 한계</span>입니다 — 그 너머의 특정 날짜 값은 원리상 알 수
@@ -130,12 +133,64 @@ const OUTRO = (year: number, mean: number): IntroStep[] => [
     label: '그래서 다음은',
     body: (
       <>
-        방향을 읽는 방식이라 <span className="text-ink-1">훨씬 먼 미래까지 내다볼 수 있습니다.</span> 정말 그런지,
-        방금 만든 이 점을 <span className="text-act-2">40년 동안 찍어서</span> 확인해볼까요.
+        방향을 읽는 방식이라 <span className="text-ink-1">훨씬 먼 미래까지 내다볼 수 있습니다.</span> 정말 그런지
+        확인해볼까요 — 아래 띠를 문질러 <span className="text-act-2">40년치 연평균</span>을 직접 쌓고, 절반쯤에서
+        멈춰 나머지 20년의 방향을 먼저 찍습니다.
+      </>
+    ),
+  },
+  {
+    label: '곧 나올 선은 무엇인가',
+    body: (
+      <>
+        점이 충분히 쌓이면 <span className="text-act-2">추세선</span>이 자랍니다. 점들 한가운데를 지나도록 그은
+        직선이고, 기울기가 <span className="text-ink-1">10년마다 몇 도씩 움직였는지</span>를 말해줍니다. 개별
+        연도를 설명하려는 선이 아니에요.
       </>
     ),
   },
 ]
+
+/** 사용자가 찍은 값과 실제값을 눈금 하나 위에 나란히 — 오차가 길이로 읽힌다 */
+function GuessRecap({ guess }: { guess: YearMeanGuess }) {
+  const err = guess.guess - guess.actual
+  const lo = Math.min(guess.guess, guess.actual) - 1.2
+  const hi = Math.max(guess.guess, guess.actual) + 1.2
+  const at = (v: number) => ((v - lo) / (hi - lo)) * 100
+  return (
+    <div className="panel-quiet px-4 py-3 text-left">
+      <div className="flex items-baseline justify-between text-[10.5px] text-ink-3">
+        <span>내 예측</span>
+        <span className="tnum">
+          차이 {Math.abs(err).toFixed(2)}℃ {err > 0 ? '높게' : '낮게'} 찍음
+        </span>
+        <span>실제</span>
+      </div>
+      <div className="relative mt-4 h-1 rounded-full bg-white/12">
+        <Marker at={at(guess.guess)} color="var(--color-act-3)" label={`${guess.guess.toFixed(1)}℃`} above />
+        <Marker at={at(guess.actual)} color="var(--color-act-2)" label={`${guess.actual.toFixed(2)}℃`} />
+      </div>
+      <div className="h-4" />
+    </div>
+  )
+}
+
+function Marker({ at, color, label, above }: { at: number; color: string; label: string; above?: boolean }) {
+  return (
+    <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `${at}%` }}>
+      <div
+        className="h-2.5 w-2.5 -translate-x-1/2 rounded-full"
+        style={{ background: color, boxShadow: `0 0 8px ${color}` }}
+      />
+      <div
+        className="tnum absolute left-1/2 -translate-x-1/2 text-[11px] font-semibold whitespace-nowrap"
+        style={{ color, [above ? 'bottom' : 'top']: '10px' }}
+      >
+        {label}
+      </div>
+    </div>
+  )
+}
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 
@@ -254,7 +309,7 @@ export function S2Transition({ year, onNext }: { year: number; onNext: () => voi
     return (
       <StageIntro
         eyebrow="한 해에서 수십 년으로"
-        steps={OUTRO(model.shownYear, model.yearMean)}
+        steps={OUTRO(model.shownYear, model.yearMean, yearMeanGuess)}
         tone="var(--color-act-2)"
         onDone={onNext}
       />
