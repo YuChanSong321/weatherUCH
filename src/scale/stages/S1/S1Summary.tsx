@@ -57,8 +57,10 @@ const METHOD_STEPS: IntroStep[] = [
     label: '그래서 · 날씨는 예측한다',
     body: (
       <>
-        날씨는 <span className="text-act-1">초기값 문제</span>입니다. 지금 대기의 상태를 알아야 시작할 수 있고, 거기 남은
-        미세한 오차가 이틀마다 두 배로 자랍니다. 그래서 아무리 잘 계산해도 2주에서 끝나요.
+        날씨는 <span className="text-act-1">초기값 문제</span>입니다. 지금 대기의 상태를 알아야 시작할 수 있는데, 거기
+        남은 아주 작은 차이가 시간이 갈수록 걷잡을 수 없이 벌어져요 —{' '}
+        <span className="text-act-1">나비 한 마리의 날갯짓</span>에 비유되는 그 성질입니다. 그래서 며칠까지는 꽤
+        잘 맞지만, 2주 근처부터는 예측이 급격히 어려워집니다.
       </>
     ),
   },
@@ -172,10 +174,11 @@ export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: ()
 
       <div className="panel px-5 py-4 text-center">
         <p className="text-[14px] leading-relaxed">
-          그런데 <span className="font-semibold text-act-1">2주 뒤</span>는 이렇게 물어볼 수가 없습니다.
+          그런데 <span className="font-semibold text-act-1">2주 뒤</span>는 이렇게 물어보기가 어렵습니다.
           <br />
           <span className="text-ink-2">
-            같은 방법으로 14일을 밀고 나가면 오차는 며칠마다 두 배로 자라서, 예측이 그 지점에서 무너지기 때문이에요.
+            같은 방법으로 날짜를 밀고 나갈수록 처음의 작은 차이가 점점 크게 벌어져서, 그쯤 되면 답이 사실상 아무
+            값이나 될 수 있기 때문이에요.
           </span>
         </p>
         {/*
@@ -189,10 +192,11 @@ export function S1Summary({ rounds, onNext }: { rounds: RoundScore[]; onNext: ()
           그래서 물음표를 지우고, 마지막 줄에서 "질문을 바꾼다"를 먼저 밝힌다.
         */}
         <p className="mx-auto mt-3 max-w-xl border-t border-white/8 pt-3 text-[12px] leading-relaxed text-ink-3">
-          위에서 말한 초기값 문제의 이름이 <span className="text-ink-2">카오스(초기 조건 민감성)</span>입니다. 관측망이
-          아무리 촘촘해도 남는 오늘의 0.1℃ 오차가 2주 뒤에는 몇 ℃가 돼요 — 그래서 2주는{' '}
-          <span className="text-ink-2">기술이 아니라 물리가 정한 한계</span>이고, 슈퍼컴퓨터를 열 배로 늘려도 3주가
-          되지 않습니다. 그 벽 너머는 예측이 아니라 전망의 영역이에요.
+          위에서 말한 초기값 문제의 이름이 <span className="text-ink-2">카오스(초기 조건 민감성)</span>입니다.
+          "브라질에서 나비가 날갯짓하면 텍사스에 토네이도가 분다"는 그 이야기예요 — 관측망을 아무리 촘촘히 깔아도
+          남는 오늘의 미세한 차이가, 날이 갈수록 걷잡을 수 없이 커집니다. 그래서 2주 안팎은{' '}
+          <span className="text-ink-2">기술이 아니라 물리가 만든 한계</span>에 가깝습니다 — 컴퓨터를 훨씬 키워도
+          그 한계가 크게 밀리지는 않아요. 그 너머는 예측보다 전망의 영역입니다.
           <br />
           <span className="text-ink-2">
             그래서 다음 화면부터는 “며칠 뒤 몇 도”를 묻지 않습니다. 질문 자체를 바꿔볼게요.

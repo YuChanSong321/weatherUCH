@@ -1,4 +1,4 @@
-/** S1 채점 결과 — "틀렸다"가 아니라 "무엇이 어긋났고 왜 그랬는지, 예보관은 어떻게 하는지". */
+/** S1 채점 결과 — "틀렸다"가 아니라 "무엇이 어긋났고 왜 그랬는지". */
 import { KmaCompare } from './KmaCompare'
 import { MethodPanel } from './MethodPanel'
 import { usePlace } from '../../state/place'
@@ -103,7 +103,7 @@ export function RoundResult({
         })}
       </div>
 
-      {/* 예보관의 방법 — 같은 문제를 표준 방법으로 다시 풀어본다 */}
+      {/* 같은 문제를 표준 방법으로 다시 풀어본다 */}
       {place && <MethodPanel records={place.records} forecastCase={forecastCase} guess={guess} />}
 
       {/* 라운드가 가르친 규칙 */}

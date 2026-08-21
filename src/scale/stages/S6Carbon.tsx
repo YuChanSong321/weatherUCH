@@ -323,14 +323,47 @@ export function S6Carbon({ onNext, embedded = false }: { onNext?: () => void; em
                   {endDelta < 0 &&
                     ' 게다가 자연은 지구를 식히는 쪽으로 가는 중인데, 사람은 그 반대 방향으로 데우고 있습니다.'}
                 </p>
-                <p className="text-ink-3">
-                  기온이 변하는 것 자체는 지구가 늘 해온 일입니다. 문제는 <span className="text-ink-2">속도</span>예요 —
-                  숲이 서식지를 옮기고, 농사가 작물을 바꾸고, 도시가 홍수와 더위에 대비하는 데는 모두 시간이 걸리는데,
-                  그 시간이 이만큼 줄어든 것입니다.
-                </p>
               </>
             )
-          ) : (
+          ) : null}
+
+          {/*
+            속도 결론은 **분기 밖**에 둔다.
+            한때 "자연 곡선이 평평하지 않은" 분기 안에만 있었는데, 궤도 다이얼을 한 번도
+            안 건드린 사용자는 평평한 쪽으로 빠져 이 결론을 아예 못 봤다. 이 화면이
+            하려는 말이 바로 이거라서, 어느 분기로 오든 보여야 한다.
+          */}
+          {/* 이 화면의 결론이다. 예전에는 회색 보조문(text-ink-3)이라 위의 숫자 문단에
+              묻혔는데, "그래서 무엇이 문제냐"에 답하는 건 이 문단이다. 판을 씌워 끌어낸다. */}
+          {t > 0.6 && (
+              <div
+                className="mt-1 rounded-xl border px-4 py-3"
+                style={{
+                  borderColor: 'color-mix(in oklab, var(--color-bad) 40%, transparent)',
+                  background: 'color-mix(in oklab, var(--color-bad) 9%, transparent)',
+                }}
+              >
+                <p className="text-[14px] leading-snug font-semibold text-ink-1">
+                  문제는 <span style={{ color: 'var(--color-bad)' }}>크기가 아니라 속도</span>입니다.
+                </p>
+                <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-2">
+                  기온이 오르내리는 것 자체는 지구가 늘 해온 일이에요. 지구는 이보다 더 더웠던 적도, 더 추웠던
+                  적도 있습니다. 다만 그때는 <span className="text-ink-1">만 년에 걸쳐</span> 바뀌었어요.
+                </p>
+                <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-2">
+                  숲은 한 세대에 수십 미터씩 서식지를 옮기고, 농사는 새 품종을 찾는 데 수십 년이 걸리고, 도시가
+                  제방과 배수를 다시 놓는 데도 수십 년이 듭니다. 만 년이 주어지면 다들 따라갈 수 있는 속도예요.{' '}
+                  <span className="text-ink-1">
+                    {Number.isFinite(speedRatio)
+                      ? `그 시간이 ${fmtCount(speedRatio)}분의 1로 줄었다는 것`
+                      : '그 시간이 수백 년으로 줄었다는 것'}
+                  </span>{' '}
+                  — 그게 지금 일어나는 일입니다.
+                </p>
+              </div>
+          )}
+
+          {t <= 0.6 && (
             <p>
               방금 만드신 보라색 곡선이 <span className="text-ink-1">자연의 시계</span>입니다. 지구의 궤도가 앞으로 5만 년
               동안 기온을 어디까지 데려가는지 보여줘요. 3단계를 열 때 봤던 그 곡선 —{' '}

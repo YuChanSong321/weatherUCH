@@ -223,8 +223,14 @@ function SceneRail({
  */
 const LEVERS: Record<string, { headline: string; body: string; acts: string[] }> = {
   ssp126: {
-    headline: '이 길로 가려면, 2050년 무렵 배출 총량이 0 이어야 합니다',
-    body: '이미 배출한 몫 때문에 당분간은 계속 더워집니다. 그래도 세기 후반에 곡선이 눕는 유일한 경로예요.',
+    /*
+     * "배출 총량이 0" 이라고 적었더니 배출을 아예 멈춘다는 뜻으로 읽혔다. 넷제로는
+     * 그런 뜻이 아니다 — 내보내는 양과 흡수하는 양이 같아져 **합이 0** 이 되는 상태다.
+     * 화석연료를 한 톤도 안 태우는 세상이 아니라, 남은 배출만큼을 숲·갯벌·포집으로
+     * 되거둬 상쇄하는 세상이다.
+     */
+    headline: '이 길로 가려면, 2050년 무렵 배출과 흡수가 같아져야 합니다',
+    body: '내보내는 양을 0으로 만든다는 뜻이 아니라, 남은 배출만큼을 숲·바다·포집 기술로 다시 거둬들여 합을 0으로 맞춘다는 뜻입니다(넷제로). 이미 내보낸 몫 때문에 당분간은 계속 더워지지만, 세기 후반에 곡선이 눕는 유일한 경로예요.',
     acts: [
       '발전을 재생에너지·원자력 등 무탄소 전원으로 교체',
       '건물 단열·수송 전동화로 에너지 수요 자체를 줄이기',
@@ -429,13 +435,16 @@ function SceneJourney({ totals }: { totals: { earned: number; max: number } }) {
             background: 'color-mix(in oklab, var(--color-act-3) 8%, transparent)',
           }}
         >
+          {/* "자연은 느리고, 지금은 빠릅니다" 였는데 두 절의 주어가 어긋나 읽히지
+              않았다(자연 ↔ 지금). 같은 주어로 견주도록 고쳤다. */}
           <h3 className="text-[13px] font-semibold text-ink-1">
-            자연은 느리고, 지금은 빠릅니다
+            같은 크기의 변화를, 훨씬 짧은 시간에
           </h3>
           <p className="mt-1 text-[12px] leading-relaxed text-ink-2">
-            궤도가 빙하기를 켜고 끄는 데는 <span className="text-ink-1">수만 년</span>이 걸립니다. 방금 다이얼을
-            돌려보셨죠. 그런데 산업화 이후 <span className="text-ink-1">약 270년</span> 만에 우리는 그와 비슷한 크기의
-            변화를 만들었습니다. 크기가 아니라 <span className="text-act-3">속도</span>가 다른 겁니다.
+            궤도가 빙하기를 켜고 끄는 데는 <span className="text-ink-1">수만 년</span>이 걸립니다. 방금 그 다이얼을
+            직접 돌려보셨죠. 그런데 산업화 이후 <span className="text-ink-1">약 270년</span> 만에 우리는 그와 비슷한
+            크기의 변화를 만들었습니다. 달라진 건 변화의 크기가 아니라{' '}
+            <span className="text-act-3">그 변화가 일어나는 속도</span>예요.
           </p>
           <p className="mt-1.5 text-[12px] leading-relaxed text-ink-2">
             그리고 이 다섯 칸 중 <span className="text-ink-1">사람이 손을 댈 수 있는 칸은 하나뿐</span>입니다 —
