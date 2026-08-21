@@ -1,5 +1,5 @@
 /**
- * 반전 ① — "지금 지구는 원래 식어야 합니다".
+ * 반전 ① — "궤도는 지금 식으라고 말합니다".
  *
  * 이 콘텐츠가 피하려는 것은 "탄소를 줄입시다"라는 훈계다. 훈계 대신 **모순 하나**를
  * 앞에 세운다: 궤도만 놓고 보면 지금 지구는 식는 방향에 서 있는데, 실제 기온은
@@ -72,7 +72,7 @@ export function CoolingParadox({ onNext }: { onNext: () => void }) {
           3단계 · 시작하기 전에 · 궤도가 말하는 것
         </div>
         <h1 className="mt-1 text-[22px] leading-tight font-semibold tracking-tight">
-          지금 지구는 <span style={{ color: TONE }}>원래 식어야 합니다</span>
+          궤도는 지금 <span style={{ color: TONE }}>식으라고 말합니다</span>
         </h1>
       </div>
 
@@ -193,7 +193,9 @@ export function CoolingParadox({ onNext }: { onNext: () => void }) {
                   +{carbonWarmingNow().toFixed(2)}℃
                 </span>{' '}
                 올랐습니다. <span className="text-ink-1">방향이 반대입니다.</span> 궤도가 식히려고 미는 힘을 무언가가
-                덮어쓰고 있다는 뜻이고, 그 무언가를 찾는 것이 이 여정의 나머지 절반입니다.
+                덮어쓰고 있다는 뜻이에요. 궤도가 바꾸는 건 <span className="text-ink-1">총량이 아니라 계절·위도별
+                분배</span>입니다. 그런데 온실가스는 <span className="text-ink-1">총량 자체를 붙잡아둡니다.</span> 그
+                무언가를 찾는 것이 이 여정의 나머지 절반입니다.
               </>
             }
           />

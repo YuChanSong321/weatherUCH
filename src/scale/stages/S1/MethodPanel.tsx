@@ -1,5 +1,5 @@
 /**
- * 표준 방법으로 다시 풀어보기 — 라운드가 끝난 뒤 붙는 방법론 칸.
+ * 라운드가 끝난 뒤 붙는 방법론 칸 (제목 없음 — 아래 렌더 부분 주석 참고).
  *
  * 왜 필요한가: 점수와 "왜 어긋났나"만 있으면 이 단계가 감으로 찍고 맞았나 틀렸나를
  * 확인하는 놀이로 끝난다. 정작 남겨야 할 것은 **앞날을 말하는 방법이 따로 있다**는
@@ -41,12 +41,14 @@ export function MethodPanel({
         background: 'rgb(255 255 255 / 0.03)',
       }}
     >
-      <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-[12.5px] font-semibold text-ink-1">표준 방법으로 다시 풀어보기</h3>
-        <span className="text-[10.5px] text-ink-3">
-          {forecastCase.kind === 'precip' ? '지속성과 확률예보' : '같은 문제를 표준 방법으로 다시 풀어보기'}
-        </span>
-      </div>
+      {/*
+       * 제목을 붙이지 않는다. "예보관은 이렇게 합니다"를 뺀 것과 같은 이유로 — 방법을
+       * 가르치는 칸이라고 선언하는 순간 훈계처럼 읽힌다. 표가 스스로 말하게 둔다.
+       * 강수 라운드만 어떤 방법이 놓였는지 한 줄로 알린다.
+       */}
+      {forecastCase.kind === 'precip' && (
+        <div className="text-[10.5px] text-ink-3">지속성과 확률예보</div>
+      )}
 
       {forecastCase.kind === 'precip' ? (
         <PrecipMethods records={records} forecastCase={forecastCase} />

@@ -11,11 +11,13 @@
  */
 import { useEffect, useState } from 'react'
 import { datasetCredits, hasApprox, hasNonObserved, hasSynthetic, isAllNonObserved } from '../data/loader'
+import { useClimate } from '../state/climate'
 import { usePlace } from '../state/place'
 
 export function Attribution() {
   const [open, setOpen] = useState(false)
   const { place } = usePlace()
+  const climate = useClimate()
   const allNonObserved = isAllNonObserved
   /*
    * 배지 문구는 남아 있는 것이 무엇이냐에 달려 있다.
@@ -28,6 +30,12 @@ export function Attribution() {
    * 그때도 "기상청에서 받았습니다"라고 적혀 있으면 그 자체가 허위 출처 표기다.
    */
   const usesOpenMeteo = place?.source === 'open-meteo'
+  /*
+   * S2~S4 의 40년 시계열도 부산 밖에서는 Open-Meteo(ERA5 재분석) 에서 온다. 관측만
+   * 밝히고 시계열은 "기상청"이라고 적으면 화면에 그려지는 자료와 출처가 어긋난다.
+   * 아카이브 호출이 실패해 부산 번들로 되돌아갔을 때는 다시 기상청이 맞다.
+   */
+  const usesArchive = climate.source === 'open-meteo-archive'
 
   useEffect(() => {
     if (!open) return
@@ -85,8 +93,10 @@ export function Attribution() {
                     </>
                   ) : usesOpenMeteo ? (
                     <>
-                      지금 보고 계신 <span className="text-ink-1">{place.label}</span> 의 관측은{' '}
-                      <span className="text-ink-1">Open-Meteo</span> 에서, 기후·시나리오 자료는{' '}
+                      지금 보고 계신 <span className="text-ink-1">{place.label}</span> 의 관측
+                      {usesArchive && '과 40년 기후 시계열'}은{' '}
+                      <span className="text-ink-1">Open-Meteo</span> 에서,{' '}
+                      {usesArchive ? '시나리오·평년값 등 나머지 자료는' : '기후·시나리오 자료는'}{' '}
                       <span className="text-ink-1">기상청</span>에서 받았습니다.
                       {hasSynthetic && ' 아래 표에서 "합성 데이터"로 표시된 항목은 아직 실측이 아닙니다.'}
                     </>
@@ -106,7 +116,7 @@ export function Attribution() {
                     </>
                   )}{' '}
                   {usesOpenMeteo
-                    ? '번들된 기상청 자료는 수집 시점에 내려받은 JSON을 읽습니다. 부산 밖의 지역을 고르면 그 지역의 관측만 Open-Meteo를 실시간으로 호출해 가져옵니다.'
+                    ? `번들된 기상청 자료는 수집 시점에 내려받은 JSON을 읽습니다. 부산 밖의 지역을 고르면 그 지역의 자료${usesArchive ? '(관측·기후 시계열)' : '(관측)'}만 Open-Meteo를 실시간으로 호출해 가져옵니다.`
                     : '브라우저는 API를 호출하지 않고, 수집 시점에 내려받아 번들한 JSON만 읽습니다.'}
                 </p>
               </div>
@@ -131,6 +141,17 @@ export function Attribution() {
                   <div className="text-ink-2">
                     Open-Meteo
                     <span className="text-ink-3"> · 일자료 (예보 격자 {place.gridLat.toFixed(2)}, {place.gridLon.toFixed(2)})</span>
+                  </div>
+                  <div className="tnum text-ink-3">실시간</div>
+                  <div className="text-ink-3">CC BY 4.0</div>
+                </div>
+              )}
+              {usesArchive && (
+                <div className="contents">
+                  <div className="text-ink-1">선택 지역 기후 시계열</div>
+                  <div className="text-ink-2">
+                    Open-Meteo
+                    <span className="text-ink-3"> · 아카이브 (ERA5 재분석) · 1985년~작년 일평균기온</span>
                   </div>
                   <div className="tnum text-ink-3">실시간</div>
                   <div className="text-ink-3">CC BY 4.0</div>

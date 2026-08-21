@@ -33,3 +33,6 @@ __pycache__/
 *.njsproj
 *.sln
 *.sw?
+
+# 설계 노트 — 내부 기록이라 제출물에 포함하지 않는다
+DESIGN.md

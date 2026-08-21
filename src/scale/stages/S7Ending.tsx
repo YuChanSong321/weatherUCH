@@ -329,7 +329,7 @@ function SceneOrbitSummary({ orbitResult }: { orbitResult: OrbitMissionResult | 
       </Item>
       <Item n={2} tone={tone} title="왜 그렇게 했나">
         수만 년 규모의 기후는 사람이 아니라 <span className="text-ink-1">천체역학</span>이 정합니다. 시계처럼
-        규칙적이라 이 규모가 오히려 가장 잘 예측돼요 — 예측 가능성의 U자에서 오른쪽 끝입니다.
+        규칙적이라 이 규모가 오히려 가장 잘 예측돼요.
       </Item>
       <Item n={3} tone={tone} title="그래서 무엇을 아나">
         이 다이얼들은 <span className="text-ink-1">우리 소관이 아닙니다.</span> 그리고 임계점은 한 방향으로만
