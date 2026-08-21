@@ -60,12 +60,24 @@ export function StageIntro({
 
   return (
     <div className="pointer-events-auto mx-auto flex w-full max-w-2xl flex-col items-center gap-6 py-6 text-center">
-      <div className="text-[11px] font-medium tracking-[0.14em]" style={{ color: tone }}>
+      {/*
+        3D 지구가 늘 뒤에 있고, 단계에 따라서는 태양 광원이 바로 이 자리에 온다.
+        머리말만 판 밖에 떠 있으면 그 위에서 통째로 사라진다 — 실제로 S6(수만 년)
+        에서 안 읽혔다. 카드 본문과 같은 판을 얇게 깔아 준다.
+      */}
+      <div
+        className="rounded-full border border-white/10 px-3 py-1 text-[11px] font-medium tracking-[0.14em] backdrop-blur-md"
+        style={{ color: tone, background: 'color-mix(in oklab, var(--color-space-1) 82%, transparent)' }}
+      >
         {eyebrow}
       </div>
 
       {/* 진행 막대 — 지나온 칸은 채우고 남은 칸은 비운다. 몇 걸음 남았는지가 보여야 한다. */}
-      <div className="flex items-center gap-1.5" aria-hidden>
+      <div
+        className="flex items-center gap-1.5 rounded-full px-2 py-1.5 backdrop-blur-md"
+        style={{ background: 'color-mix(in oklab, var(--color-space-1) 70%, transparent)' }}
+        aria-hidden
+      >
         {steps.map((s, n) => (
           <span
             key={s.label}

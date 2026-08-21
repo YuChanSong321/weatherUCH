@@ -167,7 +167,7 @@ const creditOf = (
         : String(meta._provider ?? '기상청'),
     dataset: kind === 'synthetic' ? '' : String(meta._dataset ?? fallbackDataset),
     fetchedAt: typeof meta._fetched_at === 'string' ? meta._fetched_at.slice(0, 10) : null,
-    license: kind === 'observed' ? String(meta._license ?? '공공누리 유형 확인 필요') : LICENSE_BY_KIND[kind],
+    license: kind === 'observed' ? String(meta._license ?? '출처 표기 확인 필요') : LICENSE_BY_KIND[kind],
     kind,
   }
 }

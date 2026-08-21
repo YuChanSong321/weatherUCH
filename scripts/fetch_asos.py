@@ -80,7 +80,7 @@ def prov_meta(dataset: str, source: str = "KMA_ASOS") -> dict:
         "_dataset": dataset,
         "_station": STATION,
         "_fetched_at": datetime.now().astimezone().isoformat(timespec="seconds"),
-        "_license": "공공누리 유형 확인 필요",
+        "_license": "공공누리 제1유형 (출처표시)",
     }
 
 APIHUB_URL = "https://apihub.kma.go.kr/api/typ01/url/kma_sfcdd3.php"

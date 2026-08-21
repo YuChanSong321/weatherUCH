@@ -182,13 +182,21 @@ export function Attribution() {
 
             <div className="mt-4 border-t border-white/8 pt-3 text-[11px] leading-relaxed text-ink-3">
               <p>
-                기상청 공공데이터의 이용 조건은 <span className="text-ink-2">공공누리(KOGL)</span> 유형을 따릅니다.
-                유형별 조건(출처표시 / 상업적 이용 / 변경 금지)은 제공처 표기를 확인해 병기해야 합니다.
+                기상청 자료의 이용 조건은 <span className="text-ink-2">공공누리 제1유형(출처표시)</span> 입니다 —
+                출처를 밝히면 상업적 이용과 변형까지 자유롭습니다. 이 화면의 표기가 그 출처표시입니다.
+              </p>
+              {/* 텍스처는 데이터가 아니지만 규정상 같은 '외부 리소스'다. 표에 섞으면
+                  데이터 출처와 혼동되므로 줄을 나눠 적는다. */}
+              <p className="mt-1.5">
+                지구본 텍스처 6장은 <span className="text-ink-2">NASA</span> 의 퍼블릭 도메인 영상입니다 —
+                Blue Marble · Black Marble{' '}
+                <span className="text-ink-3">(NASA Earth Observatory)</span>, Tycho Catalog Skymap{' '}
+                <span className="text-ink-3">(NASA/Goddard SVS)</span>. 저장소에 동봉되어 있어 실행 중
+                외부에서 내려받지 않습니다.
               </p>
               <p className="mt-1.5">
-                지구 텍스처 · 오픈소스 라이브러리의 출처와 라이선스는 저장소의{' '}
-                <span className="text-ink-2">README</span> 와{' '}
-                <span className="text-ink-2">docs/DATA_AVAILABILITY.md</span> 에 정리되어 있습니다.
+                파일별 원본 URL과 가공 내역은 <span className="text-ink-2">public/textures/CREDITS.md</span>,
+                오픈소스 라이브러리 라이선스는 <span className="text-ink-2">README</span> 에 있습니다.
               </p>
             </div>
           </div>

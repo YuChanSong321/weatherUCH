@@ -527,7 +527,7 @@ def main() -> None:
                     + (" + 기상특보 이력(wrn_met_data)" if advisories else ""),
         "_station": STATION,
         "_fetched_at": datetime.now().astimezone().isoformat(timespec="seconds"),
-        "_license": "공공누리 유형 확인 필요",
+        "_license": "공공누리 제1유형 (출처표시)",
     })
     if not advisories:
         payload["meta"]["_advisory_note"] = (

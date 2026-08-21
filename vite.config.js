@@ -4,8 +4,12 @@ import tailwindcss from '@tailwindcss/vite'
 
 // 엔트리 구성
 //   /                        "예측의 스케일" (해커톤 출품 콘텐츠)
-//   /legacy.html             기존 TERRA React 앱
-//   /terra-orbital-sim.html  기존 standalone 궤도 시뮬레이터
+//   /terra-orbital-sim.html  standalone 궤도 시뮬레이터 (같은 엔진, UI만 다름)
+//
+// legacy.html(구 TERRA React 앱)은 출품 범위에서 제외했다. 화면이 중복되는 데다,
+// @react-three/drei 의 <Text> 가 런타임에 외부 CDN(jsdelivr)에서 폰트 데이터를
+// 받고 three.js 예제 텍스처를 원격 참조해, 외부 리소스 출처·라이선스 표기 부담만
+// 늘렸기 때문이다. 필요하면 커밋 cf12895 에서 되살릴 수 있다.
 //
 // https://vite.dev/config/
 export default defineConfig({
@@ -14,7 +18,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: 'index.html',
-        legacy: 'legacy.html',
         terra: 'terra-orbital-sim.html',
       },
     },

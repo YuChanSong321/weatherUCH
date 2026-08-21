@@ -68,7 +68,7 @@ from common import (  # noqa: E402
 
 KST = timezone(timedelta(hours=9))
 PROVIDER = "기상청"
-LICENSE = "공공누리 유형 확인 필요"
+LICENSE = "공공누리 제1유형 (출처표시)"
 
 
 def now_kst() -> str:

@@ -533,7 +533,7 @@ const bar = el('bar');
 const sim = await createTerraSim(el('scene'), {
   // this page is the showcase, so it still reaches for the photographic
   // plates; the engine falls back to synthesised maps when they fail.
-  textureMode: 'remote',
+  textureMode: 'local',
   params: { eccentricity: +ui.ecc.value, obliquity: +ui.obl.value, precession: +ui.pre.value },
   motion: { speed: +ui.speed.value, spin: +ui.spin.value, exposure: +ui.exposure.value },
   view: 'earth',

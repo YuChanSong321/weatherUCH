@@ -21,6 +21,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChartFrame } from '../components/ChartFrame'
 import { useGlobe } from '../components/GlobeLayer'
+import { StageIntro, StageIntroBar, type IntroStep } from '../components/StageIntro'
 import { monthlyNormals } from '../data/loader'
 import { linearScale, niceTicks, smoothPath } from '../lib/scales'
 import { useClimate } from '../state/climate'
@@ -54,6 +55,88 @@ const COPY = [
   },
 ] as const
 
+/**
+ * 진입 카드 — "이제부터 기후를 다룹니다"라는 선언.
+ *
+ * 왜 필요했나. '수십 년' 구간에는 진입 카드가 있는데 그 앞의 이 구간에는 없어서,
+ * 사용자가 **기상에서 기후로 넘어왔다는 사실 자체를 모른 채** 슬라이더를 만졌다.
+ * 화면 아래 본문에 적어두었던 "하루를 묻는 건 접고 1년을 통째로 눌러본다"는
+ * 이 선언문이라 본문이 아니라 여기 있어야 한다 — 본문은 읽히지 않는 자리다.
+ */
+const INTRO: IntroStep[] = [
+  {
+    label: '지금 할 일',
+    body: (
+      <>
+        아래 차트의 점 하나하나가 <span className="text-act-1">하루의 기온</span>입니다. 흩어진 365개를 하나로
+        누르면 몇 도가 될지 먼저 찍고, 레버를 당겨 직접 눌러보세요.
+      </>
+    ),
+  },
+  {
+    label: '여기서 배우는 개념',
+    body: (
+      <>
+        <span className="text-act-1">날씨와 기후는 다른 것</span> — 날씨는 하루하루의 값이고, 기후는 그 값들을
+        길게 평균 낸 것입니다. 방금까지 맞히려던 것이 날씨였고, 지금부터 다룰 것이 기후예요.
+      </>
+    ),
+    chip: '날씨와 기후는 다른 것 — 하루의 값이냐, 길게 평균 낸 값이냐',
+  },
+  {
+    label: '왜 여기서 갈아타나',
+    body: (
+      <>
+        2주 뒤 그날의 기온은 아무도 못 맞힙니다. 그래서{' '}
+        <span className="text-ink-1">하루를 묻는 건 여기서 접고</span>, 1년을 통째로 눌러볼게요. 묻는 대상을
+        바꾸면 답할 수 있는 것도 바뀝니다.
+      </>
+    ),
+  },
+]
+
+/**
+ * 나가는 카드 — 한 해에서 수십 년으로 건너가는 다리.
+ *
+ * 여기가 이 콘텐츠에서 가장 잘 끊기던 자리다. 1단계(기상)는 "2주 벽"으로 매듭이
+ * 잘 지어지는데, 한 해에서 수십 년으로 넘어갈 때는 아무 말 없이 화면만 바뀌어서
+ * **기후가 대체 무엇인지가 끝내 드러나지 않았다.**
+ *
+ * 그래서 세 마디로 못을 박는다: 기상의 한계 → 기후의 방식 → 그래서 다음에 할 일.
+ * 이 카드가 곧 '기후'의 정의이기도 하다.
+ */
+const OUTRO = (year: number, mean: number): IntroStep[] => [
+  {
+    label: '방금 한 일',
+    body: (
+      <>
+        365개의 점을 눌러 <span className="text-act-2">{year}년 = {mean.toFixed(2)}℃</span> 라는 숫자 하나를
+        만들었습니다. 날씨가 사라지고 기후가 남은 자리예요.
+      </>
+    ),
+  },
+  {
+    label: '왜 이렇게 하나',
+    body: (
+      <>
+        기상 예보는 <span className="text-ink-1">2주가 한계</span>입니다 — 그 너머의 특정 날짜 값은 원리상 알 수
+        없어요. 그래서 기후는 값을 맞히려 하지 않습니다. 대신 길게 평균 낸 숫자가{' '}
+        <span className="text-act-2">어느 방향으로 움직이는지</span>를 읽습니다.
+      </>
+    ),
+    chip: '기후 = 값을 맞히는 대신, 길게 평균 낸 값의 방향을 읽는 것',
+  },
+  {
+    label: '그래서 다음은',
+    body: (
+      <>
+        방향을 읽는 방식이라 <span className="text-ink-1">훨씬 먼 미래까지 내다볼 수 있습니다.</span> 정말 그런지,
+        방금 만든 이 점을 <span className="text-act-2">40년 동안 찍어서</span> 확인해볼까요.
+      </>
+    ),
+  },
+]
+
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 
 const doyOf = (iso: string) => {
@@ -68,6 +151,10 @@ export function S2Transition({ year, onNext }: { year: number; onNext: () => voi
   /** 레버 위치 0(일) … 1(연) */
   const [lever, setLever] = useState(0)
   const [pulled, setPulled] = useState(false)
+  /** 진입 카드를 지났는가 — 지나기 전에는 차트를 아예 띄우지 않는다 */
+  const [introDone, setIntroDone] = useState(false)
+  /** 나가는 다리 카드를 보고 있는가 */
+  const [outro, setOutro] = useState(false)
   /** 제출 전에는 레버가 잠겨 있다 */
   const submitted = yearMeanGuess !== null
 
@@ -150,6 +237,30 @@ export function S2Transition({ year, onNext }: { year: number; onNext: () => voi
   const stage = lever < 0.25 ? 0 : lever < 0.85 ? 1 : 2
   const spreadNow = lerp(lerp(model.sdDaily, model.sdMonthly, toMonth), 0, toYear)
 
+  // 훅은 모두 위에서 부른 뒤에 갈라진다 (조건부 훅 금지)
+  if (!introDone) {
+    return (
+      <StageIntro
+        eyebrow="2단계 · 한 해"
+        steps={INTRO}
+        tone="var(--color-act-1)"
+        onDone={() => setIntroDone(true)}
+      />
+    )
+  }
+
+  /* 한 해 → 수십 년. 화면만 바뀌면 기후가 무엇인지가 끝내 드러나지 않는다. */
+  if (outro) {
+    return (
+      <StageIntro
+        eyebrow="한 해에서 수십 년으로"
+        steps={OUTRO(model.shownYear, model.yearMean)}
+        tone="var(--color-act-2)"
+        onDone={onNext}
+      />
+    )
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
       <div className="flex items-end justify-between">
@@ -166,6 +277,12 @@ export function S2Transition({ year, onNext }: { year: number; onNext: () => voi
           </div>
         </div>
       </div>
+
+      <StageIntroBar
+        chip={INTRO[1].chip!}
+        tone="var(--color-act-1)"
+        onReplay={() => setIntroDone(false)}
+      />
 
       <div className="panel p-4">
         <ChartFrame
@@ -302,9 +419,10 @@ export function S2Transition({ year, onNext }: { year: number; onNext: () => voi
       <div className="flex items-start justify-between gap-6">
         <p className="max-w-2xl text-[13.5px] leading-relaxed text-ink-2">
           {!submitted ? (
+            /* 선언("하루는 접고 1년을 누른다")은 진입 카드가 한다 — 여기서 되풀이하면
+               같은 말을 두 번 읽히는 셈이고, 본문은 원래 읽히지 않는 자리다. */
             <>
-              2주 뒤 그날의 기온은 아무도 못 맞힙니다. 그래서 하루를 묻는 건 여기서 접고, 1년을 통째로 눌러볼게요.
-              위 차트의 점 하나하나가 하루의 기온입니다 — 이 흩어진 365개를 하나로 누르면 몇 도가 될까요?{' '}
+              흩어진 365개를 하나로 누르면 몇 도가 될까요?{' '}
               <span className="text-ink-1">먼저 찍고 나서 레버를 당기세요.</span>
             </>
           ) : (
@@ -315,7 +433,7 @@ export function S2Transition({ year, onNext }: { year: number; onNext: () => voi
           )}
         </p>
         {lever >= 0.98 ? (
-          <button type="button" className="btn btn-primary shrink-0 rise" onClick={onNext}>
+          <button type="button" className="btn btn-primary shrink-0 rise" onClick={() => setOutro(true)}>
             40년을 펼쳐보기
           </button>
         ) : submitted ? (

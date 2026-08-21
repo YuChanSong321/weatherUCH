@@ -134,11 +134,24 @@ const CRISES: Crisis[] = [
  */
 const INTRO: IntroStep[] = [
   {
-    label: '지금 할 일',
+    /*
+     * 3단계는 두 파트다. 앞 파트(→ S5Orbital)와 무엇이 다른지 먼저 말하지 않으면,
+     * 사용자는 "또 슬라이더네" 하고 차이를 모른 채 만지게 된다.
+     */
+    label: '앞 파트와 무엇이 다른가',
     body: (
       <>
-        위기 상태로 시작합니다. 세 다이얼을 <span className="text-act-3">안전 구간</span>으로 되돌리되, 위험 쪽으로
-        넘겨보는 것도 실험이에요.
+        방금은 손잡이를 돌려 <span className="text-ink-1">무슨 일이 일어나는지</span> 봤습니다. 이번엔 반대예요 —
+        이미 <span className="text-act-3">위험 쪽으로 넘어가 있는</span> 지구를 받아서, 제한 시간 안에 되돌립니다.
+      </>
+    ),
+  },
+  {
+    label: '지금 할 일 · 3단계 ②',
+    body: (
+      <>
+        세 다이얼을 <span className="text-act-3">안전 구간</span>으로 되돌리세요. 다만 위험 쪽으로 더 넘겨보는 것도
+        실험입니다 — <span className="text-ink-1">넘어가 보는 것이 이 화면의 핵심</span>이니까요.
       </>
     ),
   },
@@ -344,7 +357,7 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
   if (!introDone) {
     return (
       <StageIntro
-        eyebrow="3단계 · 임계"
+        eyebrow="3단계 ② · 임계 · 넘으면 못 돌아오는 선"
         steps={INTRO}
         tone="var(--color-act-3)"
         onDone={() => setIntroDone(true)}
@@ -360,16 +373,18 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
     >
       <div className="flex items-end justify-between">
         <div className="pointer-events-auto">
-          <div className="text-[11px] font-medium tracking-[0.14em] text-act-3">3단계 · 임계</div>
-          <h1 className="mt-0.5 text-[20px] leading-tight font-semibold tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+          <div className="hud-title" style={{ color: 'var(--color-act-3)' }}>
+            3단계 ② · 임계
+          </div>
+          <h1 className="mt-1 text-[19px] leading-tight font-semibold tracking-[0.01em] drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
             지구를 지켜라 · {crisis.title}
           </h1>
         </div>
-        <div className="pointer-events-auto flex flex-col items-end gap-0.5">
+        <div className="pointer-events-auto flex flex-col items-end gap-1">
           <Timer remaining={remaining} started={started} outcome={outcome} />
           {breaches > 0 && (
-            <span className="text-[10.5px] font-medium" style={{ color: 'var(--color-bad)' }}>
-              임계 돌파 {breaches}회 · −{breaches * BREACH_PENALTY}초
+            <span className="hud-badge" style={{ color: 'var(--color-bad)', borderColor: 'color-mix(in oklab, var(--color-bad) 40%, transparent)', background: 'color-mix(in oklab, var(--color-bad) 10%, transparent)' }}>
+              임계 돌파 {breaches}회 · −{breaches * BREACH_PENALTY}s
             </span>
           )}
         </div>
@@ -388,20 +403,29 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
             텅 빈 판으로 남으므로 내용 높이만 차지하게 한다. */}
         <section
           data-fit-col
-          className="panel pointer-events-auto flex max-h-full flex-col gap-3 self-start overflow-y-auto p-4 backdrop-blur-md"
+          className="hud-panel pointer-events-auto flex max-h-full flex-col gap-3 self-start overflow-y-auto p-3.5"
         >
+          <div className="hud-title">궤도 · 자기장 제어</div>
           <p className="text-[12px] leading-relaxed text-ink-2">{crisis.brief}</p>
           {/* 무엇이 계속 밀고 있는지 — 이걸 모르면 값이 저절로 움직이는 게 고장으로 읽힌다 */}
           <p
-            className="rounded-lg px-2.5 py-1.5 text-[11px] leading-snug"
+            className="rounded-md border px-2.5 py-2 text-[11px] leading-snug"
             style={{
-              background: 'color-mix(in oklab, var(--color-warn) 12%, transparent)',
+              background: 'color-mix(in oklab, var(--color-warn) 8%, transparent)',
+              borderColor: 'color-mix(in oklab, var(--color-warn) 32%, transparent)',
               color: 'var(--color-ink-2)',
             }}
           >
-            <span className="font-semibold" style={{ color: 'var(--color-warn)' }}>
+            <span
+              className="hud-badge mr-1.5 align-[1px]"
+              style={{
+                color: 'var(--color-warn)',
+                borderColor: 'color-mix(in oklab, var(--color-warn) 38%, transparent)',
+                background: 'color-mix(in oklab, var(--color-warn) 10%, transparent)',
+              }}
+            >
               압박 중
-            </span>{' '}
+            </span>
             {crisis.drift.mechanism}
             <span className="text-ink-3"> (실제로는 수천~수만 년에 걸친 변화를 게임 속도로 압축했습니다.)</span>
           </p>
@@ -483,34 +507,49 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
 
         {/* 예측 엔진 보고서 */}
         <div data-fit-col className="pointer-events-auto flex min-h-0 flex-col gap-2 overflow-y-auto">
-          <div className="panel flex flex-col gap-2 p-3.5 backdrop-blur-md">
-            <div className="flex items-baseline justify-between">
-              <h3 className="text-[12.5px] font-semibold">지구 시스템 진단</h3>
+          <div className="hud-panel flex flex-col gap-2.5 p-3.5">
+            <div className="flex items-center justify-between">
+              <h3 className="hud-title">지구 시스템 진단</h3>
               <span
-                className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                className="hud-badge"
                 style={{
-                  background: `color-mix(in oklab, ${SEVERITY_COLOR[severity]} 22%, transparent)`,
                   color: SEVERITY_COLOR[severity],
+                  borderColor: `color-mix(in oklab, ${SEVERITY_COLOR[severity]} 42%, transparent)`,
+                  background: `color-mix(in oklab, ${SEVERITY_COLOR[severity]} 12%, transparent)`,
                 }}
               >
                 {severity === 'stable' ? '안정' : severity === 'warning' ? '주의' : '위험'}
               </span>
             </div>
-            {diagnoses.map((d) => (
-              <div key={d.id} className="panel-quiet px-3 py-1.5">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-1.5 w-1.5 shrink-0 rounded-full"
-                    style={{ background: SEVERITY_COLOR[d.severity] }}
-                  />
-                  <span className="text-[11.5px] font-medium">{d.subject}</span>
-                  <span className="text-[11px]" style={{ color: SEVERITY_COLOR[d.severity] }}>
-                    {d.status}
-                  </span>
+            {/* 한 줄짜리 상태등 세 개. 판을 나누지 않고 왼쪽 색띠로만 구분해
+                진단 셋이 '하나의 계기'로 읽히게 한다. */}
+            <div className="hud-tiles" style={{ gridTemplateColumns: '1fr' }}>
+              {diagnoses.map((d) => (
+                <div
+                  key={d.id}
+                  className="hud-tile border-l-2"
+                  style={{ borderLeftColor: SEVERITY_COLOR[d.severity] }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{
+                        background: SEVERITY_COLOR[d.severity],
+                        boxShadow: `0 0 8px ${SEVERITY_COLOR[d.severity]}`,
+                      }}
+                    />
+                    <span className="text-[11.5px] font-medium text-ink-1">{d.subject}</span>
+                    <span
+                      className="hud-title ml-auto"
+                      style={{ color: SEVERITY_COLOR[d.severity] }}
+                    >
+                      {d.status}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-snug text-ink-2">{d.impact}</p>
                 </div>
-                <p className="mt-0.5 text-[11px] leading-snug text-ink-2">{d.impact}</p>
-              </div>
-            ))}
+              ))}
+            </div>
             <p className="text-[10px] leading-snug text-ink-3">
               규칙 기반 교육용 진단 — 지구시스템 모델의 계산 결과가 아닙니다.
             </p>
@@ -523,17 +562,19 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
             맞붙었을 때다. 이 문단이 없으면 이 단계는 그냥 재미있는 미니게임으로 끝난다.
           */}
           <div
-            className="panel flex flex-col gap-1.5 p-3.5 backdrop-blur-md"
+            className="hud-panel flex flex-col gap-2 p-3.5"
             style={{ borderColor: 'color-mix(in oklab, var(--color-act-3) 40%, transparent)' }}
           >
-            <h3 className="text-[12.5px] font-semibold">임계점이란 무엇인가</h3>
+            <h3 className="hud-title" style={{ color: 'var(--color-act-3)' }}>
+              임계점이란 무엇인가
+            </h3>
             <p className="text-[11px] leading-snug text-ink-2">
               조금씩 움직이는 동안에는 아무 일도 없다가 어느 선을 넘는 순간 화면 전체가 바뀌죠. 그게{' '}
               <span className="text-ink-1">임계점</span>입니다 — 넘기 전까지는 조용합니다. 그리고 실제 임계점은 이
               시뮬레이터와 달리 <span className="text-ink-1">한 방향으로만 열립니다</span>: 빙상이 무너진 뒤 기온을
               되돌려도 빙상은 돌아오지 않아요.
             </p>
-            <p className="border-t border-white/8 pt-1.5 text-[11px] leading-snug text-ink-3">
+            <p className="hud-rule-above pt-2 text-[11px] leading-snug text-ink-3">
               방금 만진 세 다이얼은 <span className="text-ink-2">사람이 만질 수 없는 것</span>들입니다. 자기장도 궤도도
               우리 소관이 아니에요. 그런데 사람이 실제로 손에 쥔 다이얼이 딱 하나 있습니다 —{' '}
               <span className="text-ink-1">대기 중 이산화탄소</span>. 다음 화면이 그 하나를 놓고 벌어지는 이야기입니다.
@@ -543,15 +584,15 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
       </div>
 
       {!outcome ? (
-        <div className="pointer-events-auto flex items-baseline justify-between gap-6 rounded-xl bg-black/45 px-4 py-2 backdrop-blur-sm">
-          <p className="text-[12px] leading-relaxed text-ink-2">
+        <div className="hud-panel pointer-events-auto flex items-baseline justify-between gap-6 px-4 py-2.5">
+          <p className="text-[11.5px] leading-relaxed text-ink-2">
             {!started
               ? `다이얼을 움직이면 ${TIME_LIMIT}초가 시작됩니다. 세 진단이 모두 초록이 되도록 되돌리고 ${HOLD_MS / 1000}초간 유지하세요. ${crisis.drift.dial}은(는) 계속 밀리니 안쪽 깊숙이 두세요 — 임계를 넘으면 ${BREACH_PENALTY}초를 잃고 유지 시간이 ${BREACH_HOLD_EXTRA / 1000}초 늘어납니다.`
               : safe
                 ? `안정 구간입니다. ${(holdNeed / 1000).toFixed(1)}초를 버티면 복구 성공 — ${crisis.drift.dial}이(가) 밀리고 있으니 눈을 떼지 마세요.`
                 : '아직 붉은 항목이 있습니다. 오른쪽 진단이 무엇이 문제인지 말해줍니다.'}
           </p>
-          <span className="shrink-0 text-[11px] text-ink-3">빠르게 복구할수록 시간 보너스</span>
+          <span className="hud-title shrink-0">빠르게 복구할수록 시간 보너스</span>
         </div>
       ) : (
         <ResultBar
@@ -575,24 +616,29 @@ function Timer({
 }) {
   const pct = (remaining / TIME_LIMIT) * 100
   const urgent = remaining <= 15 && !outcome
+  const tone = outcome === 'success' ? 'var(--color-good)' : urgent ? 'var(--color-bad)' : 'var(--color-act-3)'
   return (
     <div className="flex items-center gap-3">
-      <div className="h-1.5 w-40 overflow-hidden rounded-full bg-white/10">
-        <div
-          className="h-full rounded-full transition-[width] duration-100"
-          style={{
-            width: `${pct}%`,
-            background: outcome === 'success' ? 'var(--color-good)' : urgent ? 'var(--color-bad)' : 'var(--color-act-3)',
-          }}
-        />
+      {/* 상태는 배지로 따로 세운다 — 숫자 옆에 붙이면 '대기 60.0' 이 한 값으로 읽힌다 */}
+      {!started && !outcome && <span className="hud-badge">대기</span>}
+      {/* 남은 시간이 이 화면의 유일한 히어로 수치다 — 다른 어떤 숫자보다 크게 둔다 */}
+      <div className="flex flex-col items-end gap-1.5">
+        <div className="h-[3px] w-44 overflow-hidden rounded-full bg-white/12">
+          <div
+            className="h-full rounded-full transition-[width] duration-100"
+            style={{ width: `${pct}%`, background: tone, boxShadow: `0 0 10px ${tone}` }}
+          />
+        </div>
+        <div className="flex items-baseline gap-1">
+          <span
+            className="hud-num text-[26px] leading-none font-semibold"
+            style={{ color: urgent ? 'var(--color-bad)' : 'var(--color-ink-1)' }}
+          >
+            {remaining.toFixed(1)}
+          </span>
+          <span className="text-[11px] font-medium text-ink-3">s</span>
+        </div>
       </div>
-      <span
-        className="tnum w-14 text-right text-[15px] font-semibold"
-        style={{ color: urgent ? 'var(--color-bad)' : 'var(--color-ink-1)' }}
-      >
-        {remaining.toFixed(1)}s
-      </span>
-      {!started && !outcome && <span className="text-[11px] text-ink-3">대기</span>}
     </div>
   )
 }
@@ -633,6 +679,11 @@ function Dial({
 }) {
   const pct = (v: number) => ((v - min) / (max - min)) * 100
   const [openConcept, setOpenConcept] = useState(false)
+  /*
+   * 값이 위험하면 트랙 채움색도 함께 붉어진다. 숫자 하나만 빨개지는 것보다
+   * 손이 잡고 있는 물건 자체가 변하는 쪽이 먼저 눈에 들어온다.
+   */
+  const accent = danger ? 'var(--color-bad)' : 'var(--color-act-3)'
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
@@ -647,7 +698,7 @@ function Dial({
             aria-label={`${label}이 무엇인지 보기`}
             className="grid h-4 w-4 shrink-0 place-items-center rounded-full border text-[9.5px] leading-none transition-colors"
             style={{
-              borderColor: openConcept ? 'var(--color-act-3)' : 'rgb(255 255 255 / 0.2)',
+              borderColor: openConcept ? 'var(--color-act-3)' : 'rgb(255 255 255 / 0.22)',
               color: openConcept ? 'var(--color-act-3)' : 'var(--color-ink-3)',
             }}
           >
@@ -657,33 +708,42 @@ function Dial({
         <span className="flex items-center gap-1.5">
           {pressure && (
             <span
-              className="rounded-full px-1.5 py-px text-[9.5px] font-semibold whitespace-nowrap"
+              className="hud-badge"
               style={{
-                background: 'color-mix(in oklab, var(--color-warn) 20%, transparent)',
                 color: 'var(--color-warn)',
+                borderColor: 'color-mix(in oklab, var(--color-warn) 38%, transparent)',
+                background: 'color-mix(in oklab, var(--color-warn) 10%, transparent)',
               }}
             >
-              계속 밀림 {pressure.perSec < 0 ? '↓' : '↑'}
+              밀림 {pressure.perSec < 0 ? '↓' : '↑'}
             </span>
           )}
-          <span className="tnum text-[13px] font-semibold" style={{ color: danger ? 'var(--color-bad)' : undefined }}>
+          <span
+            className="hud-num text-[17px] font-semibold"
+            style={{ color: danger ? 'var(--color-bad)' : undefined }}
+          >
             {format(value)}
           </span>
         </span>
       </div>
-      <div className="text-[10.5px] text-ink-3">{note}</div>
-      <div className="relative">
-        {/* 안전 구간 띠 */}
+      <div className="text-[10.5px] leading-snug text-ink-3">{note}</div>
+      <div className="relative mt-1.5">
+        {/*
+          안전 구간 띠는 트랙 '아래'에 긋는다. 트랙 위에 깔면 채움색이 그 위를 덮어
+          — 값이 안전 구간보다 오른쪽에 있을 때 초록이 통째로 사라진다. 실제로 그랬다.
+          트랙은 22px 높이 input 안에서 top 9~13px 이고 썸이 4~18px 을 차지하므로,
+          19px 부터가 무엇에도 가리지 않는 유일한 띠 자리다.
+        */}
         <div
-          className="pointer-events-none absolute top-[16px] h-1.5 rounded-full"
+          className="pointer-events-none absolute top-[19px] h-[2px] rounded-full"
           style={{
             left: `${pct(safeFrom)}%`,
             width: `${pct(safeTo) - pct(safeFrom)}%`,
-            background: 'color-mix(in oklab, var(--color-good) 45%, transparent)',
+            background: 'var(--color-good)',
           }}
         />
         <input
-          className="slider relative"
+          className="slider-hud relative"
           type="range"
           min={min}
           max={max}
@@ -692,9 +752,22 @@ function Dial({
           disabled={disabled}
           onChange={(e) => onChange(Number(e.target.value))}
           aria-label={label}
+          style={
+            {
+              '--hud-fill': `${pct(value)}%`,
+              '--hud-accent': accent,
+            } as React.CSSProperties
+          }
         />
       </div>
-      {openConcept && <p className="mt-1 text-[11px] leading-relaxed text-ink-3">{concept}</p>}
+      <div className="hud-scale mt-1.5">
+        <span>{format(min)}</span>
+        <span style={{ color: 'color-mix(in oklab, var(--color-good) 80%, white 20%)' }}>
+          안전 {format(safeFrom)}–{format(safeTo)}
+        </span>
+        <span>{format(max)}</span>
+      </div>
+      {openConcept && <p className="mt-1.5 text-[11px] leading-relaxed text-ink-3">{concept}</p>}
     </div>
   )
 }
@@ -709,13 +782,34 @@ function ResultBar({
   onNext: () => void
 }) {
   return (
-    <div className="panel rise pointer-events-auto flex items-start justify-between gap-6 px-5 py-3 backdrop-blur-md">
+    <div
+      className="hud-panel rise pointer-events-auto flex items-start justify-between gap-6 px-5 py-3.5"
+      style={{
+        borderColor: `color-mix(in oklab, ${success ? 'var(--color-good)' : 'var(--color-warn)'} 40%, transparent)`,
+      }}
+    >
       <div>
-        <div
-          className="text-[14px] font-semibold"
-          style={{ color: success ? 'var(--color-good)' : 'var(--color-warn)' }}
-        >
-          {success ? `복구 성공 · ${remaining.toFixed(1)}초 남김` : '시간 종료 — 실패도 발견입니다'}
+        <div className="flex items-baseline gap-2">
+          <span
+            className="hud-badge"
+            style={{
+              color: success ? 'var(--color-good)' : 'var(--color-warn)',
+              borderColor: `color-mix(in oklab, ${success ? 'var(--color-good)' : 'var(--color-warn)'} 45%, transparent)`,
+              background: `color-mix(in oklab, ${success ? 'var(--color-good)' : 'var(--color-warn)'} 12%, transparent)`,
+            }}
+          >
+            {success ? '복구 성공' : '시간 종료'}
+          </span>
+          <span className="text-[14px] font-semibold text-ink-1">
+            {success ? (
+              <>
+                <span className="hud-num">{remaining.toFixed(1)}</span>
+                <span className="text-[11px] text-ink-3">s</span> 남김
+              </>
+            ) : (
+              '실패도 발견입니다'
+            )}
+          </span>
         </div>
         <p className="mt-1 max-w-4xl text-[12.5px] leading-relaxed text-ink-2">
           {success ? (

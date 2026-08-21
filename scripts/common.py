@@ -330,7 +330,7 @@ def blossom_payload(records: list[dict], source: str) -> dict:
             "_provider": "기상청",
             "_dataset": "계절관측(생물계절) · 왕벚나무 개화",
             "_fetched_at": datetime.now().astimezone().isoformat(timespec="seconds"),
-            "_license": "공공누리 유형 확인 필요",
+            "_license": "공공누리 제1유형 (출처표시)",
         }
         if real
         else {}

@@ -56,6 +56,23 @@ const INTRO: IntroStep[] = [
     chip: '추세와 잡음의 분리 — 점을 충분히 모아야 방향이 드러난다',
   },
   {
+    /*
+     * 조작 전에 한 번, 조작 후에 한 번.
+     * 원래는 선이 나타나는 순간(조작 한가운데)에 다섯 마디짜리 해설을 통째로 끼워
+     * 넣었는데, 손이 움직이는 중에 화면을 빼앗는 셈이라 흐름이 끊겼다. 그래서
+     * "선이 무엇인지"만 여기서 미리 말해 두고, "그 선을 어떻게 읽는지"는 다 쌓은
+     * 뒤로 미룬다 (→ readerSteps).
+     */
+    label: '곧 나올 선은 무엇인가',
+    body: (
+      <>
+        점이 충분히 쌓이면 <span className="text-act-2">추세선</span>이 자랍니다. 점들 한가운데를 지나도록 그은
+        직선이고, 기울기가 <span className="text-ink-1">10년마다 몇 도씩 움직였는지</span>를 말해줍니다. 개별
+        연도를 설명하려는 선이 아니에요.
+      </>
+    ),
+  },
+  {
     label: '이 개념이 쓰이는 곳',
     body: (
       <>
@@ -78,8 +95,10 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
 
   /** 도입 세 마디를 지났는가 — 지나기 전에는 그래프를 아예 띄우지 않는다 */
   const [introDone, setIntroDone] = useState(false)
-  /** 추세선 읽는 법 다섯 마디를 지났는가 — 선이 나온 직후 한 번 거친다 */
+  /** 추세선 읽는 법 다섯 마디를 지났는가 — 다 쌓은 뒤 나가면서 한 번 거친다 */
   const [readerDone, setReaderDone] = useState(false)
+  /** 그 다섯 마디를 지금 띄우고 있는가 */
+  const [readerOpen, setReaderOpen] = useState(false)
   /** 스크러버 위치 = 지금까지 드러난 연도 수 */
   const [revealed, setRevealed] = useState(0)
   const [blossomVisible, setBlossomVisible] = useState(false)
@@ -155,11 +174,17 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
    * S4는 빈 해의 기온을 맞히는 화면이다. 개화일 점이 남아 있으면 정답을 가리키는
    * 두 번째 단서가 되므로, 넘어가기 전에 반드시 먼저 걷어낸다.
    */
-  const handleNext = useCallback(() => {
+  const leave = useCallback(() => {
     if (!blossomVisible) return onNext()
     setBlossomVisible(false)
     window.setTimeout(onNext, BLOSSOM_FADE)
   }, [blossomVisible, onNext])
+
+  /* 나가는 길에 '읽는 법'을 한 번 거친다. 이미 봤으면 그대로 넘어간다. */
+  const handleNext = useCallback(() => {
+    if (!readerDone) return setReaderOpen(true)
+    leave()
+  }, [readerDone, leave])
 
   const blossomShift = useMemo(() => {
     if (!showBlossom || blossom.length < 10) return null
@@ -194,14 +219,24 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
     )
   }
 
-  /* 선이 처음 나오는 순간, 그 선을 읽는 법을 지나야 차트로 돌아온다 (→ readerSteps) */
-  if (trendVisible && !readerDone) {
+  /*
+   * 선을 읽는 법은 **구간이 끝난 뒤에** 지난다.
+   *
+   * 원래는 선이 처음 나오는 순간(= 사용자가 아직 문지르는 중)에 이 다섯 마디를
+   * 띄웠다. 조작 흐름 한가운데를 끊는 자리라, 손이 멈추고 읽기로 갈아탄 뒤 다시
+   * 손으로 돌아와야 했다. 카드는 구간의 입구와 출구에만 둔다.
+   */
+  if (readerOpen) {
     return (
       <StageIntro
         eyebrow="추세선 읽는 법"
         steps={reader}
         tone="var(--color-act-2)"
-        onDone={() => setReaderDone(true)}
+        onDone={() => {
+          setReaderOpen(false)
+          setReaderDone(true)
+          leave()
+        }}
       />
     )
   }
@@ -401,13 +436,13 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
       </div>
 
       {/* 방금 읽은 다섯 마디는 한 줄로 접어 둔다 — 다시 보기로 펼친다 */}
-      {trendVisible && (
+      {readerDone && (
         <StageIntroBar
           chip={reader[reader.length - 1].chip!}
           tone="var(--color-act-2)"
           label="추세선 읽는 법"
           replayLabel="읽는 법 다시 보기"
-          onReplay={() => setReaderDone(false)}
+          onReplay={() => setReaderOpen(true)}
         />
       )}
 

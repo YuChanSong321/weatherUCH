@@ -80,6 +80,17 @@ type JourneyValue = {
   runId: number
   go: (stage: Stage) => void
   next: () => void
+  /*
+   * 복습용 앞뒤 이동.
+   *
+   * 여정은 한 방향으로 흐르지만, 지나온 단계를 다시 볼 길이 없으면 한 마디를
+   * 놓친 사람은 처음부터 다시 하는 수밖에 없다. 그래서 **가본 곳까지만** 자유롭게
+   * 오간다 — 앞질러 가는 것은 막는다(안 푼 단계의 점수가 비어 이야기가 깨진다).
+   */
+  back: () => void
+  forward: () => void
+  canBack: boolean
+  canForward: boolean
   rounds: RoundScore[]
   pushRound: (r: RoundScore) => void
   yearGuess: YearGuessResult | null
@@ -123,6 +134,8 @@ function initialStage(): Stage {
 
 export function JourneyProvider({ children }: { children: ReactNode }) {
   const [stage, setStage] = useState<Stage>(initialStage)
+  /** 지금까지 도달한 가장 먼 단계 — 앞으로 가기가 여기까지만 열린다 */
+  const [maxStage, setMaxStage] = useState<Stage>(initialStage)
   const [rounds, setRounds] = useState<RoundScore[]>([])
   const [yearGuess, setYearGuessState] = useState<YearGuessResult | null>(null)
   const [orbitResult, setOrbitResultState] = useState<OrbitMissionResult | null>(null)
@@ -133,18 +146,39 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
 
   const go = useCallback((s: Stage) => {
     setStage(s)
+    setMaxStage((m) => (STAGE_ORDER.indexOf(s) > STAGE_ORDER.indexOf(m) ? s : m))
   }, [])
 
   // 이미 열려 있는 화면에서 주소의 해시만 바꿔도 그 단계로 이동한다 (발표 중 점프용)
   useEffect(() => {
-    const onHashChange = () => setStage(initialStage())
+    const onHashChange = () => {
+      const s = initialStage()
+      setStage(s)
+      setMaxStage((m) => (STAGE_ORDER.indexOf(s) > STAGE_ORDER.indexOf(m) ? s : m))
+    }
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
   const next = useCallback(() => {
-    setStage((s) => STAGE_ORDER[Math.min(STAGE_ORDER.length - 1, STAGE_ORDER.indexOf(s) + 1)])
+    setStage((s) => {
+      const n = STAGE_ORDER[Math.min(STAGE_ORDER.length - 1, STAGE_ORDER.indexOf(s) + 1)]
+      setMaxStage((m) => (STAGE_ORDER.indexOf(n) > STAGE_ORDER.indexOf(m) ? n : m))
+      return n
+    })
   }, [])
+
+  const back = useCallback(() => {
+    setStage((s) => STAGE_ORDER[Math.max(0, STAGE_ORDER.indexOf(s) - 1)])
+  }, [])
+
+  /** 복습을 마치고 원래 있던 자리로 — 가본 곳을 넘어가지는 않는다 */
+  const forward = useCallback(() => {
+    setStage((s) => {
+      const i = Math.min(STAGE_ORDER.indexOf(maxStage), STAGE_ORDER.indexOf(s) + 1)
+      return STAGE_ORDER[Math.max(0, i)]
+    })
+  }, [maxStage])
 
   const pushRound = useCallback((r: RoundScore) => {
     setRounds((prev) => [...prev.filter((p) => p.round !== r.round), r].sort((a, b) => a.round - b.round))
@@ -159,6 +193,7 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
     setDragged2100State(null)
     setRunId((n) => n + 1)
     setStage('s0')
+    setMaxStage('s0')
     // 딥링크 해시를 지운다 — 남겨두면 새로고침 시 그 단계로 되돌아간다
     if (window.location.hash) {
       window.history.replaceState(null, '', window.location.pathname + window.location.search)
@@ -173,6 +208,10 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
       runId,
       go,
       next,
+      back,
+      forward,
+      canBack: STAGE_ORDER.indexOf(stage) > 0,
+      canForward: STAGE_ORDER.indexOf(stage) < STAGE_ORDER.indexOf(maxStage),
       rounds,
       pushRound,
       yearGuess,
@@ -188,7 +227,7 @@ export function JourneyProvider({ children }: { children: ReactNode }) {
       totals: { earned, max: TOTAL_MAX },
       restart,
     }
-  }, [stage, runId, go, next, rounds, pushRound, yearGuess, orbitResult, yearMeanGuess, trendGuess, dragged2100, restart])
+  }, [stage, maxStage, runId, go, next, back, forward, rounds, pushRound, yearGuess, orbitResult, yearMeanGuess, trendGuess, dragged2100, restart])
 
   return <JourneyContext.Provider value={value}>{children}</JourneyContext.Provider>
 }

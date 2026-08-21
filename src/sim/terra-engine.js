@@ -89,36 +89,32 @@ function smoothstep(e0, e1, x){
 const psiOf = (precessionDeg) => (precessionDeg + 90) * DEG;
 
 /* ==========================================================================
-   1 · TEXTURES  (remote first, procedural fallback second)
+   1 · TEXTURES  (bundled NASA plates, procedural fallback second)
    --------------------------------------------------------------------------
    Every map is tried against a list of URLs in order. If all of them fail we
    synthesise an equivalent map on a <canvas> so the scene is never broken —
    the HUD flips a "procedural fallback" badge when that happens.
    ========================================================================== */
-// About the URLs, because it matters:
-//   The cloud.githubusercontent.com placeholders now answer HTTP 403 — GitHub
-//   retired that asset host — and they never sent an Access-Control-Allow-Origin
-//   header, which WebGL *requires* for a cross-origin texture. So they cannot
-//   work, from any origin.
-//   TB below is the original home of those exact images (turban/webgl-earth):
-//   same 4k Blue Marble / elevation / water-mask / cloud plates, served by
-//   raw.githubusercontent.com with `ACAO: *`. UG (unpkg → three-globe) is the
-//   lighter-weight second choice, and also supplies the NASA Black Marble
-//   city-lights plate, which the original set does not include.
-const TB = 'https://raw.githubusercontent.com/turban/webgl-earth/master/images/';
-const UG = 'https://unpkg.com/three-globe/example/';
-// textureMode:'local' 용. public/textures/ 에 같은 이름으로 떨궈두면 네트워크 없이
-// 사진 플레이트를 쓸 수 있다 (README 참고). 없으면 절차적 폴백으로 내려간다.
+// 텍스처 출처 — 6장 전부 NASA 퍼블릭 도메인 영상이고 저장소에 동봉되어 있다.
+//   public/textures/  (약 5.6 MB) · 출처와 크레딧은 같은 폴더의 CREDITS.md 참고
+//
+// 예전에는 raw.githubusercontent.com/turban/webgl-earth 와 unpkg/three-globe 에서
+// 런타임에 받아 썼다. 그만둔 이유가 둘이다.
+//   1) turban/webgl-earth 에는 LICENSE 파일이 없다 — 명시적 허락 없는 재사용이라
+//      대회 규정("외부 리소스 출처·라이선스 표기 필수")을 통과할 수 없다.
+//   2) 발표 현장에서 네트워크가 흔들리면 9 MB 를 못 받아 절차적 합성으로 떨어졌다.
+// NASA 원본을 직접 받아 넣으면 출처가 1차 제공처로 확정되고 오프라인도 해결된다.
 const LC = '/textures/';
 
 const MAPS = {
-  day:    { remote: [TB + '2_no_clouds_4k.jpg',   UG + 'img/earth-blue-marble.jpg'], local: [LC + 'day.jpg'],    srgb: true  },
-  bump:   { remote: [TB + 'elev_bump_4k.jpg',     UG + 'img/earth-topology.png'   ], local: [LC + 'bump.jpg'],   srgb: false },
-  spec:   { remote: [TB + 'water_4k.png',         UG + 'img/earth-water.png'      ], local: [LC + 'water.png'],  srgb: false },
-  clouds: { remote: [TB + 'fair_clouds_4k.png',   UG + 'clouds/clouds.png'        ], local: [LC + 'clouds.png'], srgb: true  },
-  night:  { remote: [UG + 'img/earth-night.jpg'                                   ], local: [LC + 'night.jpg'],  srgb: true  },
-  sky:    { remote: [TB + 'galaxy_starfield.png', UG + 'img/night-sky.png'        ], local: [LC + 'sky.png'],    srgb: true  },
+  day:    { local: [LC + 'day.jpg'],    srgb: true  },
+  bump:   { local: [LC + 'bump.jpg'],   srgb: false },
+  spec:   { local: [LC + 'water.png'],  srgb: false },
+  clouds: { local: [LC + 'clouds.png'], srgb: true  },
+  night:  { local: [LC + 'night.jpg'],  srgb: true  },
+  sky:    { local: [LC + 'sky.jpg'],    srgb: true  },
 };
+
 
 /* --- procedural fallback maps ------------------------------------------- */
 function hash3(x, y, z){
@@ -239,7 +235,9 @@ function proceduralSky(){
 /**
  * @param {HTMLElement} container  캔버스를 붙일 요소. 크기는 이 요소를 따라간다.
  * @param {object} opts
- *   textureMode  'remote' | 'local' | 'procedural'   (기본 'remote')
+ *   textureMode  'local' | 'procedural'   (기본 'local')
+ *                'local' 은 번들된 NASA 플레이트(public/textures/)를 쓴다. 외부
+ *                요청이 없으므로 오프라인에서도 같은 화질이 나온다.
  *   params       {eccentricity, obliquity, precession}
  *   motion       {speed, spin, exposure}
  *   view         'earth' | 'system'
@@ -251,7 +249,7 @@ function proceduralSky(){
  */
 export async function createTerraSim(container, opts = {}){
   const {
-    textureMode = 'remote',
+    textureMode = 'local',
     params: initialParams = {},
     motion: initialMotion = {},
     view: initialView = 'earth',
@@ -289,9 +287,7 @@ export async function createTerraSim(container, opts = {}){
 
   const tex = {};
   await Promise.all(Object.entries(MAPS).map(async ([key, def]) => {
-    const urls = textureMode === 'procedural' ? []
-               : textureMode === 'local'      ? def.local
-               : def.remote;
+    const urls = textureMode === 'procedural' ? [] : def.local;
     tex[key] = urls.length ? await loadFirst(urls) : null;
     loadedCount++;
     onProgress(key, loadedCount, totalMaps);

@@ -95,79 +95,6 @@ function ensembleMembers(): Array<Array<[number, number]>> {
   return out
 }
 
-/* ───────────────────  개념 대조: 기상 예측 vs 기후 예측  ─────────────────── */
-
-const CONTRAST: Array<{ q: string; weather: string; climate: string }> = [
-  {
-    q: '묻는 것',
-    weather: '"모레 이 도시의 최고기온은 몇 ℃인가"',
-    climate: '"2050년대 이 도시의 여름은 지금보다 얼마나 더울까"',
-  },
-  {
-    q: '답의 형태',
-    weather: '하나의 값 — 23.4℃, 강수확률 60% (결정론적 예측)',
-    climate: '확률 분포 — "평년보다 높을 확률 80%" (확률적 전망)',
-  },
-  {
-    q: '무엇을 푸는 문제인가',
-    weather: '초기 조건 문제 — 지금 대기가 정확히 어떤 상태인가',
-    climate: '경계 조건 문제 — 지구가 받고 내보내는 에너지가 얼마인가',
-  },
-  {
-    q: '앙상블이 뜻하는 것',
-    weather: '초기값을 조금씩 흔들어 여러 번 돌린다 → 퍼짐 = 대기의 불확실성',
-    climate: '모델과 배출 시나리오를 바꿔 여러 번 돌린다 → 퍼짐 = 인간 선택의 폭',
-  },
-  {
-    q: '맞았다의 기준',
-    weather: '그날 그 값에 얼마나 가까웠나 — 하루 뒤면 채점된다',
-    climate: '수십 년을 모아 분포가 맞았나 — 한 해로는 채점할 수 없다',
-  },
-  {
-    q: '한계',
-    weather: '약 2주. 관측을 아무리 늘려도 물리적으로 넘을 수 없다',
-    climate: '개별 날짜·개별 해는 영원히 못 맞힌다. 대신 방향은 남는다',
-  },
-]
-
-/**
- * 경로별 대응방안.
- *
- * 심사에서 가장 잘 전달됐다고 꼽힌 지점("우리 행위에 따라 미래가 달라진다")을
- * 더 살려 달라는 요청을 받았다. 살리는 방법으로 훈계 문장을 늘리지 않는다 —
- * 마지막 장면에서 버튼을 누르면 옆의 종 모양이 그 자리에서 움직이게 했다.
- * 문장이 아니라 화면이 인과를 보여주는 쪽이다.
- */
-const LEVERS: Record<string, { headline: string; body: string; acts: string[] }> = {
-  ssp126: {
-    headline: '이 길로 가려면, 2050년 무렵 배출 총량이 0 이어야 합니다',
-    body: '이미 배출한 몫 때문에 당분간은 계속 더워집니다. 그래도 세기 후반에 곡선이 눕는 유일한 경로예요.',
-    acts: [
-      '발전을 재생에너지·원자력 등 무탄소 전원으로 교체',
-      '건물 단열·수송 전동화로 에너지 수요 자체를 줄이기',
-      '숲·갯벌 흡수원 복원과 탄소 포집·저장',
-    ],
-  },
-  ssp245: {
-    headline: '지금 발표된 각국 감축 목표를 그대로 지키면 대략 여기입니다',
-    body: '선언은 있고 이행은 절반쯤인 세상. 지금 궤도의 연장선에 가장 가까운 경로입니다.',
-    acts: [
-      '감축 목표를 선언에서 이행으로 — 점검·공시 체계',
-      '폭염·집중호우에 맞춘 도시 인프라 재설계',
-      '농업 품종 전환과 물 관리 적응 계획',
-    ],
-  },
-  ssp585: {
-    headline: '화석연료로 성장을 계속 밀어붙이면 도달하는 곳입니다',
-    body: '적응으로 감당할 수 있는 범위를 여러 지역에서 넘어섭니다. 되돌리는 다이얼은 없습니다.',
-    acts: [
-      '이 경로는 대응이 아니라 회피의 대상입니다',
-      '적응만으로 감당할 수 없는 지역이 나옵니다',
-      '넘고 나서 고치는 비용이 넘지 않는 비용보다 훨씬 큽니다',
-    ],
-  },
-}
-
 /* ─────────────────────────────  장면 진행  ───────────────────────────── */
 
 type SceneDef = { key: string; tab: string; tone: string }
@@ -175,7 +102,7 @@ type SceneDef = { key: string; tab: string; tone: string }
 const SCENES: SceneDef[] = [
   { key: 'weather', tab: '기상', tone: 'var(--color-act-1)' },
   { key: 'climate', tab: '기후', tone: 'var(--color-act-2)' },
-  { key: 'contrast', tab: '차이', tone: 'var(--color-ink-2)' },
+  { key: 'journey', tab: '여정', tone: 'var(--color-ink-2)' },
   { key: 'choice', tab: '선택', tone: 'var(--color-act-3)' },
 ]
 
@@ -243,7 +170,7 @@ export function S7Ending() {
               yearGuess={yearGuess}
             />
           )}
-          {scene === 2 && <SceneContrast />}
+          {scene === 2 && <SceneJourney totals={totals} />}
           {scene === 3 && (
             <SceneChoice
               sigma={sigma}
@@ -284,7 +211,7 @@ export function S7Ending() {
 /** 다음 장면으로 넘기는 버튼의 문구 — 다음 장면이 답할 질문을 미리 던진다 */
 const NEXT_LABEL = [
   '그럼 30년 뒤는 어떨까요',
-  '두 예측은 어떻게 다를까요',
+  '여기까지 어디를 지나왔을까요',
   '그럼 미래는 누가 정하나요',
 ]
 
@@ -740,44 +667,163 @@ function Tercile({ pct, label, color }: { pct: number; label: string; color: str
 
 /* ─────────────────────────  ③ 두 예측의 차이  ───────────────────────── */
 
-function SceneContrast() {
+/**
+ * 경로별 대응방안.
+ *
+ * 심사에서 가장 잘 전달됐다고 꼽힌 지점("우리 행위에 따라 미래가 달라진다")을
+ * 더 살려 달라는 요청을 받았다. 살리는 방법으로 훈계 문장을 늘리지 않는다 —
+ * 마지막 장면에서 버튼을 누르면 옆의 종 모양이 그 자리에서 움직이게 했다.
+ * 문장이 아니라 화면이 인과를 보여주는 쪽이다.
+ */
+const LEVERS: Record<string, { headline: string; body: string; acts: string[] }> = {
+  ssp126: {
+    headline: '이 길로 가려면, 2050년 무렵 배출 총량이 0 이어야 합니다',
+    body: '이미 배출한 몫 때문에 당분간은 계속 더워집니다. 그래도 세기 후반에 곡선이 눕는 유일한 경로예요.',
+    acts: [
+      '발전을 재생에너지·원자력 등 무탄소 전원으로 교체',
+      '건물 단열·수송 전동화로 에너지 수요 자체를 줄이기',
+      '숲·갯벌 흡수원 복원과 탄소 포집·저장',
+    ],
+  },
+  ssp245: {
+    headline: '지금 발표된 각국 감축 목표를 그대로 지키면 대략 여기입니다',
+    body: '선언은 있고 이행은 절반쯤인 세상. 지금 궤도의 연장선에 가장 가까운 경로입니다.',
+    acts: [
+      '감축 목표를 선언에서 이행으로 — 점검·공시 체계',
+      '폭염·집중호우에 맞춘 도시 인프라 재설계',
+      '농업 품종 전환과 물 관리 적응 계획',
+    ],
+  },
+  ssp585: {
+    headline: '화석연료로 성장을 계속 밀어붙이면 도달하는 곳입니다',
+    body: '적응으로 감당할 수 있는 범위를 여러 지역에서 넘어섭니다. 되돌리는 다이얼은 없습니다.',
+    acts: [
+      '이 경로는 대응이 아니라 회피의 대상입니다',
+      '적응만으로 감당할 수 없는 지역이 나옵니다',
+      '넘고 나서 고치는 비용이 넘지 않는 비용보다 훨씬 큽니다',
+    ],
+  },
+}
+
+/* ─────────────────────────  ③ 여정 — 하루에서 수만 년까지  ───────────────────────── */
+
+/**
+ * 지나온 시간 규모를 한 화면에 되짚는다.
+ *
+ * 왜 필요한가. 이 콘텐츠는 규모를 계속 넓혀가는 여정인데, 정작 **넓혀왔다는 사실
+ * 자체를 정리해주는 자리가 없었다.** 마지막에 와서도 사용자는 마지막 화면(궤도)만
+ * 기억한 채로 끝난다. 여기서 다섯 칸을 한 줄에 세워 "내가 이만큼 물러났다"를
+ * 눈으로 확인시키고, 그 다음 장면(④ 선택)으로 넘긴다.
+ *
+ * 마지막 줄은 이 여정 전체의 논지다 — 자연은 만 년이 걸리는 일을 하고, 우리는
+ * 같은 크기를 수백 년에 하고 있다. 속도가 다르다는 것이 결론이다.
+ */
+const JOURNEY: Array<{ scale: string; what: string; kind: string; tone: string; body: string }> = [
+  {
+    scale: '하루~며칠',
+    what: '내일의 기온·비',
+    kind: '날씨',
+    tone: 'var(--color-act-1)',
+    body: '값 하나를 맞히는 일. 잘 맞지만 2주에서 벽을 만납니다.',
+  },
+  {
+    scale: '한 해',
+    what: '365일을 누른 평균 하나',
+    kind: '날씨 → 기후',
+    tone: 'var(--color-act-1)',
+    body: '묻는 대상을 하루에서 1년으로 바꾼 자리. 여기서 기후가 시작됩니다.',
+  },
+  {
+    scale: '수십 년',
+    what: '40년 추세선',
+    kind: '기후',
+    tone: 'var(--color-act-2)',
+    body: '개별 연도는 튀어도 방향은 남습니다. 값이 아니라 방향을 읽습니다.',
+  },
+  {
+    scale: '100년',
+    what: 'SSP 세 갈래',
+    kind: '기후',
+    tone: 'var(--color-act-2)',
+    body: '하나의 예측이 아니라 부채꼴. 어느 갈래로 갈지는 배출 선택이 정합니다.',
+  },
+  {
+    scale: '수만 년',
+    what: '궤도·자전축',
+    kind: '천체역학',
+    tone: 'var(--color-act-3)',
+    body: '가장 잘 예측되는 규모. 지구가 스스로 돌리는, 사람이 못 만지는 손잡이.',
+  },
+]
+
+function SceneJourney({ totals }: { totals: { earned: number; max: number } }) {
   return (
-    <section className="panel flex flex-col gap-3 p-5">
+    <section className="panel flex flex-col gap-4 p-5">
       <div>
-        <div className="text-[10.5px] font-medium tracking-[0.14em] text-ink-3">③ 두 예측의 차이</div>
+        <div className="text-[10.5px] font-medium tracking-[0.14em] text-ink-3">③ 여정 · 지나온 시간 규모</div>
         <h1 className="mt-1 text-[22px] leading-tight font-semibold tracking-tight">
-          그래서 두 그래프는 <span className="text-ink-1">한 선으로 이어지지 않습니다</span>
+          하루에서 시작해 <span className="text-ink-1">수만 년까지</span> 물러났습니다
         </h1>
         <p className="mt-1.5 max-w-4xl text-[12.5px] leading-relaxed text-ink-2">
-          앞 장면의 세로축은 <span className="text-ink-1">‘몇 ℃인가’라는 값</span>이었고, 방금 장면의 세로축은{' '}
-          <span className="text-ink-1">‘그 값이 나올 확률’</span>이었습니다. 하나는 내려가고 하나는 올라가지만, 둘을 한
-          곡선으로 이으면 서로 다른 두 양을 같은 자로 잰 셈이 돼요. 기후 전망이 잘 되는 이유는 예측 기술이 갑자기
-          좋아져서가 아니라, <span className="text-ink-1">묻는 질문을 바꿨기 때문</span>입니다.
+          카메라를 한 칸씩 뒤로 빼면서, 같은 지구를 다섯 번 다른 자로 재봤어요. 규모가 바뀌면 답할 수 있는 질문도
+          바뀝니다 — 그게 이 여정이 보여주려던 것입니다.
         </p>
       </div>
 
-      <div className="grid grid-cols-[7.5rem_minmax(0,1fr)_minmax(0,1fr)] gap-x-5 text-[11.5px]">
-        <div className="border-b border-white/12 pb-1.5 text-[10.5px] text-ink-3">비교 항목</div>
-        <div
-          className="border-b pb-1.5 text-[12px] font-semibold"
-          style={{ borderColor: 'color-mix(in oklab, var(--color-act-1) 45%, transparent)', color: 'var(--color-act-1)' }}
-        >
-          ① 기상 예측 (Weather forecast)
-        </div>
-        <div
-          className="border-b pb-1.5 text-[12px] font-semibold"
-          style={{ borderColor: 'color-mix(in oklab, var(--color-act-2) 45%, transparent)', color: 'var(--color-act-2)' }}
-        >
-          ② 기후 전망 (Climate projection)
-        </div>
-
-        {CONTRAST.map((row) => (
-          <div key={row.q} className="contents">
-            <div className="border-b border-white/6 py-1.5 text-ink-3">{row.q}</div>
-            <div className="border-b border-white/6 py-1.5 leading-relaxed text-ink-2">{row.weather}</div>
-            <div className="border-b border-white/6 py-1.5 leading-relaxed text-ink-2">{row.climate}</div>
+      {/* 다섯 칸을 한 줄로. 왼쪽이 가깝고 오른쪽이 멀다 — 자의 방향과 같다. */}
+      <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 sm:grid-cols-5">
+        {JOURNEY.map((j, i) => (
+          <div key={j.scale} className="flex flex-col gap-1.5 bg-space-1 px-3 py-3">
+            <div className="flex items-baseline gap-1.5">
+              <span className="tnum text-[10px] font-semibold" style={{ color: j.tone }}>
+                {i + 1}
+              </span>
+              <span className="text-[12.5px] font-semibold text-ink-1">{j.scale}</span>
+            </div>
+            <span
+              className="self-start rounded-full px-1.5 py-px text-[9.5px] font-semibold"
+              style={{ background: `color-mix(in oklab, ${j.tone} 20%, transparent)`, color: j.tone }}
+            >
+              {j.kind}
+            </span>
+            <div className="text-[11.5px] font-medium text-ink-2">{j.what}</div>
+            <p className="text-[11px] leading-relaxed text-ink-3">{j.body}</p>
           </div>
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_17rem]">
+        <div
+          className="rounded-xl border px-4 py-3"
+          style={{
+            borderColor: 'color-mix(in oklab, var(--color-act-3) 38%, transparent)',
+            background: 'color-mix(in oklab, var(--color-act-3) 8%, transparent)',
+          }}
+        >
+          <h3 className="text-[13px] font-semibold text-ink-1">
+            자연은 느리고, 지금은 빠릅니다
+          </h3>
+          <p className="mt-1 text-[12px] leading-relaxed text-ink-2">
+            궤도가 빙하기를 켜고 끄는 데는 <span className="text-ink-1">수만 년</span>이 걸립니다. 방금 다이얼을
+            돌려보셨죠. 그런데 산업화 이후 <span className="text-ink-1">약 270년</span> 만에 우리는 그와 비슷한 크기의
+            변화를 만들었습니다. 크기가 아니라 <span className="text-act-3">속도</span>가 다른 겁니다.
+          </p>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-ink-2">
+            그리고 이 다섯 칸 중 <span className="text-ink-1">사람이 손을 댈 수 있는 칸은 하나뿐</span>입니다 —
+            100년 규모의 부채꼴. 다음 화면이 그 이야기예요.
+          </p>
+        </div>
+
+        <div className="panel-quiet flex flex-col justify-center gap-1 px-4 py-3">
+          <div className="text-[10.5px] text-ink-3">여기까지 얻은 점수</div>
+          <div className="flex items-baseline gap-1">
+            <span className="tnum text-[30px] leading-none font-semibold text-ink-1">{totals.earned}</span>
+            <span className="text-[13px] text-ink-3">/ {totals.max}</span>
+          </div>
+          <p className="mt-1 text-[11px] leading-relaxed text-ink-3">
+            맞고 틀린 것보다, 어느 규모에서 맞았는지가 이 여정의 답입니다.
+          </p>
+        </div>
       </div>
     </section>
   )

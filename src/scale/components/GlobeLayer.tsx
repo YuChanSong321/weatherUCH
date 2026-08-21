@@ -142,10 +142,10 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
     let cancelled = false
 
     createTerraSim(host, {
-      // standalone(/terra-orbital-sim.html)과 같은 설정이다. 화질을 낮추거나 텍스처를
-      // 합성으로 바꾸지 말 것. 원격 플레이트가 막히면 엔진이 알아서 절차적 폴백으로
-      // 내려간다(원본 동작).
-      textureMode: 'remote',
+      // standalone(/terra-orbital-sim.html)과 같은 설정이다. 번들된 NASA 플레이트를
+      // 쓰므로 외부 요청이 없고, 발표 현장 네트워크와 무관하게 같은 화질이 나온다.
+      // 'procedural' 로 낮추지 말 것 — 파일이 없을 때만 엔진이 알아서 내려간다.
+      textureMode: 'local',
       params: orbitRef.current,
       motion: { speed: 1, spin: 1, exposure: 1.05 },
       view: VIEW_BY_STAGE[stageRef.current],

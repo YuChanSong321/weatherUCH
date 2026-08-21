@@ -36,6 +36,8 @@
   --font-sans:
     system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic",
     "Noto Sans KR", sans-serif;
+  /* 계기 숫자용. 값이 실시간으로 바뀔 때 자릿수 폭이 흔들리지 않아야 한다. */
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
 html,
@@ -233,4 +235,187 @@ input[type='range'].slider::-moz-range-thumb {
   .pulse-soft {
     animation: none;
   }
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   HUD — 계기판 문법
+
+   /terra-orbital-sim.html 의 HUD 와 같은 언어를 쓴다. 규칙은 넷이다.
+
+     ① 라벨은 작고 넓게, 값은 크고 모노로 — 읽는 것과 재는 것을 분리한다
+     ② 살아 움직이는 숫자는 전부 tabular-nums — 자릿수가 바뀔 때 흔들리면
+        계기가 아니라 애니메이션으로 보인다
+     ③ 유리는 얇게, 그림자는 깊게 — 판이 우주 위에 떠 있어야 지구를 가리지 않는다
+     ④ 반경은 작게(10px) — 둥글수록 카드가 되고, 각질수록 계기가 된다
+
+   S7(임계 샌드박스)이 쓴다. 다른 화면은 기존 .panel 문법을 그대로 둔다 —
+   여정 전체를 한꺼번에 바꾸는 건 별개의 결정이다.
+   ══════════════════════════════════════════════════════════ */
+
+.hud-panel {
+  background: rgb(12 18 28 / 0.62);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 10px;
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow:
+    0 18px 50px rgb(0 0 0 / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+/* 섹션 머리 — 넓은 자간의 작은 대문자. 제목이 아니라 '구획 표시'다. */
+.hud-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-ink-3);
+}
+
+/* 문단 위에 긋는 헤어라인 */
+.hud-rule-above {
+  border-top: 1px solid rgb(255 255 255 / 0.1);
+}
+
+/* 패널 안쪽 끝까지 닿는 가로줄 (좌우 패딩을 음수 마진으로 되돌린다) */
+.hud-rule {
+  height: 1px;
+  background: rgb(255 255 255 / 0.1);
+  margin-inline: -0.875rem;
+}
+
+/* 계기 숫자 */
+.hud-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink-1);
+}
+
+/* 배지 — 테두리 있는 작은 대문자 알약 */
+.hud-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 5px 7px;
+  border-radius: 5px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  color: var(--color-ink-3);
+  background: rgb(255 255 255 / 0.03);
+  white-space: nowrap;
+}
+
+/*
+ * 타일 격자 — gap 1px 에 배경을 깔아 구분선을 만든다. 칸마다 테두리를 그리면
+ * 맞닿는 변이 2px 로 겹쳐 굵어진다.
+ */
+.hud-tiles {
+  display: grid;
+  gap: 1px;
+  background: rgb(255 255 255 / 0.1);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.hud-tile {
+  background: rgb(11 16 24 / 0.92);
+  padding: 9px 10px;
+}
+.hud-tile-k {
+  font-size: 9.5px;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-3);
+}
+.hud-tile-v {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  font-weight: 550;
+  line-height: 1.15;
+  color: var(--color-ink-1);
+}
+
+/* ── HUD 슬라이더 ──────────────────────────────────────────
+   기존 .slider(6px 트랙 / 22px 썸)보다 얇다. 다이얼이 셋 나란히 서는 화면이라
+   손잡이가 크면 판이 손잡이로 가득 찬다. 채움색은 --hud-fill 로 받는다. */
+input[type='range'].slider-hud {
+  --hud-fill: 0%;
+  --hud-accent: var(--color-act-3);
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  background: transparent;
+  cursor: grab;
+}
+input[type='range'].slider-hud:active {
+  cursor: grabbing;
+}
+input[type='range'].slider-hud:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+input[type='range'].slider-hud::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--hud-accent) 0 var(--hud-fill),
+    rgb(255 255 255 / 0.13) var(--hud-fill) 100%
+  );
+}
+input[type='range'].slider-hud::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid #0b1018;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.5),
+    0 0 14px color-mix(in oklab, var(--hud-accent) 75%, transparent);
+}
+input[type='range'].slider-hud::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.13);
+}
+input[type='range'].slider-hud::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--hud-accent);
+}
+input[type='range'].slider-hud::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid #0b1018;
+}
+input[type='range'].slider-hud:focus-visible {
+  outline: 2px solid var(--hud-accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+/* 트랙 밑 눈금 — 범위를 모르면 다이얼을 어디로 밀어야 할지 알 수 없다 */
+.hud-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  line-height: 1;
+  color: var(--color-ink-3);
+  font-variant-numeric: tabular-nums;
 }

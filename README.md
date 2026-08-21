@@ -17,42 +17,99 @@
 
 ---
 
+## 구동 환경
+
+| 항목 | 요구 사항 |
+| --- | --- |
+| **Node.js** | **20.19+ 또는 22.13+** (Vite 8 요구). `node -v` 로 확인 |
+| 패키지 매니저 | npm (저장소에 `package-lock.json` 동봉) |
+| 브라우저 | **WebGL 2** 지원 최신 브라우저. Chrome 정식 지원 |
+| 화면 | 데스크톱 **1280×720 이상** 기준 설계. 좁으면 세로로 쌓이며 스크롤된다 |
+| 네트워크 | **불필요.** 데이터·텍스처·폰트 전부 번들. 아래 '외부 요청' 참고 |
+| OS | 무관 (Windows / macOS / Linux) |
+
+Python 은 **실행에 필요 없다.** `scripts/` 의 수집기는 데이터를 갱신할 때만 쓰며,
+그때만 Python 3.10+ 가 필요하다 (표준 라이브러리만 사용, 설치할 패키지 없음).
+
 ## 실행
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173  ← 예측의 스케일
-npm run build    # 정적 빌드 (dist/)
-npm run preview  # 빌드 결과 확인
+npm run dev      # http://localhost:5173
+npm run build    # 정적 빌드 → dist/
+npm run preview  # 빌드 결과를 http://localhost:4173 에서 확인
 npx tsc --noEmit # 타입 검사
+npm run lint     # ESLint
 ```
 
-Node 20.19+ / 22.13+ 필요 (Vite 8). 데스크톱 1280px 이상 기준으로 설계했다.
-
-엔트리 세 개가 함께 빌드된다.
+엔트리 두 개가 함께 빌드된다.
 
 | 경로 | 내용 |
 | --- | --- |
 | `/` | **예측의 스케일** (출품 콘텐츠) |
-| `/legacy.html` | 기존 TERRA React 앱 |
-| `/terra-orbital-sim.html` | TERRA 궤도 시뮬레이터 (전체 HUD 버전) |
+| `/terra-orbital-sim.html` | 궤도 시뮬레이터 (같은 엔진, 전체 HUD 버전) |
+
+## 배포
+
+`npm run build` 결과인 `dist/` 는 **서버 로직이 없는 완전한 정적 사이트**다.
+빌드 산출물은 약 8.6 MB 이고, 그중 5.6 MB 가 지구본 텍스처다.
+
+```bash
+npm ci          # package-lock.json 그대로 재현 설치
+npm run build   # dist/ 생성
+```
+
+`dist/` 를 정적 호스팅에 그대로 올리면 끝난다 (Netlify · Vercel · GitHub Pages ·
+Cloudflare Pages · S3 + CloudFront · nginx 등). 별도 환경변수도 빌드 시크릿도 없다.
+
+서버 설정에서 두 가지만 맞추면 된다.
+
+- **SPA 폴백을 켜지 말 것** — 라우팅은 URL 해시(`#s0` … `#s7`)로만 하므로 폴백이
+  필요 없고, 켜면 `/terra-orbital-sim.html` 이 메인 화면으로 가로채인다.
+- **`.jpg` / `.png` 에 캐시 헤더를 넉넉히** — `dist/textures/` 가 전체 용량의 대부분이고
+  내용이 바뀌지 않는다.
+
+로컬에서 그대로 확인하려면:
+
+```bash
+npm run preview                 # 또는
+npx serve dist                  # 또는  python3 -m http.server -d dist 8080
+```
+
+**오프라인 발표를 위한 확인** — 랜선을 뽑고 `npm run preview` 를 열어도 지구본이
+사진 화질 그대로 떠야 한다. 흐릿한 절차적 지구가 뜨면 `public/textures/` 가 빠진 것이다
+(`node scripts/build_textures.mjs` 로 다시 만든다).
+
+발표용 딥링크: 주소 끝에 `#s4` 처럼 붙이면 그 단계에서 바로 시작한다 (`#s0` ~ `#s7`).
 
 `/` 의 S6와 `/terra-orbital-sim.html` 은 **같은 렌더링 엔진**([src/sim/terra-engine.js](src/sim/terra-engine.js))을
 쓴다. 궤도·지구·조명 코드는 한 곳에만 있고, 두 화면은 각자의 UI만 얹는다.
 
-발표용 딥링크: 주소 끝에 `#s4` 처럼 붙이면 그 단계에서 바로 시작한다 (`#s0` ~ `#s7`).
 
 ---
 
-## ⚠️ 절대 조건: 브라우저에서 외부 API를 호출하지 않는다
+## 외부 요청 — 기본 0건, 사용자가 열었을 때만 1곳
 
-- 모든 데이터는 `/data` 의 JSON을 **빌드 시점에 번들**로 읽는다. 런타임 `fetch` 없음.
-- 폰트도 로컬 시스템 폰트만 쓴다. JS 라이브러리(three.js 포함)도 전부 `node_modules` 번들이다.
-- **예외 한 곳** — S6 지구본의 텍스처 6장은 원격에서 받는다(아래 '궤도 시뮬레이터' 참고).
-  네트워크가 죽으면 절차적 폴백으로 내려가 화면이 깨지지는 않지만 화질이 떨어진다.
-  발표 전에 `public/textures/` 로 받아두는 것을 권한다.
-- API 키는 코드·커밋·예시파일 어디에도 두지 않는다. 수집 스크립트만 환경변수로 받는다.
-  (`.gitignore` 에 `scripts/.env`, `scripts/raw/` 등록)
+발표 현장의 네트워크에 의존하지 않는 것이 설계 조건이다. **기본 경로에서 브라우저가
+외부로 나가는 요청은 하나도 없다.**
+
+| 자원 | 조달 방식 |
+| --- | --- |
+| 관측·예보·기후 데이터 | `/data` JSON 6종을 **빌드 시점에 번들**. 런타임 `fetch` 없음 |
+| 지구본 텍스처 6장 (5.6 MB) | `public/textures/` 에 **동봉**. NASA 원본 (아래 '저작권 · 출처') |
+| 폰트 | **웹폰트 없음.** 시스템 폰트만 이름으로 지정 |
+| JS 라이브러리 (three.js 포함) | 전부 `node_modules` 에서 번들. CDN·import map 없음 |
+
+**예외는 한 곳뿐이다 — 사용자가 부산 밖의 지점을 직접 찍었을 때.**
+S0 에서 지구본을 클릭해 임의의 좌표를 고르면 그 지역의 관측만
+[Open-Meteo](https://open-meteo.com) 를 실시간으로 호출해 가져온다
+([lib/openMeteo.ts](src/scale/lib/openMeteo.ts)). 인증이 없는 무료 API 라 키를 다루지 않고,
+실패하면 조용히 부산 번들로 되돌아가므로 **오프라인에서도 콘텐츠는 끝까지 돈다.**
+이때는 화면의 출처 표기도 "기상청 · Open-Meteo" 로 자동으로 바뀐다 — 실제로 쓴 출처와
+화면에 적힌 출처가 어긋나면 그 자체가 허위 표기이기 때문이다.
+
+API 키는 코드·커밋·예시파일 어디에도 두지 않는다. 수집 스크립트만 환경변수로 받는다
+(`.gitignore` 에 `.env`, `scripts/.env`, `scripts/raw/` 등록).
 
 데이터 접근은 [src/scale/data/loader.ts](src/scale/data/loader.ts) 한 곳으로만 들어온다.
 화면은 `meta.source` 를 읽어 현재 표시 중인 값이 합성 데이터인지 실측인지 정직하게 표시한다.
@@ -86,14 +143,15 @@ Node 20.19+ / 22.13+ 필요 (Vite 8). 데스크톱 1280px 이상 기준으로 �
 
 ## 데이터
 
-`/data` 의 JSON 6종. **4종은 기상청 API허브 실측**, 2종(벚꽃·SSP)은 아직 합성이다.
+`/data` 의 JSON 6종. **5종은 기상청 API허브 실측**이고, SSP 시나리오 1종만 공표값을
+확보하지 못해 근사 곡선이다 (앱이 그 항목에만 '근사' 배지를 띄운다).
 
 | 파일 | 내용 | 쓰임 |
 | --- | --- | --- |
 | `busan_daily.json` | 일별 기온·강수·습도·기압·풍향/풍속·운량 (2019–2023) | S1 출제 풀, S2 압축 |
 | `busan_monthly.json` | 월별 평년값 (1991–2020) | S2 계절 곡선 |
-| `busan_yearly.json` | 연평균 기온 (1985–2024) | S3 점 누적, S4 빈 해 |
-| `future_ssp.json` | SSP1-2.6 / 2-4.5 / 5-8.5 경상권 전망 | S5 부채꼴 |
+| `busan_yearly.json` | 연평균 기온 (1985–2023) | S3 점 누적, S4 빈 해 |
+| `future_ssp.json` | SSP1-2.6 / 2-4.5 / 5-8.5 경상권 전망 (근사) | S5 부채꼴 |
 | `busan_past_forecast.json` | 기상청이 전날 냈던 다음날 예보 + 기상특보 | S1 3자 대결, R3 배지 |
 | `busan_blossom.json` | 연도별 벚꽃 개화일 (day-of-year) | S3 보조 레이어 |
 
@@ -101,6 +159,10 @@ Node 20.19+ / 22.13+ 필요 (Vite 8). 데스크톱 1280px 이상 기준으로 �
 `undefined` 를 돌려주고 화면은 조용히 2자 대결로 돌아간다 — 출제가 막히지 않는다.
 
 ### 합성 데이터를 그냥 랜덤으로 만들지 않은 이유
+
+지금 `/data` 는 전부 기상청 실측이라 아래 생성기는 쓰이지 않는다. 그래도 남겨 둔 이유는
+**스키마와 검증 리포트가 실데이터에도 그대로 돌기 때문이다** — 수집기를 고칠 때 이쪽으로
+먼저 회귀 검사를 한다.
 
 S1의 채점 해설이 데이터와 어긋나면 교육 효과가 무너진다. 그래서 생성기는 종관 위상
 모델(고기압 → 저기압 접근 → 전선 통과 → 전선 후면)을 돌려 **콘텐츠가 가르칠 관계를
@@ -115,7 +177,7 @@ python3 scripts/make_dummy_data.py
 #   연평균 상승 추세           : +0.39 °C / 10년
 ```
 
-### 실데이터로 교체 (대회 전 1회)
+### 데이터 갱신 (교체·재수집)
 
 기상청 API허브는 **로그인 없이 자료를 주지 않는다** — 데이터 엔드포인트는 키 없이
 호출하면 전부 `401 유효한 인증키가 아닙니다` 이고, 웹 화면의 다운로드도 같은 로그인을
@@ -179,6 +241,9 @@ SSP 시나리오는 공개 API가 없다. 기후변화정보포털(CCIC)에서 �
 
 ```
 data/                        번들되는 JSON 6종 (런타임 fetch 없음)
+public/
+  favicon.svg                직접 제작
+  textures/                  지구본 텍스처 6장 (NASA, 5.6 MB) + CREDITS.md
 scripts/
   common.py                  스키마·집계·검증 + 키/HTTP (더미·수집기 3종 공용)
   make_dummy_data.py         합성 데이터 생성기
@@ -187,6 +252,7 @@ scripts/
   fetch_blossom.py           계절관측 벚꽃 개화일         (--selftest / --dry-run)
   ingest_raw.py              직접 받은 파일 → JSON 교체   (--dry-run)
   sanity_check.py            값이 실제 기후로서 말이 되는가
+  build_textures.mjs         NASA 원본 → public/textures/ (평소엔 돌릴 일 없음)
 src/sim/
   terra-engine.js            궤도 시뮬레이터 엔진 (standalone 과 S6 가 공유)
 src/scale/
@@ -200,7 +266,7 @@ src/scale/
   stages/                    S0 … S7 화면
 ```
 
-차트는 d3 없이 SVG를 직접 그린다. 시리즈 색은 dataviz 팔레트 검증기(어두운 배경,
+차트는 차트 라이브러리 없이 SVG를 직접 그린다. 시리즈 색은 dataviz 팔레트 검증기(어두운 배경,
 all-pairs, 색각 이상 분리도)를 통과한 조합만 쓴다 — 값을 바꾸려면 재검증할 것.
 
 ### 이중 축은 S3 개화일 레이어 한 곳뿐이다
@@ -239,38 +305,70 @@ three.js 는 CDN import map 이 아니라 `node_modules` 에서 번들된다(외
 엔진이 패치하는 셰이더 청크 이름(`map_fragment`, `emissivemap_fragment`, `opaque_fragment`,
 `lights_phong_pars_fragment`)은 버전에 민감하므로, three 를 올릴 때는 콘솔 경고를 확인할 것.
 
-텍스처는 세 모드다. **standalone 과 S6 모두 `'remote'`** 를 쓴다 — 실제 4K 플레이트
-(Blue Marble·구름·야간 도시불빛)가 이 지구본의 핵심이라, 화질을 낮춰가며 지킬 규칙이
-아니라고 판단했다. 원격이 막히면 엔진이 절차적 폴백으로 내려가므로 오프라인에서도
-깨지지는 않는다(원본 동작 그대로). 다만 그때는 fBm 합성 지구가 그려진다.
+텍스처는 두 모드다. **standalone 과 S6 모두 `'local'`** 을 쓴다 — `public/textures/` 에
+동봉된 NASA 플레이트(Blue Marble · 구름 · 야간 도시불빛 · Tycho 성도)를 읽으므로 외부
+요청이 0건이고, 발표 현장 네트워크와 무관하게 같은 화질이 나온다. 파일이 없을 때만
+`'procedural'` 로 내려가 fBm 합성 지구를 그리고 HUD 에 폴백 배지가 뜬다 — 그 배지가
+보이면 텍스처가 빠진 것이다.
 
-**화질과 오프라인을 둘 다 지키려면** `public/textures/` 에 `day.jpg` `bump.jpg`
-`water.png` `clouds.png` `night.jpg` `sky.png` 를 받아두고 `textureMode: 'local'` 로
-바꾼다. 저장소가 약 10 MB 늘어난다.
+텍스처 출처와 라이선스는 아래 '저작권 · 출처 → 지구본 텍스처'에 있다.
 
 ---
 
 ## 저작권 · 출처
 
-대회 규정(표절 검증 / 오픈소스 라이선스 확인 / 이미지·폰트 출처 명시 / 데이터 원출처
-표기 필수 / 기상청 자료는 공공누리 유형 확인)에 대응하는 내용을 여기 모아둔다.
-앱 안에서는 상단 자의 **ⓘ 자료 출처** 버튼이 같은 내용을 상시 노출한다
+이 프로젝트가 쓰는 **모든 외부 리소스의 출처와 라이선스**를 여기 모아둔다 —
+데이터 · 오픈소스 라이브러리 · 폰트 · 이미지 · 지구본 텍스처. 앱 안에서는 상단 자의
+**ⓘ 자료 출처** 버튼이 같은 내용을 상시 노출한다
 ([Attribution.tsx](src/scale/components/Attribution.tsx)).
+
+**요약**
+
+| 구분 | 출처 | 이용 조건 |
+| --- | --- | --- |
+| 관측·예보·계절관측 데이터 5종 | 기상청 (API허브) | 공공누리 제1유형 (출처표시) |
+| SSP 시나리오 1종 | 본 프로젝트가 계산한 근사 곡선 | 해당 없음 (제3자 저작물 아님) |
+| 선택 지역 관측 (사용자가 부산 밖을 찍었을 때만) | Open-Meteo | CC BY 4.0 |
+| 지구본 텍스처 6장 | NASA (Earth Observatory · Goddard SVS) | 퍼블릭 도메인 (크레딧 표기) |
+| 폰트 | 시스템 폰트만 사용 — 배포하는 폰트 파일 없음 | 해당 없음 |
+| 이미지·아이콘 | 전부 직접 제작 (favicon, 인라인 SVG 차트) | 본 프로젝트 |
+| 오픈소스 라이브러리 161개 | npm | MIT 123 · Apache-2.0 14 · ISC 10 외. **GPL 계열 0** |
 
 ### 데이터 출처
 
-**6종 중 4종이 기상청 실측이다.** 남은 둘(벚꽃 개화일 · SSP 시나리오)은 아직 합성이고,
-앱이 그 항목에만 "합성" 배지를 띄운다. 표시값은 각 JSON 의 `meta` 에서 읽으므로
-파일을 교체하면 화면이 자동으로 따라간다 — 배지를 코드로 지우지 말 것.
+**6종 중 5종이 기상청 실측이다.** 남은 하나(SSP 시나리오)만 공표값을 확보하지 못해
+근사 곡선이고, 앱이 그 항목에만 "근사" 배지를 띄운다. 표시값은 각 JSON 의 `meta` 에서
+읽으므로 파일을 교체하면 화면이 자동으로 따라간다 — 배지를 코드로 지우지 말 것.
 
 | 데이터 | 출처 기관 · 데이터명 | 수집일 | 이용 조건 | 상태 |
 | --- | --- | --- | --- | --- |
-| `busan_daily.json` | 기상청 · 종관기상관측(ASOS) 일자료 | 2026-08-07 | 공공누리 유형 확인 필요 | **실측** |
+| `busan_daily.json` | 기상청 · 종관기상관측(ASOS) 일자료 2019–2023 | 2026-08-07 | 공공누리 제1유형 (출처표시) | **실측** |
 | `busan_monthly.json` | 기상청 · ASOS 일자료 집계 · 월 평년값 1991–2020 | 2026-08-07 | 〃 | **실측** |
 | `busan_yearly.json` | 기상청 · ASOS 일자료 집계 · 연평균기온 1985–2023 | 2026-08-07 | 〃 | **실측** |
 | `busan_past_forecast.json` | 기상청 · 단기예보 과거자료(fct_afs_dl) | 2026-08-07 | 〃 | **실측** |
-| `busan_blossom.json` | 기상청 · 계절관측(생물계절) | — | — | 합성 (엔드포인트 미확인) |
-| `future_ssp.json` | 기후변화정보포털 · SSP 시나리오 | — | — | 근사 곡선 |
+| `busan_blossom.json` | 기상청 · 계절관측(생물계절) · 왕벚나무 개화 1985–2024 | 2026-08-11 | 〃 | **실측** |
+| `future_ssp.json` | — (공표 시나리오가 아니다. 아래 설명) | — | 해당 없음 | 근사 곡선 |
+
+**이용 조건의 근거.** 기상청 저작권 정책은 "기상청이 저작재산권 전부를 보유한 자료는
+공공누리 제1유형으로 개방한다"고 밝히고 있고, 공공데이터포털의 해당 데이터셋 상세
+화면에도 이용허락범위가 `공공저작물 : 출처표시 (제1유형)` 으로 표기되어 있다.
+**출처를 밝히면 상업적 이용과 변형까지 자유롭다.** 이 문서와 앱 화면의 ⓘ 자료 출처
+패널이 그 출처표시에 해당한다.
+
+| 확인처 | URL |
+| --- | --- |
+| 기상청 저작권 정책 | https://www.kma.go.kr/kma/guide/copyright.jsp |
+| 공공누리 제1유형 조건 | https://www.kogl.or.kr/info/license.do |
+| 기상청_지상(종관, ASOS) 조회서비스 | https://www.data.go.kr/data/15057210/openapi.do |
+| 기상청_계절관측 조회서비스 | https://www.data.go.kr/data/15139437/openapi.do |
+| 기상청 API허브 (실제 수집 경로) | https://apihub.kma.go.kr |
+
+**`future_ssp.json` 은 외부에서 받아온 자료가 아니다.** IPCC AR6 의 시나리오별 상승폭을
+목표값으로 두고 [scripts/common.py](scripts/common.py) 의 `ssp_scenarios()` 가 계산한 곡선이므로
+제3자 저작물이 아니고 이용 조건도 붙지 않는다. 다만 **공표된 시나리오가 아니라는 사실이
+더 중요하다** — 앱이 이 항목에만 "근사" 배지와 경고 문단을 띄우고, `meta._source` 에도
+`approximation (not a published scenario)` 로 남긴다. 기상청 기후변화정보포털(CCIC)의
+공표값을 확보하면 그대로 교체된다 (아래 '실데이터로 교체' 참고).
 
 부산 지점 **159** (기후 특성으로 대조 확인: 한겨울 새벽 7.3℃ vs 서울 2.6℃ · 강릉 1.1℃).
 
@@ -278,55 +376,70 @@ three.js 는 CDN import map 이 아니라 `node_modules` 에서 번들된다(외
 
 ### 라이브러리 라이선스
 
-전체 의존성 트리 251개를 조사했다. **GPL·AGPL·LGPL·SSPL 계열은 없다.**
+의존성 트리 **161개를 전수 조사했다. GPL·AGPL·LGPL·SSPL 계열은 하나도 없다.**
+라이선스 필드가 비어 있는 패키지도 없다.
 
-| 패키지 | 버전 | 라이선스 | 배포본 포함 |
+분포: MIT 123 · Apache-2.0 14 · ISC 10 · BSD-2-Clause 6 · MPL-2.0 3 ·
+BSD-3-Clause 2 · CC-BY-4.0 1 · BlueOak-1.0.0 1 · 0BSD 1
+
+브라우저로 실제 배포되는 것은 아래 다섯 개뿐이다.
+
+| 패키지 | 버전 | 라이선스 | 쓰임 |
 | --- | --- | --- | --- |
-| react / react-dom | 19.2.7 | MIT | ○ |
-| three | 0.184.0 | MIT | ○ |
-| framer-motion | 13.0.0 | MIT | ○ |
-| d3 | 7.9.0 | ISC | ○ |
-| @react-three/fiber | 9.6.1 | MIT | ○ (legacy.html) |
-| @react-three/drei | 10.7.7 | MIT | ○ (legacy.html) |
-| lucide-react | 1.21.0 | ISC | ○ (legacy.html) |
-| tailwindcss / @tailwindcss/vite | 4.3.1 | MIT | 빌드 |
-| vite | 8.0.16 | MIT | 빌드 |
-| @vitejs/plugin-react | 6.0.2 | MIT | 빌드 |
-| typescript | 5.9.3 | Apache-2.0 | 빌드 |
-| eslint (+플러그인) | 10.5.0 | MIT | 빌드 |
-| postcss / autoprefixer | 8.5.15 / 10.5.0 | MIT | 빌드 |
+| react / react-dom | 19.2.7 | MIT | UI |
+| three | 0.184.0 | MIT | 지구본·궤도 3D 렌더링 |
+| framer-motion | 13.0.0 | MIT | 단계 전환 애니메이션 |
 
-전체 분포: MIT 169 · ISC 44 · Apache-2.0 19 · BSD-2/3 11 · MPL-2.0 3 · 0BSD 1 ·
-BlueOak-1.0.0 1 · Unlicense 1 · CC-BY-4.0 1 · 라이선스 필드 없음 1.
+빌드에만 쓰이고 배포본에 들어가지 않는 것들.
 
-**주의가 필요한 3건 — 셋 다 빌드 전용이며 브라우저 번들(`dist/assets/*.js`)에 없다.**
+| 패키지 | 버전 | 라이선스 |
+| --- | --- | --- |
+| vite | 8.0.16 | MIT |
+| @vitejs/plugin-react | 6.0.2 | MIT |
+| tailwindcss / @tailwindcss/vite | 4.3.1 | MIT |
+| typescript | 5.9.3 | Apache-2.0 |
+| eslint (+플러그인) | 10.5.0 | MIT |
+| postcss / autoprefixer | 8.5.15 / 10.5.0 | MIT |
+
+**추가 확인이 필요했던 2건 — 둘 다 빌드 전용이고 `dist/assets/*.js` 에 없다.**
 
 | 패키지 | 라이선스 | 판단 |
 | --- | --- | --- |
-| `lightningcss` 외 2 | MPL-2.0 | 파일 단위 카피레프트. Tailwind v4 의 CSS 변환기로 **빌드 시에만** 쓰고 수정·재배포하지 않으므로 의무가 발생하지 않는다. |
-| `caniuse-lite` | CC-BY-4.0 | browserslist 데이터. 데이터 자체를 재배포하지 않으므로 표시 의무 없음. 배포한다면 출처 표시 필요. |
-| `webgl-constants` | 라이선스 필드 없음 | `@react-three/drei` 의 전이 의존성. 번들에 포함되지 않음. legacy.html 을 출품에서 뺄 경우 의존성 자체가 사라진다. |
+| `lightningcss` 외 2 | MPL-2.0 | 파일 단위 카피레프트. Tailwind v4 의 CSS 변환기로 **빌드 시에만** 쓰고 소스를 수정·재배포하지 않으므로 공개 의무가 발생하지 않는다. |
+| `caniuse-lite` | CC-BY-4.0 | browserslist 의 브라우저 지원 데이터. 데이터 자체를 재배포하지 않으므로 표시 의무가 없다. |
+
+> 이전 버전에는 `@react-three/fiber` · `@react-three/drei` · `lucide-react` · `d3` 가
+> 들어 있었다. drei 의 `<Text>` 가 런타임에 외부 CDN 에서 폰트 데이터를 받고, 전이
+> 의존성 `webgl-constants` 에는 라이선스 필드가 없었다. 그 셋을 쓰던 `legacy.html` 을
+> 출품에서 빼면서 함께 제거했고, `d3` 는 애초에 어디서도 import 하지 않고 있었다.
+> 의존성이 208개에서 127개로 줄었다.
 
 ### 폰트
 
-**웹폰트를 하나도 내려받지 않는다.** `@font-face` 도 Google Fonts 링크도 없다.
-시스템에 이미 있는 폰트만 이름으로 지정한다 — 폰트 파일을 배포하지 않으므로
-폰트 라이선스 이슈가 발생하지 않는다.
+**웹폰트를 하나도 내려받지 않는다.** `@font-face` 도 Google Fonts 링크도 없고, 런타임에
+폰트를 가져오는 라이브러리도 없다. 시스템에 이미 있는 폰트만 이름으로 지정한다 —
+**폰트 파일을 배포하지 않으므로 폰트 라이선스 의무가 발생하지 않는다.**
 
 ```
 system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo",
 "Malgun Gothic", "Noto Sans KR", sans-serif
 ```
 
+확인 방법: `grep -r "font-face\|fonts.googleapis\|fonts.gstatic\|\.woff" src/ index.html`
+그리고 빌드 후 `grep -rE "https?://" dist/` — 폰트 호스트가 나오지 않아야 한다.
+
 ### 이미지 · 아이콘
 
-| 파일 | 출처 | 조치 |
+| 파일 | 출처 | 라이선스 |
 | --- | --- | --- |
-| `public/favicon.svg` | **직접 제작** — U자 곡선(콘텐츠의 핵심 메시지) + 3막 액센트 색 | 사용 중 |
-| 차트·다이어그램 전부 | 코드가 그리는 SVG (d3 없이 직접) | — |
-| 지구 절차적 텍스처 | 코드가 fBm 노이즈로 합성 ([terra-engine.js](src/sim/terra-engine.js)) | — |
+| `public/favicon.svg` | **직접 제작** — U자 곡선(콘텐츠의 핵심 메시지) + 3막 액센트 색 | 본 프로젝트 |
+| 차트 · 다이어그램 전부 | 코드가 그리는 인라인 SVG (외부 차트 라이브러리 없음) | 본 프로젝트 |
+| 지구본 텍스처 6장 | NASA (아래 항목) | 퍼블릭 도메인 |
 
-**제거한 것** — 초기 스캐폴드에 딸려 온 타사 브랜드 마크. 전부 미사용이었고,
+저장소에 들어 있는 래스터·벡터 자산은 `public/favicon.svg` 와 `public/textures/` 뿐이다.
+확인: `find . -path ./node_modules -prune -o -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.svg' \) -print`
+
+**제거한 것** — 초기 스캐폴드에 딸려 온 타사 브랜드 마크. 전부 미사용이었고
 표절·저작권 검증에서 불필요한 위험이라 삭제했다.
 
 | 제거 파일 | 내용 |
@@ -336,19 +449,36 @@ system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo",
 | `src/assets/hero.png` | 출처 불명 343×361 PNG |
 | `src/assets/vite.svg`, `react.svg` | Vite · React 로고 |
 
-### 지구 텍스처 (⚠️ 확인 필요)
+### 지구본 텍스처 — NASA 퍼블릭 도메인
 
-S6 지구본은 텍스처 6장(약 9.0 MB)을 **런타임에 원격에서** 받는다. 저장소에는 없다.
+지구본 텍스처 6장(**5.6 MB**)은 `public/textures/` 에 **동봉되어 있다.** 실행 중에
+외부에서 내려받지 않는다. 전부 **NASA 가 공개한 퍼블릭 도메인 영상**에서 만들었다.
 
-| 용도 | 호스트 | 크기 |
+| 파일 | 원본 | 크레딧 |
 | --- | --- | --- |
-| 지표 · 고도 · 수면 · 구름 · 성운 | `raw.githubusercontent.com/turban/webgl-earth` | 8.3 MB |
-| 야간 도시불빛 | `unpkg.com/three-globe/example` | 0.7 MB |
+| `day.jpg` | Blue Marble Next Generation (2004-12, 지형·수심) | NASA Earth Observatory — Reto Stöckli |
+| `bump.jpg` | Blue Marble: Topography (고도 램프) | NASA Earth Observatory — Jesse Allen / GEBCO 자료 |
+| `water.png` | 위 고도맵에서 **직접 파생**한 해수면 마스크 | 파생물: 본 프로젝트 / 원자료: 위와 동일 |
+| `clouds.png` | Blue Marble: Clouds | NASA Earth Observatory |
+| `night.jpg` | Black Marble 2012 (Suomi NPP / VIIRS 야간 도시 불빛) | NASA Earth Observatory — NASA/NOAA |
+| `sky.jpg` | Tycho Catalog Skymap v2.0 (약 240만 개 항성, 성운기 억제) | NASA/Goddard SVS — Tom Bridgman, Ernie Wright |
 
-원본 영상은 NASA Blue Marble / Black Marble 계열로 알려져 있고 NASA 영상은 일반적으로
-퍼블릭 도메인이지만, **위 두 저장소의 라이선스 파일을 직접 확인하지 않았다.**
-출품 전에 확인하고 결과를 이 표에 적을 것. 받지 못하면 엔진이 절차적 합성으로
-폴백하므로 화면이 깨지지는 않는다.
+NASA 가 제작한 영상은 저작권으로 보호되지 않아 별도 허락 없이 사용·재배포할 수 있고,
+**제작 기관을 밝히는 크레딧 표기만 요구된다**(NASA Media Usage Guidelines —
+https://www.nasa.gov/nasa-brand-center/images-and-media/). 위 표와 앱 화면의 ⓘ 자료 출처
+패널이 그 크레딧에 해당한다.
+
+원본 URL과 가공 내역(축소·이진화·알파 변환 등)은
+[public/textures/CREDITS.md](public/textures/CREDITS.md) 에 파일 단위로 적혀 있고,
+[scripts/build_textures.mjs](scripts/build_textures.mjs) 를 돌리면 원본 다운로드부터
+그대로 재현된다 (`npm i sharp` 필요).
+
+> **이전에는 원격에서 받아 썼다.** `raw.githubusercontent.com/turban/webgl-earth` 와
+> `unpkg.com/three-globe/example` 에서 런타임에 9 MB 를 내려받는 구조였다. 그만둔 이유가
+> 둘이다 — (1) **`turban/webgl-earth` 에는 LICENSE 파일이 없다.** 명시적 허락이 없는
+> 재사용이라 "외부 리소스 출처·라이선스 표기" 요건을 만족시킬 수 없었다. (2) 현장에서
+> 네트워크가 흔들리면 흐릿한 절차적 지구로 떨어졌다. NASA 원본을 직접 받아 넣으면
+> 출처가 1차 제공처로 확정되고 오프라인 문제도 같이 해결된다.
 
 ### 외부 코드 복붙 점검
 
@@ -361,6 +491,28 @@ S6 지구본은 텍스처 6장(약 9.0 MB)을 **런타임에 원격에서** 받�
 - 이 파일은 원래 이 프로젝트의 standalone 시뮬레이터(`terra-orbital-sim.html`)에
   있던 코드를 모듈로 옮긴 것이다. 영문 주석이 많은 이유가 그것이며, 외부에서
   가져온 것이 아니다.
+
+### 위 내용을 직접 검증하는 법
+
+```bash
+# 1) 비밀값이 저장소에 없는가 — .env 는 추적되지 않고 히스토리에도 없다
+git ls-files | grep -c '\.env'                      # 0
+git log --all --pretty=format: --name-only | sort -u | grep -c '\.env'   # 0
+grep -rn "import.meta.env\|process.env" src/        # 결과 없음 (번들에 주입 경로 없음)
+
+# 2) 빌드 결과가 실제로 부르는 외부 주소가 무엇인가
+npm run build && grep -rhoE 'https?://[^"'"'"'` )<>,\]+' dist/ | sort -u
+#   → Open-Meteo 2개(사용자가 부산 밖을 찍었을 때만) 외에는
+#     w3.org XML 네임스페이스와 주석 속 문서 링크뿐이다
+
+# 3) 배포되는 이미지 자산 전체
+find . -path ./node_modules -prune -o -path ./dist -prune -o -type f \
+     \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.svg' \) -print
+
+# 4) 의존성 라이선스에 GPL 계열이 있는가
+npx license-checker --summary 2>/dev/null || \
+  grep -rh '"license"' node_modules/*/package.json | sort | uniq -c | sort -rn
+```
 
 ---
 

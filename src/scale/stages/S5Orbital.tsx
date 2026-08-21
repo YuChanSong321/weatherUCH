@@ -46,11 +46,40 @@ import { useWorld } from '../state/world'
  * 사실인지 상상인지 알 수 없다.
  */
 const RANGE = {
-  obliquity: { min: 0, max: 90, step: 0.5, real: [22.1, 24.5] as const },
-  eccentricity: { min: 0, max: 0.9, step: 0.005, real: [0.005, 0.06] as const },
+  obliquity: { min: 0, max: 90, step: 0.05, real: [22.1, 24.5] as const },
+  eccentricity: { min: 0, max: 0.9, step: 0.001, real: [0.005, 0.06] as const },
 } as const
 
 const inReal = (v: number, r: readonly [number, number]) => v >= r[0] && v <= r[1]
+
+/**
+ * 트랙에서 초록 띠(실제로 오간 범위)가 차지하는 몫.
+ *
+ * 왜 필요한가. 자전축의 실제 범위는 22.1–24.5° 로 2.4° 인데 다이얼은 0–90° 다.
+ * 선형으로 깔면 **띠가 트랙의 2.7%** — 300px 짜리 슬라이더에서 8px 다. 과제는 그 띠
+ * 안에 들어가야 인정되므로, 사실상 조준이 불가능했다("민감도가 너무 높다").
+ *
+ * 그렇다고 최대값을 줄이면 이 화면의 나머지 절반인 "지구가 아닌 값을 만들어보는
+ * 실험"이 사라진다. 그래서 범위를 줄이는 대신 **자를 비선형으로 접는다**:
+ * 가운데 절반을 초록 띠에 주고, 바깥 실험 구간을 양쪽 25%씩에 압축한다.
+ * 0–90° 는 그대로 닿으면서, 띠 안에서는 손가락 하나가 0.01° 를 고른다.
+ */
+const REAL_SHARE = 0.5
+const LOW_SHARE = (1 - REAL_SHARE) / 2
+
+/** 트랙 위치 t(0~1) → 실제 값 */
+function posToValue(t: number, min: number, max: number, real: readonly [number, number]): number {
+  if (t <= LOW_SHARE) return min + (t / LOW_SHARE) * (real[0] - min)
+  if (t >= 1 - LOW_SHARE) return real[1] + ((t - (1 - LOW_SHARE)) / LOW_SHARE) * (max - real[1])
+  return real[0] + ((t - LOW_SHARE) / REAL_SHARE) * (real[1] - real[0])
+}
+
+/** 실제 값 → 트랙 위치 t(0~1). posToValue 의 역함수 — 눈금·표식도 이걸로 놓는다. */
+function valueToPos(v: number, min: number, max: number, real: readonly [number, number]): number {
+  if (v <= real[0]) return real[0] === min ? 0 : ((v - min) / (real[0] - min)) * LOW_SHARE
+  if (v >= real[1]) return max === real[1] ? 1 : 1 - LOW_SHARE + ((v - real[1]) / (max - real[1])) * LOW_SHARE
+  return LOW_SHARE + ((v - real[0]) / (real[1] - real[0])) * REAL_SHARE
+}
 
 /**
  * 본 화면에 앞서 한 마디씩 거치는 도입 (→ [components/StageIntro]).
@@ -61,18 +90,26 @@ const inReal = (v: number, r: readonly [number, number]) => v >= r[0] && v <= r[
  */
 const introFor = (mission: Mission): IntroStep[] => [
   {
-    label: '지금 할 일',
+    /*
+     * 바로 앞 화면(→ components/WeatherVsClimate)이 기상과 기후의 차이를 표로 정리했다.
+     * 여기서 그 표를 되풀이하면 같은 말을 두 번 읽히는 셈이다. 대신 그 정리의
+     * **결론 한 줄만** 받아서 3단계로 넘어가는 발판으로 쓴다.
+     */
+    label: '여기까지',
     body: (
       <>
-        왼쪽 다이얼 두 개를 밀어 지구의 궤도를 바꾸고, 그 위의{' '}
-        <span className="text-act-3">일사량 숫자</span>가 어디로 가는지 보세요.
-        {/* 과제 브리핑은 자리가 넉넉한 여기서 한 번에 읽히게 한다 — 조종석에는
-            조건 두 줄만 남는다. */}
-        <span className="mt-3.5 block text-[13.5px] leading-relaxed text-ink-3">
-          <span className="font-semibold text-ink-1">과제 · {mission.title}</span>
-          <br />
-          {mission.goal}
-        </span>
+        2100년의 기후가 어디로 갈지는 결국{' '}
+        <span className="text-ink-1">사람이 탄소를 얼마나 내놓느냐</span>에 달려 있었습니다. 사람이 쥔 다이얼의
+        이야기였죠.
+      </>
+    ),
+  },
+  {
+    label: '그런데 · 사람 말고 다른 손',
+    body: (
+      <>
+        사람이 등장하기 <span className="text-ink-1">훨씬 전부터</span> 기후를 움직여온 것이 따로 있습니다. 탄소보다
+        느리지만 훨씬 거대한 손이에요 — 바로 <span className="text-act-3">지구 자신의 궤도와 자전축</span>입니다.
       </>
     ),
   },
@@ -80,18 +117,26 @@ const introFor = (mission: Mission): IntroStep[] => [
     label: '여기서 배우는 개념',
     body: (
       <>
-        <span className="text-act-3">밀란코비치 주기</span> — 궤도의 모양과 자전축이 만 년 단위로 흔들리며 고위도
-        여름에 닿는 햇빛의 양을 바꾸고, 그것이 빙하기를 켜고 끕니다.
+        <span className="text-act-3">밀란코비치 주기</span> — 궤도의 모양과 자전축이 수만 년에 걸쳐 흔들리면 고위도
+        여름에 닿는 햇빛의 양이 달라지고, 그것이 <span className="text-ink-1">빙하기를 켜고 끕니다.</span> 지구가
+        스스로 돌려온 손잡이예요.
       </>
     ),
     chip: '밀란코비치 주기 — 궤도가 흔들려 고위도 여름의 햇빛을 바꾼다',
   },
   {
-    label: '이 개념이 쓰이는 곳',
+    /* 3단계는 두 파트다. 무엇을 왜 만지는지 한 줄로 못박지 않으면 사용자는 차이를
+       모른 채 슬라이더만 흔들게 된다 (다음 파트는 → S7Threshold). */
+    label: '지금 할 일 · 3단계 ①',
     body: (
       <>
-        빙하코어·해저 퇴적물의 연대 측정, 과거 기후 복원. 그리고{' '}
-        <span className="text-act-3">지금의 온난화가 자연 주기 때문인지</span>를 판별하는 기준선.
+        그 손잡이를 <span className="text-act-3">직접 돌려봅니다.</span> 왼쪽 다이얼 두 개로 궤도를 바꾸고, 위의
+        일사량 숫자가 어디로 가는지 보세요.
+        <span className="mt-3.5 block text-[13.5px] leading-relaxed text-ink-3">
+          <span className="font-semibold text-ink-1">과제 · {mission.title}</span>
+          <br />
+          {mission.goal}
+        </span>
       </>
     ),
   },
@@ -242,7 +287,7 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
   if (!introDone) {
     return (
       <StageIntro
-        eyebrow="3단계 · 수만 년"
+        eyebrow="3단계 ① · 수만 년 · 지구가 돌리는 손잡이"
         steps={intro}
         tone="var(--color-act-3)"
         onDone={() => setIntroDone(true)}
@@ -1129,8 +1174,17 @@ function Slider({
   helpful?: number
   onChange: (v: number) => void
 }) {
-  const pct = (v: number) => ((v - min) / (max - min)) * 100
+  const pct = (v: number) => valueToPos(v, min, max, real) * 100
   const outside = !inReal(value, real)
+  /*
+   * 값을 step 배수로 정리한다. 트랙 위치는 연속이지만 표시값이 24.3719° 로 나오면
+   * 계기가 아니라 노이즈로 읽힌다.
+   */
+  const snap = (v: number) => {
+    const q = Math.round(v / step) * step
+    const digits = Math.max(0, Math.ceil(-Math.log10(step)))
+    return Number(Math.min(max, Math.max(min, q)).toFixed(digits))
+  }
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
@@ -1168,15 +1222,18 @@ function Slider({
             background: 'color-mix(in oklab, var(--color-good) 55%, transparent)',
           }}
         />
+        {/* 트랙 위치(0~1)를 입력으로 받고 값으로 옮긴다 — 위의 posToValue 참고.
+            aria 쪽은 위치가 아니라 사람이 읽는 실제 값을 말해야 한다. */}
         <input
           className="slider relative"
           type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
+          min={0}
+          max={1}
+          step={0.0005}
+          value={valueToPos(value, min, max, real)}
+          onChange={(e) => onChange(snap(posToValue(Number(e.target.value), min, max, real)))}
           aria-label={label}
+          aria-valuetext={format(value)}
         />
         {/* 현재 지구의 값 */}
         <div className="pointer-events-none absolute top-[13px] h-3 w-px bg-act-2/80" style={{ left: `${pct(present)}%` }} />
