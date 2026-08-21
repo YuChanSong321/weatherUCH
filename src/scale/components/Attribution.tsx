@@ -194,6 +194,14 @@ export function Attribution() {
                 <span className="text-ink-3">(NASA/Goddard SVS)</span>. 저장소에 동봉되어 있어 실행 중
                 외부에서 내려받지 않습니다.
               </p>
+              {/* 전 지구 지표는 기상청 자료가 아니라 별도 출처다 — 표에 섞으면
+                  공공누리 조건이 이 셋에도 적용되는 것처럼 읽힌다. */}
+              <p className="mt-1.5">
+                전 지구 비교 지표는 <span className="text-ink-2">NASA GISS</span> GISTEMP v4(평균기온) ·{' '}
+                <span className="text-ink-2">NOAA GML</span> 전 지구 평균 CO₂ ·{' '}
+                <span className="text-ink-2">NSIDC</span> Sea Ice Index v4(북극 9월 해빙)입니다. 모두 미국 정부
+                저작물로 퍼블릭 도메인이며, 출처 표기 조건으로 사용합니다.
+              </p>
               <p className="mt-1.5">
                 파일별 원본 URL과 가공 내역은 <span className="text-ink-2">public/textures/CREDITS.md</span>,
                 오픈소스 라이브러리 라이선스는 <span className="text-ink-2">README</span> 에 있습니다.

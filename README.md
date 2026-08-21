@@ -349,6 +349,20 @@ three.js 는 CDN import map 이 아니라 `node_modules` 에서 번들된다(외
 | `busan_blossom.json` | 기상청 · 계절관측(생물계절) · 왕벚나무 개화 1985–2024 | 2026-08-11 | 〃 | **실측** |
 | `future_ssp.json` | — (공표 시나리오가 아니다. 아래 설명) | — | 해당 없음 | 근사 곡선 |
 
+**전 지구 비교 지표** — 지역 관측이 그 동네 사정인지 지구 전체의 일인지 가리기 위해
+따로 번들한 자료다 (`data/global_indicators.json`). 기상청 자료가 아니므로 공공누리가
+아니라 각 기관의 조건을 따른다.
+
+| 지표 | 출처 기관 · 데이터명 | 기간 | 이용 조건 |
+| --- | --- | --- | --- |
+| 전 지구 평균기온 편차 | NASA GISS · GISTEMP v4 Land-Ocean Temperature Index | 1880–2025 | 퍼블릭 도메인 (NASA) · 출처 표기 |
+| 전 지구 평균 CO₂ 농도 | NOAA GML · Globally averaged marine surface annual mean | 1979–2025 | 퍼블릭 도메인 (미국 정부 저작물) · 출처 표기 |
+| 북극 9월 해빙 면적 | NSIDC / NOAA · Sea Ice Index v4 | 1979–2025 | 퍼블릭 도메인 (미국 정부 저작물) · 출처 표기 |
+
+- GISTEMP — https://data.giss.nasa.gov/gistemp/
+- NOAA 전 지구 CO₂ — https://gml.noaa.gov/ccgg/trends/gl_data.html
+- NSIDC Sea Ice Index — https://nsidc.org/data/g02135
+
 **이용 조건의 근거.** 기상청 저작권 정책은 "기상청이 저작재산권 전부를 보유한 자료는
 공공누리 제1유형으로 개방한다"고 밝히고 있고, 공공데이터포털의 해당 데이터셋 상세
 화면에도 이용허락범위가 `공공저작물 : 출처표시 (제1유형)` 으로 표기되어 있다.

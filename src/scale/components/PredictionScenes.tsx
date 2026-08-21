@@ -12,6 +12,7 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ChartFrame } from './ChartFrame'
+import { GlobalContext } from './GlobalContext'
 import { WeatherVsClimate } from './WeatherVsClimate'
 import { scenarios } from '../data/loader'
 import { linearScale, smoothPath } from '../lib/scales'
@@ -514,8 +515,18 @@ export function ActTwoSummary({ onDone, onBack }: { onDone: () => void; onBack: 
     return { label: s.label, color: s.color, shift: last.anomaly - first.anomaly }
   }, [])
 
-  const TABS = ['기상', '기후', '정리']
-  const NEXT = ['그럼 30년 뒤는 어떨까요', '두 예측은 어떻게 다를까요', '그런데 이 기후를 움직이는 건 무엇일까요']
+  /*
+   * 지역 → 전 지구 → 정리.
+   * 기상·기후까지는 계속 '내가 고른 한 지역'의 이야기였다. 그 지역만 보면 도시화
+   * 같은 다른 설명이 남으므로, 정리로 넘어가기 전에 전 지구 지표와 나란히 놓는다.
+   */
+  const TABS = ['기상', '기후', '전 지구', '정리']
+  const NEXT = [
+    '그럼 30년 뒤는 어떨까요',
+    '이게 이 동네만의 일일까요',
+    '두 예측은 어떻게 다를까요',
+    '그런데 이 기후를 움직이는 건 무엇일까요',
+  ]
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-3.5">
@@ -544,7 +555,8 @@ export function ActTwoSummary({ onDone, onBack }: { onDone: () => void; onBack: 
       {step === 1 && (
         <SceneClimate sigma={sigma} future={future} label={climate.label} yearGuess={yearGuess} />
       )}
-      {step === 2 && <WeatherVsClimate />}
+      {step === 2 && <GlobalContext />}
+      {step === 3 && <WeatherVsClimate />}
 
       <div className="flex items-center justify-between gap-6">
         <button

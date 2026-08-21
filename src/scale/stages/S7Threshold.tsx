@@ -10,12 +10,13 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useGlobe } from '../components/GlobeLayer'
+import { ScenarioFocus } from '../components/ScenarioReadout'
 import { useFitZoom } from '../components/useFitZoom'
 import { StageIntro, StageIntroBar, type IntroStep } from '../components/StageIntro'
 import { THRESHOLDS } from '../lib/earthState'
 import { clamp } from '../lib/scales'
 import { surfaceFromThresholds } from '../lib/surfaceState'
-import { diagnose, overallSeverity, SEVERITY_COLOR } from '../lib/thresholdEngine'
+import { activeScenarios, diagnose, overallSeverity, SEVERITY_COLOR } from '../lib/thresholdEngine'
 import { ORBIT_MISSION_MAX, useJourney } from '../state/journey'
 import { useWorld } from '../state/world'
 
@@ -179,7 +180,7 @@ const INTRO: IntroStep[] = [
 export function S7Threshold({ onNext }: { onNext: () => void }) {
   const { setOrbitResult } = useJourney()
   const { orbit, magneticField, setOrbit, setMagneticField, alerts } = useWorld()
-  const { setMagnetosphere, setMagneticField: setGlobeField, setSurface } = useGlobe()
+  const { setMagnetosphere, setMagneticField: setGlobeField, setSurface, pulseAlert } = useGlobe()
 
   const [crisis] = useState(() => CRISES[Math.floor(Math.random() * CRISES.length)])
   const [introDone, setIntroDone] = useState(false)
@@ -191,6 +192,9 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
   const holdStart = useRef<number | null>(null)
   /** 직전 프레임이 임계였는지 — 넘는 '순간'만 세기 위해 (첫 실행은 null) */
   const wasCritical = useRef<boolean | null>(null)
+
+  /** 규칙 엔진 매칭 — 화면(ScenarioFocus)과 충격파가 같은 목록을 본다 */
+  const scenarios = useMemo(() => activeScenarios({ ...orbit, magneticField }), [orbit, magneticField])
 
   const diagnoses = useMemo(() => diagnose({ ...orbit, magneticField }), [orbit, magneticField])
   const severity = overallSeverity(diagnoses)
@@ -264,8 +268,26 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
   // 임계를 넘긴 만큼만 지표가 변한다 — 넘기 전에는 아무 일도 일어나지 않아야
   // '임계점'이라는 말이 성립한다
   useEffect(() => {
-    setSurface(surfaceFromThresholds(orbit.eccentricity, magneticField))
-  }, [orbit.eccentricity, magneticField, setSurface])
+    setSurface(surfaceFromThresholds(orbit.eccentricity, magneticField, orbit.obliquity))
+  }, [orbit.eccentricity, magneticField, orbit.obliquity, setSurface])
+
+  /*
+   * 새 시나리오가 걸리는 **그 프레임**에 지구본을 한 번 터뜨린다.
+   *
+   * 지표(빙상·건조·바다 후퇴)는 값을 따라 서서히 변하기 때문에, 정작 선을 넘는
+   * 순간이 화면에서 사라진다. 임계점은 과정이 아니라 사건이라 그 순간이 보여야 한다.
+   * 이미 걸려 있던 시나리오는 다시 터뜨리지 않는다 — 값을 흔드는 동안 계속 번쩍이면
+   * 그건 경고가 아니라 노이즈다.
+   */
+  const seenScenarios = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const fresh = scenarios.filter((s) => !seenScenarios.current.has(s.id))
+    if (fresh.length > 0) {
+      // 여럿이 한꺼번에 걸리면 가장 심각한 색으로 한 번만
+      pulseAlert(fresh.some((f) => f.severity === 'critical') ? 0xff2d2d : 0xffb454)
+    }
+    seenScenarios.current = new Set(scenarios.map((s) => s.id))
+  }, [scenarios, pulseAlert])
 
   /*
    * 임계 재돌파 페널티.
@@ -507,6 +529,9 @@ export function S7Threshold({ onNext }: { onNext: () => void }) {
 
         {/* 예측 엔진 보고서 */}
         <div data-fit-col className="pointer-events-auto flex min-h-0 flex-col gap-2 overflow-y-auto">
+          {/* 짧은 결론이 맨 위 — 아래 '지구 시스템 진단'이 같은 내용을 길게 푼다 */}
+          <ScenarioFocus scenarios={scenarios} />
+
           <div className="hud-panel flex flex-col gap-2.5 p-3.5">
             <div className="flex items-center justify-between">
               <h3 className="hud-title">지구 시스템 진단</h3>

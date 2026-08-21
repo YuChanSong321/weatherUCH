@@ -53,12 +53,32 @@ export function surfaceFromAnomaly(deltaC: number): SurfaceState {
  * 이심률은 빙하화로, 자기장 붕괴는 바다 후퇴로 간다. 둘 다 임계 아래에서는
  * 0 이다 — 임계를 넘는 순간에만 지표가 변해야 "임계점"이라는 말이 성립한다.
  */
-export function surfaceFromThresholds(eccentricity: number, magneticField: number): SurfaceState {
+export function surfaceFromThresholds(
+  eccentricity: number,
+  magneticField: number,
+  obliquity = 23.44,
+): SurfaceState {
   const eccOver = (eccentricity - THRESHOLDS.eccentricityExtreme) / 0.01
   const magUnder = (THRESHOLDS.magneticCollapse - magneticField) / THRESHOLDS.magneticCollapse
+
+  /*
+   * 자전축도 지표에 나타나야 한다.
+   *
+   * 셋 중 자전축만 화면에 아무 흔적을 남기지 않고 있었다 — 다이얼을 끝까지 밀어도
+   * 지구가 그대로라, 그 다이얼만 아무 일도 안 하는 장식처럼 보였다.
+   *
+   *  ✔ 기울기가 작으면(< 22.5°) 고위도 여름이 서늘해져 겨울눈이 여름을 넘긴다 → 빙상
+   *  ✔ 기울기가 크면(> 24.0°) 극지 여름의 가열이 심해진다 → 고위도 건조·갈변
+   * 둘 다 이심률·자기장보다 약하게 잡는다. 실제로도 기울기 2.4° 범위가 만드는
+   * 변화는 빙기를 켜고 끄는 방아쇠이지, 그 자체로 지표를 뒤엎는 크기가 아니다.
+   */
+  const tiltCold = clamp01((22.5 - obliquity) / 0.6) * 0.45
+  const tiltHot = clamp01((obliquity - 24.0) / 0.6) * 0.4
+
   return {
-    ice: clamp01(eccOver) * 0.75,
-    warm: 0,
+    // 두 냉각 요인은 겹칠 수 있다 — 더 센 쪽이 아니라 합으로 읽어야 조합이 보인다
+    ice: clamp01(clamp01(eccOver) * 0.75 + tiltCold),
+    warm: tiltHot,
     seaDry: clamp01(magUnder) * 0.85,
   }
 }

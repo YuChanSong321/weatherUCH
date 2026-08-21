@@ -1,0 +1,1002 @@
+{
+ "meta": {
+  "schemaVersion": 1,
+  "note": "전 지구 지표 3종 — 지역 관측과 나란히 놓기 위한 자료. 지역 변화가 전 지구 변화의 일부임을 보이는 데 쓴다.",
+  "_fetched_at": "2026-08-21T11:35:01+09:00",
+  "series": {
+   "temperature": {
+    "label": "전 지구 평균기온 편차",
+    "unit": "℃ (1951–1980 평균 대비)",
+    "provider": "NASA GISS",
+    "dataset": "GISTEMP v4 · Land-Ocean Temperature Index (연평균 J-D)",
+    "license": "퍼블릭 도메인 (NASA) · 출처 표기",
+    "url": "https://data.giss.nasa.gov/gistemp/",
+    "period": "1880-2025"
+   },
+   "co2": {
+    "label": "전 지구 평균 CO₂ 농도",
+    "unit": "ppm",
+    "provider": "NOAA GML",
+    "dataset": "Globally averaged marine surface annual mean CO₂",
+    "license": "퍼블릭 도메인 (미국 정부 저작물) · 출처 표기",
+    "url": "https://gml.noaa.gov/ccgg/trends/gl_data.html",
+    "period": "1979-2025"
+   },
+   "seaIce": {
+    "label": "북극 9월 해빙 면적",
+    "unit": "백만 km²",
+    "provider": "NSIDC / NOAA",
+    "dataset": "Sea Ice Index v4 · 북반구 9월 월평균 extent",
+    "license": "퍼블릭 도메인 (미국 정부 저작물) · 출처 표기",
+    "url": "https://nsidc.org/data/g02135",
+    "period": "1979-2025"
+   }
+  }
+ },
+ "temperature": [
+  {
+   "year": 1880,
+   "anomaly": -0.17
+  },
+  {
+   "year": 1881,
+   "anomaly": -0.09
+  },
+  {
+   "year": 1882,
+   "anomaly": -0.11
+  },
+  {
+   "year": 1883,
+   "anomaly": -0.17
+  },
+  {
+   "year": 1884,
+   "anomaly": -0.28
+  },
+  {
+   "year": 1885,
+   "anomaly": -0.33
+  },
+  {
+   "year": 1886,
+   "anomaly": -0.32
+  },
+  {
+   "year": 1887,
+   "anomaly": -0.36
+  },
+  {
+   "year": 1888,
+   "anomaly": -0.18
+  },
+  {
+   "year": 1889,
+   "anomaly": -0.11
+  },
+  {
+   "year": 1890,
+   "anomaly": -0.36
+  },
+  {
+   "year": 1891,
+   "anomaly": -0.22
+  },
+  {
+   "year": 1892,
+   "anomaly": -0.27
+  },
+  {
+   "year": 1893,
+   "anomaly": -0.31
+  },
+  {
+   "year": 1894,
+   "anomaly": -0.3
+  },
+  {
+   "year": 1895,
+   "anomaly": -0.23
+  },
+  {
+   "year": 1896,
+   "anomaly": -0.12
+  },
+  {
+   "year": 1897,
+   "anomaly": -0.11
+  },
+  {
+   "year": 1898,
+   "anomaly": -0.28
+  },
+  {
+   "year": 1899,
+   "anomaly": -0.18
+  },
+  {
+   "year": 1900,
+   "anomaly": -0.09
+  },
+  {
+   "year": 1901,
+   "anomaly": -0.15
+  },
+  {
+   "year": 1902,
+   "anomaly": -0.28
+  },
+  {
+   "year": 1903,
+   "anomaly": -0.37
+  },
+  {
+   "year": 1904,
+   "anomaly": -0.48
+  },
+  {
+   "year": 1905,
+   "anomaly": -0.27
+  },
+  {
+   "year": 1906,
+   "anomaly": -0.23
+  },
+  {
+   "year": 1907,
+   "anomaly": -0.39
+  },
+  {
+   "year": 1908,
+   "anomaly": -0.43
+  },
+  {
+   "year": 1909,
+   "anomaly": -0.49
+  },
+  {
+   "year": 1910,
+   "anomaly": -0.44
+  },
+  {
+   "year": 1911,
+   "anomaly": -0.45
+  },
+  {
+   "year": 1912,
+   "anomaly": -0.37
+  },
+  {
+   "year": 1913,
+   "anomaly": -0.35
+  },
+  {
+   "year": 1914,
+   "anomaly": -0.16
+  },
+  {
+   "year": 1915,
+   "anomaly": -0.15
+  },
+  {
+   "year": 1916,
+   "anomaly": -0.36
+  },
+  {
+   "year": 1917,
+   "anomaly": -0.46
+  },
+  {
+   "year": 1918,
+   "anomaly": -0.3
+  },
+  {
+   "year": 1919,
+   "anomaly": -0.28
+  },
+  {
+   "year": 1920,
+   "anomaly": -0.28
+  },
+  {
+   "year": 1921,
+   "anomaly": -0.19
+  },
+  {
+   "year": 1922,
+   "anomaly": -0.28
+  },
+  {
+   "year": 1923,
+   "anomaly": -0.26
+  },
+  {
+   "year": 1924,
+   "anomaly": -0.27
+  },
+  {
+   "year": 1925,
+   "anomaly": -0.22
+  },
+  {
+   "year": 1926,
+   "anomaly": -0.11
+  },
+  {
+   "year": 1927,
+   "anomaly": -0.22
+  },
+  {
+   "year": 1928,
+   "anomaly": -0.2
+  },
+  {
+   "year": 1929,
+   "anomaly": -0.36
+  },
+  {
+   "year": 1930,
+   "anomaly": -0.16
+  },
+  {
+   "year": 1931,
+   "anomaly": -0.09
+  },
+  {
+   "year": 1932,
+   "anomaly": -0.16
+  },
+  {
+   "year": 1933,
+   "anomaly": -0.29
+  },
+  {
+   "year": 1934,
+   "anomaly": -0.13
+  },
+  {
+   "year": 1935,
+   "anomaly": -0.2
+  },
+  {
+   "year": 1936,
+   "anomaly": -0.15
+  },
+  {
+   "year": 1937,
+   "anomaly": -0.03
+  },
+  {
+   "year": 1938,
+   "anomaly": 0.0
+  },
+  {
+   "year": 1939,
+   "anomaly": -0.02
+  },
+  {
+   "year": 1940,
+   "anomaly": 0.12
+  },
+  {
+   "year": 1941,
+   "anomaly": 0.18
+  },
+  {
+   "year": 1942,
+   "anomaly": 0.06
+  },
+  {
+   "year": 1943,
+   "anomaly": 0.09
+  },
+  {
+   "year": 1944,
+   "anomaly": 0.2
+  },
+  {
+   "year": 1945,
+   "anomaly": 0.09
+  },
+  {
+   "year": 1946,
+   "anomaly": -0.07
+  },
+  {
+   "year": 1947,
+   "anomaly": -0.03
+  },
+  {
+   "year": 1948,
+   "anomaly": -0.11
+  },
+  {
+   "year": 1949,
+   "anomaly": -0.11
+  },
+  {
+   "year": 1950,
+   "anomaly": -0.17
+  },
+  {
+   "year": 1951,
+   "anomaly": -0.07
+  },
+  {
+   "year": 1952,
+   "anomaly": 0.01
+  },
+  {
+   "year": 1953,
+   "anomaly": 0.08
+  },
+  {
+   "year": 1954,
+   "anomaly": -0.13
+  },
+  {
+   "year": 1955,
+   "anomaly": -0.14
+  },
+  {
+   "year": 1956,
+   "anomaly": -0.19
+  },
+  {
+   "year": 1957,
+   "anomaly": 0.05
+  },
+  {
+   "year": 1958,
+   "anomaly": 0.06
+  },
+  {
+   "year": 1959,
+   "anomaly": 0.03
+  },
+  {
+   "year": 1960,
+   "anomaly": -0.02
+  },
+  {
+   "year": 1961,
+   "anomaly": 0.06
+  },
+  {
+   "year": 1962,
+   "anomaly": 0.03
+  },
+  {
+   "year": 1963,
+   "anomaly": 0.05
+  },
+  {
+   "year": 1964,
+   "anomaly": -0.2
+  },
+  {
+   "year": 1965,
+   "anomaly": -0.11
+  },
+  {
+   "year": 1966,
+   "anomaly": -0.06
+  },
+  {
+   "year": 1967,
+   "anomaly": -0.02
+  },
+  {
+   "year": 1968,
+   "anomaly": -0.08
+  },
+  {
+   "year": 1969,
+   "anomaly": 0.05
+  },
+  {
+   "year": 1970,
+   "anomaly": 0.03
+  },
+  {
+   "year": 1971,
+   "anomaly": -0.08
+  },
+  {
+   "year": 1972,
+   "anomaly": 0.01
+  },
+  {
+   "year": 1973,
+   "anomaly": 0.16
+  },
+  {
+   "year": 1974,
+   "anomaly": -0.07
+  },
+  {
+   "year": 1975,
+   "anomaly": -0.01
+  },
+  {
+   "year": 1976,
+   "anomaly": -0.1
+  },
+  {
+   "year": 1977,
+   "anomaly": 0.18
+  },
+  {
+   "year": 1978,
+   "anomaly": 0.07
+  },
+  {
+   "year": 1979,
+   "anomaly": 0.16
+  },
+  {
+   "year": 1980,
+   "anomaly": 0.26
+  },
+  {
+   "year": 1981,
+   "anomaly": 0.32
+  },
+  {
+   "year": 1982,
+   "anomaly": 0.14
+  },
+  {
+   "year": 1983,
+   "anomaly": 0.31
+  },
+  {
+   "year": 1984,
+   "anomaly": 0.15
+  },
+  {
+   "year": 1985,
+   "anomaly": 0.12
+  },
+  {
+   "year": 1986,
+   "anomaly": 0.18
+  },
+  {
+   "year": 1987,
+   "anomaly": 0.32
+  },
+  {
+   "year": 1988,
+   "anomaly": 0.39
+  },
+  {
+   "year": 1989,
+   "anomaly": 0.27
+  },
+  {
+   "year": 1990,
+   "anomaly": 0.45
+  },
+  {
+   "year": 1991,
+   "anomaly": 0.4
+  },
+  {
+   "year": 1992,
+   "anomaly": 0.22
+  },
+  {
+   "year": 1993,
+   "anomaly": 0.23
+  },
+  {
+   "year": 1994,
+   "anomaly": 0.31
+  },
+  {
+   "year": 1995,
+   "anomaly": 0.44
+  },
+  {
+   "year": 1996,
+   "anomaly": 0.33
+  },
+  {
+   "year": 1997,
+   "anomaly": 0.46
+  },
+  {
+   "year": 1998,
+   "anomaly": 0.61
+  },
+  {
+   "year": 1999,
+   "anomaly": 0.38
+  },
+  {
+   "year": 2000,
+   "anomaly": 0.39
+  },
+  {
+   "year": 2001,
+   "anomaly": 0.53
+  },
+  {
+   "year": 2002,
+   "anomaly": 0.63
+  },
+  {
+   "year": 2003,
+   "anomaly": 0.62
+  },
+  {
+   "year": 2004,
+   "anomaly": 0.53
+  },
+  {
+   "year": 2005,
+   "anomaly": 0.68
+  },
+  {
+   "year": 2006,
+   "anomaly": 0.64
+  },
+  {
+   "year": 2007,
+   "anomaly": 0.66
+  },
+  {
+   "year": 2008,
+   "anomaly": 0.54
+  },
+  {
+   "year": 2009,
+   "anomaly": 0.66
+  },
+  {
+   "year": 2010,
+   "anomaly": 0.73
+  },
+  {
+   "year": 2011,
+   "anomaly": 0.61
+  },
+  {
+   "year": 2012,
+   "anomaly": 0.65
+  },
+  {
+   "year": 2013,
+   "anomaly": 0.68
+  },
+  {
+   "year": 2014,
+   "anomaly": 0.75
+  },
+  {
+   "year": 2015,
+   "anomaly": 0.9
+  },
+  {
+   "year": 2016,
+   "anomaly": 1.01
+  },
+  {
+   "year": 2017,
+   "anomaly": 0.92
+  },
+  {
+   "year": 2018,
+   "anomaly": 0.85
+  },
+  {
+   "year": 2019,
+   "anomaly": 0.98
+  },
+  {
+   "year": 2020,
+   "anomaly": 1.01
+  },
+  {
+   "year": 2021,
+   "anomaly": 0.85
+  },
+  {
+   "year": 2022,
+   "anomaly": 0.89
+  },
+  {
+   "year": 2023,
+   "anomaly": 1.17
+  },
+  {
+   "year": 2024,
+   "anomaly": 1.28
+  },
+  {
+   "year": 2025,
+   "anomaly": 1.19
+  }
+ ],
+ "co2": [
+  {
+   "year": 1979,
+   "ppm": 336.85
+  },
+  {
+   "year": 1980,
+   "ppm": 338.91
+  },
+  {
+   "year": 1981,
+   "ppm": 340.11
+  },
+  {
+   "year": 1982,
+   "ppm": 340.85
+  },
+  {
+   "year": 1983,
+   "ppm": 342.53
+  },
+  {
+   "year": 1984,
+   "ppm": 344.07
+  },
+  {
+   "year": 1985,
+   "ppm": 345.54
+  },
+  {
+   "year": 1986,
+   "ppm": 346.97
+  },
+  {
+   "year": 1987,
+   "ppm": 348.68
+  },
+  {
+   "year": 1988,
+   "ppm": 351.16
+  },
+  {
+   "year": 1989,
+   "ppm": 352.79
+  },
+  {
+   "year": 1990,
+   "ppm": 354.06
+  },
+  {
+   "year": 1991,
+   "ppm": 355.4
+  },
+  {
+   "year": 1992,
+   "ppm": 356.09
+  },
+  {
+   "year": 1993,
+   "ppm": 356.83
+  },
+  {
+   "year": 1994,
+   "ppm": 358.33
+  },
+  {
+   "year": 1995,
+   "ppm": 360.18
+  },
+  {
+   "year": 1996,
+   "ppm": 361.93
+  },
+  {
+   "year": 1997,
+   "ppm": 363.04
+  },
+  {
+   "year": 1998,
+   "ppm": 365.7
+  },
+  {
+   "year": 1999,
+   "ppm": 367.79
+  },
+  {
+   "year": 2000,
+   "ppm": 368.96
+  },
+  {
+   "year": 2001,
+   "ppm": 370.57
+  },
+  {
+   "year": 2002,
+   "ppm": 372.58
+  },
+  {
+   "year": 2003,
+   "ppm": 375.14
+  },
+  {
+   "year": 2004,
+   "ppm": 376.94
+  },
+  {
+   "year": 2005,
+   "ppm": 378.98
+  },
+  {
+   "year": 2006,
+   "ppm": 381.15
+  },
+  {
+   "year": 2007,
+   "ppm": 382.9
+  },
+  {
+   "year": 2008,
+   "ppm": 385.02
+  },
+  {
+   "year": 2009,
+   "ppm": 386.5
+  },
+  {
+   "year": 2010,
+   "ppm": 388.75
+  },
+  {
+   "year": 2011,
+   "ppm": 390.62
+  },
+  {
+   "year": 2012,
+   "ppm": 392.65
+  },
+  {
+   "year": 2013,
+   "ppm": 395.4
+  },
+  {
+   "year": 2014,
+   "ppm": 397.34
+  },
+  {
+   "year": 2015,
+   "ppm": 399.65
+  },
+  {
+   "year": 2016,
+   "ppm": 403.07
+  },
+  {
+   "year": 2017,
+   "ppm": 405.22
+  },
+  {
+   "year": 2018,
+   "ppm": 407.61
+  },
+  {
+   "year": 2019,
+   "ppm": 410.07
+  },
+  {
+   "year": 2020,
+   "ppm": 412.44
+  },
+  {
+   "year": 2021,
+   "ppm": 414.7
+  },
+  {
+   "year": 2022,
+   "ppm": 417.08
+  },
+  {
+   "year": 2023,
+   "ppm": 419.35
+  },
+  {
+   "year": 2024,
+   "ppm": 422.79
+  },
+  {
+   "year": 2025,
+   "ppm": 425.62
+  }
+ ],
+ "seaIce": [
+  {
+   "year": 1979,
+   "extent": 7.05
+  },
+  {
+   "year": 1980,
+   "extent": 7.67
+  },
+  {
+   "year": 1981,
+   "extent": 7.14
+  },
+  {
+   "year": 1982,
+   "extent": 7.3
+  },
+  {
+   "year": 1983,
+   "extent": 7.39
+  },
+  {
+   "year": 1984,
+   "extent": 6.81
+  },
+  {
+   "year": 1985,
+   "extent": 6.7
+  },
+  {
+   "year": 1986,
+   "extent": 7.41
+  },
+  {
+   "year": 1987,
+   "extent": 7.28
+  },
+  {
+   "year": 1988,
+   "extent": 7.37
+  },
+  {
+   "year": 1989,
+   "extent": 7.01
+  },
+  {
+   "year": 1990,
+   "extent": 6.14
+  },
+  {
+   "year": 1991,
+   "extent": 6.47
+  },
+  {
+   "year": 1992,
+   "extent": 7.47
+  },
+  {
+   "year": 1993,
+   "extent": 6.4
+  },
+  {
+   "year": 1994,
+   "extent": 7.14
+  },
+  {
+   "year": 1995,
+   "extent": 6.08
+  },
+  {
+   "year": 1996,
+   "extent": 7.58
+  },
+  {
+   "year": 1997,
+   "extent": 6.69
+  },
+  {
+   "year": 1998,
+   "extent": 6.54
+  },
+  {
+   "year": 1999,
+   "extent": 6.12
+  },
+  {
+   "year": 2000,
+   "extent": 6.25
+  },
+  {
+   "year": 2001,
+   "extent": 6.73
+  },
+  {
+   "year": 2002,
+   "extent": 5.83
+  },
+  {
+   "year": 2003,
+   "extent": 6.12
+  },
+  {
+   "year": 2004,
+   "extent": 5.98
+  },
+  {
+   "year": 2005,
+   "extent": 5.5
+  },
+  {
+   "year": 2006,
+   "extent": 5.86
+  },
+  {
+   "year": 2007,
+   "extent": 4.27
+  },
+  {
+   "year": 2008,
+   "extent": 4.69
+  },
+  {
+   "year": 2009,
+   "extent": 5.26
+  },
+  {
+   "year": 2010,
+   "extent": 4.87
+  },
+  {
+   "year": 2011,
+   "extent": 4.56
+  },
+  {
+   "year": 2012,
+   "extent": 3.57
+  },
+  {
+   "year": 2013,
+   "extent": 5.21
+  },
+  {
+   "year": 2014,
+   "extent": 5.22
+  },
+  {
+   "year": 2015,
+   "extent": 4.62
+  },
+  {
+   "year": 2016,
+   "extent": 4.53
+  },
+  {
+   "year": 2017,
+   "extent": 4.82
+  },
+  {
+   "year": 2018,
+   "extent": 4.79
+  },
+  {
+   "year": 2019,
+   "extent": 4.36
+  },
+  {
+   "year": 2020,
+   "extent": 4.0
+  },
+  {
+   "year": 2021,
+   "extent": 4.95
+  },
+  {
+   "year": 2022,
+   "extent": 4.9
+  },
+  {
+   "year": 2023,
+   "extent": 4.38
+  },
+  {
+   "year": 2024,
+   "extent": 4.35
+  },
+  {
+   "year": 2025,
+   "extent": 4.75
+  }
+ ]
+}

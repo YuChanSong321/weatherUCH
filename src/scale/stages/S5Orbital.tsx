@@ -12,7 +12,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ChartFrame } from '../components/ChartFrame'
+import { CoolingParadox } from '../components/CoolingParadox'
 import { GlobeViewToggle } from '../components/GlobeViewToggle'
+import { ScenarioFocus } from '../components/ScenarioReadout'
 import { useGlobe } from '../components/GlobeLayer'
 import { StageIntro, StageIntroBar, type IntroStep } from '../components/StageIntro'
 import { useFitZoom } from '../components/useFitZoom'
@@ -35,6 +37,7 @@ import {
 } from '../lib/milankovitch'
 import { linearScale, niceTicks, smoothPath } from '../lib/scales'
 import { surfaceFromAnomaly } from '../lib/surfaceState'
+import { activeScenarios } from '../lib/thresholdEngine'
 import { useWorld } from '../state/world'
 
 /**
@@ -162,9 +165,19 @@ const H = 196
 const M = { top: 18, right: 16, bottom: 30, left: 40 }
 
 export function S5Orbital({ onNext }: { onNext: () => void }) {
-  const { orbit, setOrbit, resetWorld } = useWorld()
+  const { orbit, magneticField, setOrbit, resetWorld } = useWorld()
+  /*
+   * S7 과 같은 판을 여기에도 세운다.
+   * 이 화면에서도 이심률을 0.05 너머로 밀면 시나리오가 걸리는데, 정작 화면에는
+   * 아무 말이 없어 다음 단계에 가서야 그런 게 있는 줄 알게 됐다. 규칙 엔진이
+   * 도는 화면이면 그 결과가 그 화면에 있어야 한다.
+   * 자기장 다이얼은 여기 없으므로 현재값(기본 100%)이 그대로 들어간다.
+   */
+  const scenarios = useMemo(() => activeScenarios({ ...orbit, magneticField }), [orbit, magneticField])
   const { setSurface, setSurfaceAuto, setOrbitPark, telemetry } = useGlobe()
   const [introDone, setIntroDone] = useState(false)
+  /** 냉각 역설을 증명하는 화면을 지났는가 */
+  const [paradoxDone, setParadoxDone] = useState(false)
   const [parked, setParked] = useState(false)
   const [missionId] = useState<MissionId>(() => (Math.random() < 0.5 ? 'glaciate' : 'deglaciate'))
   const mission = MISSIONS[missionId]
@@ -293,6 +306,15 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
         onDone={() => setIntroDone(true)}
       />
     )
+  }
+
+  /*
+   * 다이얼을 만지기 전에 "지금 지구는 원래 식어야 한다"를 먼저 증명한다.
+   * 이 순서가 뒤집히면 반전이 성립하지 않는다 — 사용자가 이미 손으로 궤도를
+   * 흔들어 본 뒤에는 "원래 방향"이라는 말이 자기가 만든 결과처럼 들린다.
+   */
+  if (!paradoxDone) {
+    return <CoolingParadox onNext={() => setParadoxDone(true)} />
   }
 
   return (
@@ -503,6 +525,9 @@ export function S5Orbital({ onNext }: { onNext: () => void }) {
 
         {/* 자연 곡선 */}
         <div data-fit-col className="pointer-events-auto flex min-h-0 flex-col gap-2 overflow-y-auto">
+          {/* S7 과 같은 판, 같은 자리 — 오른쪽 칸 맨 위 */}
+          <ScenarioFocus scenarios={scenarios} />
+
           <div className="panel shrink-0 p-3 backdrop-blur-md">
             <div className="flex items-baseline justify-between">
               <h3 className="text-[12.5px] font-semibold">자연 변수만의 장기 기온</h3>

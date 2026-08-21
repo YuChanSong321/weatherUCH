@@ -690,7 +690,17 @@ export async function createTerraSim(container, opts = {}){
     uTwilight:  { value: new THREE.Color(0xff7a3c) },
     uIntensity: { value: 1.15 },
     uPower:     { value: 4.2 },   // higher => the glow hugs the silhouette tighter
-    uNightGlow: { value: 0.02 }
+    uNightGlow: { value: 0.02 },
+    /*
+     * 지자기 상실 정도 0…1 (→ setMagneticField).
+     *
+     * 자기장이 무너지면 태양풍이 대기를 그대로 때린다. 그 결과를 색으로 옮긴 것이
+     * 이 값이다 — 레일리 산란이 만드는 파란 고리를 경고 레드로 치환하고, 동시에
+     * 밤쪽 대기까지 함께 달아오르게 한다(사라진 것은 차폐이지 태양이 아니므로).
+     * 0 이면 아래 셰이더에서 아무 일도 하지 않는다.
+     */
+    uFieldLoss: { value: 0 },
+    uLossColor: { value: new THREE.Color(0xff2d2d) }
   };
   const atmoMat = new THREE.ShaderMaterial({
     uniforms: atmoU,
@@ -713,6 +723,8 @@ export async function createTerraSim(container, opts = {}){
       uniform float uIntensity;
       uniform float uPower;
       uniform float uNightGlow;
+      uniform float uFieldLoss;
+      uniform vec3  uLossColor;
       varying vec3 vWPos; varying vec3 vWNrm;
 
       void main(){
@@ -751,6 +763,19 @@ export async function createTerraSim(container, opts = {}){
 
         float glow = depth * sunlit * phase * uIntensity;
         glow += depth * uNightGlow;      // faint airglow so the night limb lives
+
+        // 5 · 자기 차폐 상실 -------------------------------------------------
+        // 대기 레이어의 색을 **단색** 경고 레드로 치환한다.
+        //
+        // 색만 붉히면 낮 쪽만 밝고 밤 쪽은 어두운 그라데이션이 그대로 남아
+        // '단색'이 되지 않는다. 그래서 태양 방향(sunlit)과 시선 위상(phase)에
+        // 걸린 변조를 함께 걷어내고, 광학 두께(depth)만 남긴다 — depth 를 빼면
+        // 대기 껍데기가 아니라 지구를 덮는 붉은 원반이 되어 버린다.
+        if ( uFieldLoss > 0.001 ) {
+          col  = mix( col, uLossColor, uFieldLoss );
+          glow = mix( glow, depth * uIntensity * 1.25, uFieldLoss );
+        }
+
         // additive blending: only rgb matters, keep alpha at 1
         gl_FragColor = vec4( col * glow, 1.0 );
       }`
@@ -760,6 +785,23 @@ export async function createTerraSim(container, opts = {}){
   // thicker shell reads as a painted outline rather than air.
   const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(R_EARTH * 1.024, 96, 64), atmoMat);
   tiltGroup.add(atmosphere);
+
+  /* ── 임계 돌파 충격파 ────────────────────────────────────────────────
+     값이 서서히 변하는 화면에서는 "선을 넘은 순간"이 보이지 않는다. 지표가
+     조금씩 하얘질 뿐이라, 사용자는 자기가 방금 임계를 넘었다는 것을 숫자가
+     빨개진 뒤에야 안다. 넘는 그 프레임에 한 번 크게 터뜨려 준다.
+
+     구(球) 껍데기를 부풀리며 지우는 방식이다 — 어느 각도에서 보든 같은 모양이라
+     시점에 상관없이 읽힌다(고리로 만들면 옆에서 볼 때 선 하나가 된다). */
+  const pulseMat = new THREE.MeshBasicMaterial({
+    color: 0xff2d2d, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide,
+  });
+  const pulseMesh = new THREE.Mesh(new THREE.SphereGeometry(R_EARTH, 48, 32), pulseMat);
+  pulseMesh.visible = false;
+  earthPivot.add(pulseMesh);          // 지구를 따라가되 자전과는 무관하다
+  let pulseT = 1;                     // 1 = 끝난 상태
+  const PULSE_SEC = 0.9;
 
   /* ==========================================================================
      7 · ORBIT GEOMETRY
@@ -1159,6 +1201,16 @@ export async function createTerraSim(container, opts = {}){
     earthU.uSunDirW.value.copy(sunDir);
     atmoU.uSunDir.value.copy(sunDir);
 
+    /* ---- 4.4 임계 돌파 충격파 -------------------------------------------- */
+    if (pulseT < 1){
+      pulseT = Math.min(1, pulseT + dtRaw / PULSE_SEC);
+      const e = 1 - Math.pow(1 - pulseT, 3);        // 빠르게 퍼지고 천천히 멎는다
+      const k = 1.02 + e * 0.95;
+      pulseMesh.scale.setScalar(k);
+      pulseMat.opacity = Math.pow(1 - pulseT, 2) * 0.55;
+      if (pulseT >= 1) pulseMesh.visible = false;
+    }
+
     /* ---- 4.5 자기권 · 태양풍 (S7) --------------------------------------- */
     if (magnetoReady){
       // 경고색은 급격한 컷이 아니라 0.5초 보간 (기획안 §4)
@@ -1483,10 +1535,19 @@ export async function createTerraSim(container, opts = {}){
   tiltGroup.add(magnetoGroup);
   const magnetoLines = [];
   {
-    const LOOPS = 8;
+    /*
+     * 고리 크기.
+     *
+     * 원래는 지구 반지름의 1.7·3.0 배까지 뻗었는데, S7 의 카메라는 지구에 바짝
+     * 붙어 있어서 **바깥 고리가 통째로 화면 밖**에 있었다. 세기에 따라 투명도가
+     * 변해도 보이지 않으면 없는 것과 같다. 실제 자기권은 이보다 훨씬 크지만,
+     * 이 화면이 말하려는 것은 규모가 아니라 "극과 극을 잇는 보호막이 있고,
+     * 그것이 옅어지다 사라진다"이므로 프레임 안으로 들인다.
+     */
+    const LOOPS = 10;
     for (let i = 0; i < LOOPS; i++){
       const a = (i / LOOPS) * Math.PI * 2;
-      for (const [bulge, lift, seg] of [[1.7, 1.4, 40], [3.0, 1.8, 45]]){
+      for (const [bulge, lift, seg] of [[1.28, 1.16, 48], [1.78, 1.34, 56]]){
         const curve = new THREE.CubicBezierCurve3(
           new THREE.Vector3(0,  R_EARTH, 0),
           new THREE.Vector3(bulge * Math.cos(a),  R_EARTH * lift, bulge * Math.sin(a)),
@@ -1495,8 +1556,19 @@ export async function createTerraSim(container, opts = {}){
         );
         const line = new THREE.Line(
           new THREE.BufferGeometry().setFromPoints(curve.getPoints(seg)),
-          new THREE.LineBasicMaterial({ color: 0x00f2fe, transparent: true, opacity: 0.6, depthWrite: false }),
+          // WebGL 은 linewidth 를 무시한다 — 굵기 대신 가산 합성으로 네온을 만든다
+          /*
+           * depthTest:false — 지구에 가려지지 않고 위에 겹쳐 그린다.
+           * 깊이 테스트를 켜두면 고리의 대부분이 지구 뒤에 숨어 실루엣 가장자리에
+           * 얇은 호 두 줄만 남는다. 자기권 도해가 늘 반투명 선을 행성 위로 지나가게
+           * 그리는 이유와 같다 — 보이지 않는 보호막은 보호막으로 읽히지 않는다.
+           */
+          new THREE.LineBasicMaterial({
+            color: 0x00f2fe, transparent: true, opacity: 0.6,
+            depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+          }),
         );
+        line.renderOrder = 5;   // 지구·대기 다음에 그린다
         magnetoGroup.add(line);
         magnetoLines.push(line);
       }
@@ -1526,8 +1598,14 @@ export async function createTerraSim(container, opts = {}){
   magnetoGroup.visible = false;
   solarWind.visible = false;
 
-  const FIELD_COLD  = new THREE.Color(0x10b981);
-  const FIELD_NEON  = new THREE.Color(0x00f2fe);
+  /*
+   * 자력선은 **언제나 네온 시안**이다. 세기로 바꾸는 것은 색이 아니라 투명도다.
+   *
+   * 예전에는 약할 때 초록(0x10b981)으로 물들었는데, 그러면 "자기장이 약하다"가
+   * 색으로도 투명도로도 동시에 표현되어 둘 중 무엇이 세기를 뜻하는지 흐려진다.
+   * 한 가지 변수는 한 가지 채널로만 말한다 — 여기서는 투명도다.
+   */
+  const FIELD_NEON = new THREE.Color(0x00f2fe);
 
   magnetoReady = true;
 
@@ -1535,13 +1613,19 @@ export async function createTerraSim(container, opts = {}){
   function setMagneticField(pct){
     magneticPct = Math.max(0, Math.min(100, pct));
     const ratio = magneticPct / 100;
-    const c = new THREE.Color().lerpColors(FIELD_COLD, FIELD_NEON, ratio);
     for (const l of magnetoLines){
-      l.material.color.copy(c);
-      l.material.opacity = ratio * 0.7;
-      l.visible = magneticPct > 0.5;
+      l.material.color.copy(FIELD_NEON);          // 색은 고정
+      l.material.opacity = ratio * 0.85;          // 세기 → 투명도
+      // 0% 에 닿으면 선을 소멸시킨다 (0 이 아니라 '보이지 않음'이어야 한다)
+      l.visible = magneticPct > 0;
     }
     windMat.opacity = 0.25 + (1 - ratio) * 0.6;
+    /*
+     * 대기 색 치환. 임계(20%) 위에서는 손대지 않는다 — 자기장을 조금 낮췄다고
+     * 하늘이 붉어지면 그 화면은 임계라는 개념을 스스로 부정하는 셈이 된다.
+     * 20% 에서 0% 사이에서만 0 → 1 로 올라가고, 0% 에서 완전한 경고 레드가 된다.
+     */
+    atmoU.uFieldLoss.value = Math.max(0, Math.min(1, (20 - magneticPct) / 20));
   }
 
   // 두 변환은 서로의 역이어야 한다. 어긋나도 '그럴듯한' 좌표가 나와서 눈으로는
@@ -1678,6 +1762,16 @@ export async function createTerraSim(container, opts = {}){
       if (next.warm   !== undefined) surfaceTarget.warm   = Math.max(0, Math.min(1, next.warm));
       if (next.seaDry !== undefined) surfaceTarget.seaDry = Math.max(0, Math.min(1, next.seaDry));
       if (next.melt   !== undefined) surfaceTarget.melt   = Math.max(0, Math.min(1, next.melt));
+    },
+    /**
+     * 임계를 넘은 그 순간 한 번 터뜨린다.
+     * 상태가 아니라 **사건**이라 값으로 두지 않고 호출로 받는다 — 같은 임계를
+     * 다시 넘으면 다시 터져야 하기 때문이다.
+     */
+    pulseAlert(hex = 0xff2d2d){
+      pulseMat.color.set(hex);
+      pulseMesh.visible = true;
+      pulseT = 0;
     },
     /** 지구를 근일점에 세운다 (궤도 진행만 멈춘다) */
     setOrbitPark(v){

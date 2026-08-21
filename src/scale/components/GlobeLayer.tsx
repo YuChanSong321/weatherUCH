@@ -63,6 +63,12 @@ type GlobeApi = {
   /** 지자기 세기 % — 자력선과 태양풍 투과가 함께 움직인다 */
   setMagneticField: (pct: number) => void
   /**
+   * 임계를 넘은 순간 지구본에서 한 번 터뜨린다.
+   * 상태가 아니라 사건이므로 보류 큐에 넣지 않는다 — 엔진이 아직 없을 때 넘은
+   * 임계를 나중에 몰아서 터뜨리면, 아무 일도 안 한 순간에 화면이 번쩍인다.
+   */
+  pulseAlert: (hex: number) => void
+  /**
    * 지표 상태 — 빙상·건조화·바다 후퇴·용융 (전부 0…1).
    * 무엇을 어디에 연결할지는 [lib/surfaceState] 가 정한다.
    */
@@ -184,6 +190,16 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // 엔진이 준비되는 순간, 그 전에 놓친 지시를 몰아서 적용한다
+  useEffect(() => {
+    const sim = simRef.current
+    if (!sim || !ready) return
+    const q = pending.current
+    if (q.magneto !== undefined) sim.setMagnetosphereVisible(q.magneto)
+    if (q.field !== undefined) sim.setMagneticField(q.field)
+    if (Object.keys(q.surface).length > 0) sim.setSurface(q.surface)
+  }, [ready])
+
   // 궤도 3요소 → 엔진 (프레임 지연 없이 그대로 흘려보낸다)
   useEffect(() => {
     simRef.current?.setParams(orbit)
@@ -271,15 +287,33 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
     return () => simRef.current?.setClimateTint(0)
   }, [stage])
 
+  /*
+   * 엔진이 준비되기 전에 들어온 지시를 기억해 둔다.
+   *
+   * 엔진은 텍스처를 다 받은 뒤에야 만들어지는데(수백 ms~수 초), 단계 화면의
+   * useEffect 는 마운트 즉시 돈다. 그래서 `simRef.current?.…` 로만 흘려보내면
+   * **그 사이에 온 호출이 통째로 버려진다** — 실제로 S7 에 들어가도 자기권 레이어가
+   * 켜지지 않는 일이 있었다(엔진이 늦게 뜨는 환경에서 재현). 마지막 지시를 붙들고
+   * 있다가 준비되는 순간 다시 적용한다.
+   */
+  const pending = useRef<{ magneto?: boolean; field?: number; surface: Partial<SurfaceState> }>({ surface: {} })
+
   const setMagnetosphere = useCallback((v: boolean) => {
+    pending.current.magneto = v
     simRef.current?.setMagnetosphereVisible(v)
   }, [])
 
   const setMagneticFieldOnGlobe = useCallback((pct: number) => {
+    pending.current.field = pct
     simRef.current?.setMagneticField(pct)
   }, [])
 
+  const pulseAlert = useCallback((hex: number) => {
+    simRef.current?.pulseAlert(hex)
+  }, [])
+
   const setSurface = useCallback((next: Partial<SurfaceState>) => {
+    pending.current.surface = { ...pending.current.surface, ...next }
     simRef.current?.setSurface(next)
   }, [])
 
@@ -310,6 +344,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       setClimateTint,
       setMagnetosphere,
       setMagneticField: setMagneticFieldOnGlobe,
+      pulseAlert,
       setSurface,
       setSurfaceAuto,
       setOrbitPark,

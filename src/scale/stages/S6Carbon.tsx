@@ -333,8 +333,9 @@ export function S6Carbon({ onNext, embedded = false }: { onNext?: () => void; em
           ) : (
             <p>
               방금 만드신 보라색 곡선이 <span className="text-ink-1">자연의 시계</span>입니다. 지구의 궤도가 앞으로 5만 년
-              동안 기온을 어디까지 데려가는지 보여줘요. 이제 오른쪽 위 토글로{' '}
-              <span className="text-ink-1">탄소 레이어</span>를 켜서, 사람이 만든 변화를 같은 축에 겹쳐 보세요.
+              동안 기온을 어디까지 데려가는지 보여줘요. 3단계를 열 때 봤던 그 곡선 —{' '}
+              <span className="text-ink-1">궤도만 보면 지금은 식을 창</span>이라던 그 이야기의 뒷면입니다. 이제 오른쪽
+              위 토글로 <span className="text-ink-1">탄소 레이어</span>를 켜서, 사람이 만든 변화를 같은 축에 겹쳐 보세요.
             </p>
           )}
         </div>
