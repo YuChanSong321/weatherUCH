@@ -516,16 +516,22 @@ export function ActTwoSummary({ onDone, onBack }: { onDone: () => void; onBack: 
   }, [])
 
   /*
-   * 지역 → 전 지구 → 정리.
-   * 기상·기후까지는 계속 '내가 고른 한 지역'의 이야기였다. 그 지역만 보면 도시화
-   * 같은 다른 설명이 남으므로, 정리로 넘어가기 전에 전 지구 지표와 나란히 놓는다.
+   * 기상 → 기후 → 정리 → 전 지구.
+   *
+   * 한때 '전 지구'를 정리 앞에 두었는데 그 자리에서는 뜬금없었다. 앞의 셋은
+   * **"예측의 두 종류"** 라는 한 줄기다 — 값을 맞히는 일(기상), 분포를 읽는
+   * 일(기후), 그리고 둘의 대조(정리). 그 사이에 "지역 vs 전 지구"라는 **다른 축**을
+   * 끼우면 줄기가 중간에서 끊긴다.
+   *
+   * 맨 뒤가 제자리다. 여기까지가 한 지역의 이야기였음을 밝히고 시야를 지구 전체로
+   * 넓히면, 그대로 3단계(그 지구 전체를 움직이는 다른 손)로 넘어가는 다리가 된다.
    */
-  const TABS = ['기상', '기후', '전 지구', '정리']
+  const TABS = ['기상', '기후', '정리', '전 지구']
   const NEXT = [
     '그럼 30년 뒤는 어떨까요',
-    '이게 이 동네만의 일일까요',
     '두 예측은 어떻게 다를까요',
-    '그런데 이 기후를 움직이는 건 무엇일까요',
+    '그런데 이게 이 동네만의 일일까요',
+    '그럼 지구 전체를 움직이는 건 무엇일까요',
   ]
 
   return (
@@ -558,8 +564,8 @@ export function ActTwoSummary({ onDone, onBack }: { onDone: () => void; onBack: 
       {step === 1 && (
         <SceneClimate sigma={sigma} future={future} label={climate.label} yearGuess={yearGuess} />
       )}
-      {step === 2 && <GlobalContext />}
-      {step === 3 && <WeatherVsClimate />}
+      {step === 2 && <WeatherVsClimate />}
+      {step === 3 && <GlobalContext />}
 
       <div className="flex items-center justify-between gap-6">
         <button

@@ -40,12 +40,22 @@ export function StageIntro({
   eyebrow,
   steps,
   tone,
+  aside,
   onDone,
 }: {
   /** 단계 표시 — "2단계 · 수십 년" */
   eyebrow: string
   steps: IntroStep[]
   tone: string
+  /**
+   * 마디가 바뀌어도 **자리를 지키는** 그림.
+   *
+   * step.visual 은 그 마디에서만 뜨고 다음 마디에서 사라진다. 그런데 여러 마디가
+   * 줄곧 같은 것(사용자가 만든 값)을 설명하는 카드라면, 그 근거가 화면에서 사라지면
+   * 안 된다 — 읽는 사람은 매 마디마다 "무슨 값 얘기였지"로 돌아간다.
+   * 그럴 때는 여기 걸어 둔다. 마디 전환 애니메이션에서도 다시 그려지지 않는다.
+   */
+  aside?: ReactNode
   onDone: () => void
 }) {
   const [i, setI] = useState(0)
@@ -133,6 +143,9 @@ export function StageIntro({
             {step.visual && <div className="w-full max-w-xl pt-1">{step.visual}</div>}
           </motion.div>
         </AnimatePresence>
+
+        {/* 마디가 바뀌어도 남는 그림 — AnimatePresence 밖이라 다시 그려지지 않는다 */}
+        {aside && <div className="w-full max-w-xl">{aside}</div>}
       </div>
 
       {/*

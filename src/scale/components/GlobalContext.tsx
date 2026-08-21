@@ -126,16 +126,18 @@ export function GlobalContext() {
   return (
     <section className="panel flex flex-col gap-4 p-5">
       <div>
-        <div className="text-[10.5px] font-medium tracking-[0.14em] text-ink-3">③ 전 지구 · 내 지역 밖에서는</div>
+        <div className="text-[10.5px] font-medium tracking-[0.14em] text-ink-3">
+          ④ 전 지구 · 한 지역에서 지구 전체로
+        </div>
         <h1 className="mt-1 text-[22px] leading-tight font-semibold tracking-tight">
-          {climate.label}에서 본 것이 <span className="text-ink-1">지구 전체에서도 보입니다</span>
+          여기까지는 <span className="text-ink-1">한 곳의 이야기였습니다</span>
         </h1>
         <p className="mt-1.5 max-w-4xl text-[12.5px] leading-relaxed text-ink-2">
-          지금까지는 {climate.label} 한 곳만 봤습니다. 그런데 한 도시만 더워진 거라면 이유가 여럿이에요 — 건물이
-          늘고 아스팔트가 깔려도 기온은 오르니까요. 그래서{' '}
-          <span className="text-ink-1">서로 상관없는 방법으로 잰 지구 전체의 기록 셋</span>을 나란히 놓습니다.
-          기온계, 공기 성분 분석, 인공위성 사진 — 각각 다른 사람이 다른 도구로 잰 것들인데도 셋 다 같은 방향을
-          가리킨다면, 우연이라고 하기 어렵겠죠.
+          하루를 맞혀보고 40년을 쌓고 2100년까지 끌어본 것, 전부 <span className="text-ink-1">{climate.label}</span>{' '}
+          한 곳에서였어요. 그런데 한 곳만 더워진 거라면 이유가 여럿입니다 — 건물이 늘고 아스팔트가 깔려도 기온은
+          오르니까요. 그래서 <span className="text-ink-1">서로 상관없는 방법으로 잰 지구 전체의 기록 셋</span>을
+          나란히 놓습니다. 기온계, 공기 성분 분석, 인공위성 사진 — 각각 다른 사람이 다른 도구로 잰 것들인데도 셋 다
+          같은 방향을 가리킨다면, 우연이라고 하기 어렵겠죠.
         </p>
       </div>
 
@@ -167,9 +169,10 @@ export function GlobalContext() {
             background: 'color-mix(in oklab, var(--color-act-2) 8%, transparent)',
           }}
         >
-          <h3 className="text-[13px] font-semibold text-ink-1">
-            {climate.label}과 지구 전체를 나란히 놓으면
-          </h3>
+          {/* 지명을 문장마다 되풀이하지 않는다 — Open-Meteo 지역은 "멕시코시티 북서쪽
+              1227 km" 처럼 길어서, 그런 이름이 한 화면에 다섯 번 나오면 글이 읽히지 않는다.
+              제목과 막대 라벨에만 쓰고 나머지는 '이 지역'으로 받는다. */}
+          <h3 className="text-[13px] font-semibold text-ink-1">이 지역과 지구 전체를 나란히 놓으면</h3>
           <p className="mt-0.5 text-[11px] leading-relaxed text-ink-3">
             둘 다 {cmp.from}년부터 {cmp.to}년까지, 같은 {cmp.to - cmp.from}년을 잘라서 잰 값입니다. 기간이 다르면
             나란히 놓는 것 자체가 말이 안 되니까요.
@@ -191,22 +194,26 @@ export function GlobalContext() {
             />
           </div>
           <p className="mt-2.5 text-[11.5px] leading-relaxed text-ink-2">
+            {/*
+              지역이 왜 빠르냐/느리냐는 그 지역의 사정(내륙인지 해안인지, 도시인지)에
+              달려 있는데, 사용자가 지구본 아무 데나 찍을 수 있으므로 여기서는 알 수 없다.
+              한때 "바다에 붙은 곳은 천천히 오른다"고 단정했는데, 내륙을 찍은 사람에게는
+              그냥 틀린 말이었다. 확인할 수 있는 것만 말한다.
+            */}
             {Math.abs(cmp.local) > Math.abs(cmp.global) ? (
               <>
-                {climate.label}이 지구 평균보다 <span className="text-ink-1">더 빨리</span> 더워졌습니다. 흔한
-                일이에요 — 물은 데우기 어렵고 땅은 쉽게 데워지거든요. 지구의 70%가 바다라 평균이 낮게 나오고,
-                도시는 건물과 도로 때문에 한 번 더 얹힙니다.{' '}
-                <span className="text-ink-1">그래도 두 막대가 같은 쪽을 가리킨다는 것이 핵심입니다</span> — 내
-                동네만의 일이 아니라는 뜻이니까요.
+                이 지역이 지구 평균보다 <span className="text-ink-1">더 빨리</span> 더워졌습니다. 육지에서는 흔한
+                일이에요 — 물은 데우기 어렵고 땅은 쉽게 데워지는데, 지구의 70%가 바다라 전 지구 평균이 그만큼
+                낮게 나오거든요.
               </>
             ) : (
               <>
-                {climate.label}은 지구 평균과 비슷하거나 조금 느리게 더워졌습니다. 바다에 붙은 곳은 바다가 열을
-                가져가 주어서 천천히 오르는 편이에요.{' '}
-                <span className="text-ink-1">중요한 건 두 막대가 같은 쪽을 가리킨다는 것입니다</span> — 내 동네만의
-                일이 아니라는 뜻이니까요.
+                이 지역은 지구 평균과 비슷하거나 조금 느리게 더워졌습니다. 지역마다 속도가 다른 건 자연스러운
+                일이에요 — 바다가 가까우면 바다가 열을 가져가고, 지형이나 바람길에 따라서도 달라집니다.
               </>
-            )}
+            )}{' '}
+            <span className="text-ink-1">중요한 건 두 막대가 같은 쪽을 가리킨다는 것입니다</span> — 속도는 달라도
+            방향이 같다면, 내 동네만의 일이 아니라는 뜻이니까요.
           </p>
         </div>
       )}

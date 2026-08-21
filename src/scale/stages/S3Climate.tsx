@@ -13,6 +13,7 @@
  * 심심했다. 사용자가 그린 추세는 [state/journey] 에 남아 S4·S5 가 회수한다.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { BlossomLayer, doyLabel } from '../components/BlossomLayer'
 import { useGlobe } from '../components/GlobeLayer'
 import { StageIntro, StageIntroBar, type IntroStep } from '../components/StageIntro'
@@ -236,6 +237,16 @@ export function S3Climate({ highlightYear, onNext }: { highlightYear: number; on
         eyebrow="추세선 읽는 법"
         steps={reader}
         tone="var(--color-act-2)"
+        /* 다섯 마디가 모두 이 선을 설명한다 — 근거가 되는 그림은 계속 떠 있어야 한다 */
+        aside={
+          trendGuess ? (
+            <SlopeRecap
+              guess={trendGuess.perDecade}
+              actual={trend.perDecade}
+              span={series[series.length - 1].year - series[0].year}
+            />
+          ) : undefined
+        }
         onDone={() => {
           setReaderOpen(false)
           setReaderDone(true)
@@ -561,6 +572,42 @@ function SlopeRecap({ guess, actual, span }: { guess: number; actual: number; sp
   )
 }
 
+/**
+ * 낱말 옆의 작은 물음표 — 누르면 그 자리에서 뜻을 펼친다.
+ *
+ * '최소제곱법' 같은 낱말은 아는 사람에겐 한 단어면 충분하고, 모르는 사람에겐
+ * 그 문장 전체를 통째로 막는다. 본문에 설명을 늘어놓으면 아는 사람이 지루해지고,
+ * 빼면 모르는 사람이 튕겨 나간다. 그래서 **물을 때만 답한다** — 조종석의 다이얼이
+ * 쓰는 방식과 같다 (→ S7Threshold 의 Dial).
+ */
+function TermHint({ term, children }: { term: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      (<span className="text-ink-2">{term}</span>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={`${term}이 무엇인지 보기`}
+        className="ml-1 inline-grid h-4 w-4 translate-y-[1px] place-items-center rounded-full border align-baseline text-[9.5px] leading-none transition-colors"
+        style={{
+          borderColor: open ? 'var(--color-act-2)' : 'rgb(255 255 255 / 0.22)',
+          color: open ? 'var(--color-act-2)' : 'var(--color-ink-3)',
+        }}
+      >
+        ?
+      </button>
+      )
+      {open && (
+        <span className="mt-2 block rounded-lg border border-white/10 bg-white/4 px-3 py-2 text-left text-[12.5px] leading-relaxed text-ink-2">
+          {children}
+        </span>
+      )}
+    </>
+  )
+}
+
 function readerSteps(
   series: Array<{ year: number; tavg: number }>,
   trend: { slope: number; intercept: number; perDecade: number },
@@ -609,8 +656,8 @@ function readerSteps(
                 : `실제보다 완만하게 보셨습니다. 작아 보이지만 ${span}년을 곱하면 ${totalRise.toFixed(2)}℃입니다.`}
         </>
       ),
-      // 두 기울기를 실제 선분으로 겹쳐 보여준다 — 숫자 두 개보다 각도 차이가 먼저 읽힌다
-      visual: <SlopeRecap guess={guess.perDecade} actual={trend.perDecade} span={span} />,
+      /* 기울기 비교 그림은 이 마디에만 두지 않는다 — 다섯 마디가 모두 같은 선을
+         설명하므로 카드 전체에 붙박이로 세운다 (StageIntro 의 aside). */
     })
   }
 
@@ -619,9 +666,20 @@ function readerSteps(
       label: '① 어떻게 그은 선인가',
       body: (
         <>
-          점 {series.length}개에서 선까지의{' '}
-          <span className="text-act-2">세로 거리를 제곱해 더한 값이 가장 작아지는</span> 직선입니다(최소제곱법). 눈대중이
-          아니라 이 점들에 대해 유일하게 정해지는 답이에요 — 점을 이어 그리면 잡음까지 따라 그리게 되니까요.
+          {/* 용어는 문장 **끝**에 둔다. 문장 중간에 두면 펼친 설명 뒤로 남은 말이
+              이어져 "…제곱하면 벌점이 커져요. 눈대중이 아니라…" 처럼 끊긴다. */}
+          점을 이어 그리면 잡음까지 따라 그리게 됩니다. 그래서 점 {series.length}개에서 선까지의{' '}
+          <span className="text-act-2">세로 거리를 제곱해 더한 값이 가장 작아지는</span> 직선 하나를 찾아요 —
+          눈대중이 아니라 이 점들에 대해 유일하게 정해지는 답입니다.{' '}
+          <TermHint term="최소제곱법">
+            점마다 선까지의 세로 거리를 재서, 그 값을 각각 <span className="text-ink-1">제곱해서 전부 더합니다.</span>{' '}
+            선을 조금씩 기울여 보며 그 합이 가장 작아지는 자리를 찾은 것이 이 선이에요.
+            <br />
+            <br />
+            왜 제곱하냐면 — 그냥 더하면 위로 벗어난 점(+)과 아래로 벗어난 점(−)이 서로 <span className="text-ink-1">
+            상쇄돼서</span> 엉뚱한 선도 0점을 받습니다. 제곱하면 부호가 사라져 어느 쪽으로 벗어나든 벌점이 되고,
+            멀리 벗어난 점일수록 벌점이 훨씬 커져요.
+          </TermHint>
         </>
       ),
     },
